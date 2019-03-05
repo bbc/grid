@@ -4,9 +4,9 @@ class Services(val domainRoot: String, isProd: Boolean) {
   val appName = "media"
 
   val kahunaHost: String   = s"$appName.$domainRoot"
-  val apiHost: String      = s"api.$appName.$domainRoot"
-  val loaderHost: String   = s"loader.$appName.$domainRoot"
-  val cropperHost: String  = s"cropper.$appName.$domainRoot"
+  val apiHost: String      = s"api-$appName.$domainRoot"
+  val loaderHost: String   = s"loader-$appName.$domainRoot"
+  val cropperHost: String  = s"cropper-$appName.$domainRoot"
   val metadataHost: String = s"$appName-metadata.$domainRoot"
   val imgopsHost: String   = s"$appName-imgops.$domainRoot"
   val usageHost: String    = s"$appName-usage.$domainRoot"
