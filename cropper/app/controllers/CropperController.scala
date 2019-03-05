@@ -142,6 +142,7 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
   import org.apache.http.client.methods.HttpGet
   import org.apache.http.client.utils.URIBuilder
   import org.apache.http.impl.client.HttpClients
+  import com.gu.mediaservice.lib.http.HttpClient.configuredPooledConnectionManager
 
   import scala.io.Source
 
@@ -157,7 +158,9 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
     val httpGet = new HttpGet(uriWithParams)
     httpGet.addHeader("X-Gu-Media-Key", mediaApiKey)
 
-    val httpClientResponse = HttpClients.createDefault()
+    val httpClientResponse = HttpClients.custom()
+      .setConnectionManager(configuredPooledConnectionManager)
+      .build()
       .execute(httpGet)
 
     val responseFuture = Future {
