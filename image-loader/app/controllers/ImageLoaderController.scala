@@ -1,19 +1,27 @@
 package controllers
 
-import java.io.File
+import java.io._
 import java.net.URI
+import java.util.Base64
 
+import com.google.common.io.Files
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.UpdateMessage
+import com.gu.mediaservice.lib.http.HttpClient.configuredPooledConnectionManager
 import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.mediaservice.model.UploadInfo
 import lib._
 import lib.imaging.MimeTypeDetection
 import lib.storage.ImageLoaderStore
 import model.{ImageUploadOps, UploadRequest}
+import org.apache.http.client.methods.{HttpGet, HttpPost}
+import org.apache.http.client.utils.URIBuilder
+import org.apache.http.entity.{ContentType, StringEntity}
+import org.apache.http.impl.client.HttpClients
+import org.apache.http.util.EntityUtils
 import org.joda.time.DateTime
 import play.api.Logger
 import play.api.libs.json.Json
@@ -21,6 +29,7 @@ import play.api.libs.ws.WSClient
 import play.api.mvc._
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.language.postfixOps
 import scala.util.control.NonFatal
 import scala.util.{Failure, Try}
 
@@ -108,7 +117,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
 
     val supportedMimeType = config.supportedMimeTypes.exists(mimeType_.contains(_))
 
-    if (supportedMimeType) storeFile(uploadRequest) else unsupportedTypeError(uploadRequest)
+    if (supportedMimeType) storeFile(uploadRequest) else convertFile(uploadRequest)
   }
 
   // Convenience alias
@@ -158,6 +167,44 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
         }
         respondError(BadRequest, "upload-error", e.getMessage)
     }
+  }
+
+  def convertFile(u: UploadRequest): Future[Result] = {
+    Logger.info(s"Request ${uploadRequestDescription(u)}: mime-type is not supported, attempting to convert to supported type")
+
+    //Slightly dodgy check to make sure the filename ends with a tif otherwise just fail
+   if (!u.uploadInfo.filename.getOrElse("").toLowerCase.endsWith(".tif") && !u.uploadInfo.filename.getOrElse("").toLowerCase.endsWith(".tiff")) {
+     Logger.info(s"Not attempting to convert file with name: ${u.uploadInfo.filename.getOrElse("")}, as it does not appear to be a tiff image")
+     return unsupportedTypeError(u)
+   }
+
+    val uriWithParams = new URIBuilder("https://u1v9x5hkt1.execute-api.eu-west-1.amazonaws.com/v1")
+      .setParameter("filename", u.uploadInfo.filename.getOrElse(u.id))
+      .setParameter("uploadedBy", u.uploadedBy)
+      .build
+    val httpPost = new HttpPost(uriWithParams)
+
+    val bis = new BufferedInputStream(new FileInputStream(u.tempFile))
+    val bArray = Stream.continually(bis.read).takeWhile(-1 !=).map(_.toByte).toArray
+    httpPost.setEntity(new StringEntity(Base64.getEncoder.encodeToString(bArray)))
+
+    Logger.info(s"Performing image conversion request: $httpPost")
+
+    val httpClientResponse = HttpClients.custom()
+      .setConnectionManager(configuredPooledConnectionManager)
+      .build()
+      .execute(httpPost)
+
+    val base64ConvertedPng = EntityUtils.toString(httpClientResponse.getEntity)
+    Files.write(Base64.getDecoder.decode(base64ConvertedPng), u.tempFile)
+
+    val newMimeType = MimeTypeDetection.guessMimeType(u.tempFile)
+    Logger.info(s"New MimeType for file: $newMimeType")
+    val supportedMimeType = config.supportedMimeTypes.exists(newMimeType.contains(_))
+
+    val newUploadRequest = u.copy(mimeType = newMimeType)
+
+    if (supportedMimeType) storeFile(newUploadRequest) else unsupportedTypeError(newUploadRequest)
   }
 
 
