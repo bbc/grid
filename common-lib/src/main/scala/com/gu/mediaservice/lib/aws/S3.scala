@@ -22,6 +22,7 @@ class S3(config: CommonConfig) {
   type Bucket = String
   type Key = String
   type UserMetadata = Map[String, String]
+  type AmazonS3Object = com.amazonaws.services.s3.model.S3Object
 
   val s3Endpoint = "s3.amazonaws.com"
 
@@ -83,6 +84,19 @@ class S3(config: CommonConfig) {
     // get path and remove leading `/`
     val key: Key = url.getPath.drop(1)
     client.getObject(new GetObjectRequest(bucket, key))
+  }
+
+  def pollForObject(bucket: Bucket, id: Key, pollIntervalMs: Int, maxAttempts: Int)
+                   (implicit ex: ExecutionContext): Future[Option[AmazonS3Object]] =
+    Future {
+      var s3Object = Option(client.getObject(new GetObjectRequest(bucket, id)))
+      var currentAttempts = 1
+      while (s3Object.isEmpty && currentAttempts < maxAttempts) {
+        Thread.sleep(pollIntervalMs)
+        s3Object = Option(client.getObject(new GetObjectRequest(bucket, id)))
+        currentAttempts += 1
+      }
+      s3Object
   }
 
   def store(bucket: Bucket, id: Key, file: File, mimeType: Option[String] = None, meta: UserMetadata = Map.empty, cacheControl: Option[String] = None)

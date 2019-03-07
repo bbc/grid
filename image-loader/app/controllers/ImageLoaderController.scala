@@ -28,10 +28,10 @@ import play.api.libs.json.Json
 import play.api.libs.ws.WSClient
 import play.api.mvc._
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.language.postfixOps
 import scala.util.control.NonFatal
-import scala.util.{Failure, Try}
+import scala.util.{Failure, Success, Try}
 
 class ImageLoaderController(auth: Authentication, downloader: Downloader, store: ImageLoaderStore, notifications: Notifications, config: ImageLoaderConfig, imageUploadOps: ImageUploadOps,
                             override val controllerComponents: ControllerComponents, wSClient: WSClient)(implicit val ec: ExecutionContext)
@@ -81,6 +81,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
   def loadFile(digestedFile: DigestedFile, user: Principal,
                uploadedBy: Option[String], identifiers: Option[String],
                uploadTime: Option[String], filename: Option[String]): Future[Result] = {
+
     val DigestedFile(tempFile_, id_) = digestedFile
 
     val uploadedBy_ = uploadedBy match {
@@ -122,8 +123,8 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
 
   // Convenience alias
   private def loadFile(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String],
-               filename: Option[String])
-              (request: Authentication.Request[DigestedFile]): Future[Result] =
+                       filename: Option[String])
+                      (request: Authentication.Request[DigestedFile]): Future[Result] =
     loadFile(request.body, request.user, uploadedBy, identifiers, uploadTime, filename)
 
 
@@ -173,10 +174,27 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
     Logger.info(s"Request ${uploadRequestDescription(u)}: mime-type is not supported, attempting to convert to supported type")
 
     //Slightly dodgy check to make sure the filename ends with a tif otherwise just fail
-   if (!u.uploadInfo.filename.getOrElse("").toLowerCase.endsWith(".tif") && !u.uploadInfo.filename.getOrElse("").toLowerCase.endsWith(".tiff")) {
-     Logger.info(s"Not attempting to convert file with name: ${u.uploadInfo.filename.getOrElse("")}, as it does not appear to be a tiff image")
-     return unsupportedTypeError(u)
-   }
+    if (!u.uploadInfo.filename.getOrElse("").toLowerCase.endsWith(".tif") && !u.uploadInfo.filename.getOrElse("").toLowerCase.endsWith(".tiff")) {
+      Logger.info(s"Not attempting to convert file with name: ${u.uploadInfo.filename.getOrElse("")}, as it does not appear to be a tiff image")
+      return unsupportedTypeError(u)
+    }
+
+    store.storeImage("int-grid-image-transformation", "in/" + u.id, u.tempFile, None).onComplete {
+      case Success(s3Object) =>
+        Logger.info(s"Got s3 object back: $s3Object")
+        //Poll for transformed object in the corresponding /out directory
+        store.pollForObject("int-grid-image-transformation", "out/" + u.id, 100, 50).onComplete {
+          case Success(transformedS3ObjectOpt) =>
+            transformedS3ObjectOpt match {
+              case Some(transformedS3Object) => Logger.info(s"Got transformed s3 object back: $transformedS3Object")
+              case None => Logger.info(s"Could not find s3 object at path ${"in/" + u.id}")
+          }
+
+          case Failure(exceptionType) => Logger.info(s"Got exception: ${exceptionType.getMessage}")
+        }
+
+      case Failure(exceptionType) => Logger.info(s"Got exception: ${exceptionType.getMessage}")
+    }
 
     val uriWithParams = new URIBuilder("https://u1v9x5hkt1.execute-api.eu-west-1.amazonaws.com/v1")
       .setParameter("filename", u.uploadInfo.filename.getOrElse(u.id))
