@@ -2,8 +2,10 @@ package controllers
 
 import java.io._
 import java.net.URI
+import java.nio.file.StandardCopyOption
 import java.util.Base64
 
+import com.google.api.client.util.IOUtils
 import com.google.common.io.Files
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
@@ -186,7 +188,18 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
         store.pollForObject("int-grid-image-transformation", "out/" + u.id, 100, 50).onComplete {
           case Success(transformedS3ObjectOpt) =>
             transformedS3ObjectOpt match {
-              case Some(transformedS3Object) => Logger.info(s"Got transformed s3 object back: $transformedS3Object")
+              case Some(transformedS3Object) => {
+                Logger.info(s"Got transformed s3 object back: $transformedS3Object")
+                IOUtils.copy(transformedS3Object.getObjectContent, new FileOutputStream(u.tempFile))
+
+                val newMimeType = MimeTypeDetection.guessMimeType(u.tempFile)
+                Logger.info(s"New MimeType for file: $newMimeType")
+                val supportedMimeType = config.supportedMimeTypes.exists(newMimeType.contains(_))
+
+                val newUploadRequest = u.copy(mimeType = newMimeType)
+
+                return if (supportedMimeType) storeFile(newUploadRequest) else unsupportedTypeError(newUploadRequest)
+              }
               case None => Logger.info(s"Could not find s3 object at path ${"in/" + u.id}")
           }
 
@@ -195,34 +208,35 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
 
       case Failure(exceptionType) => Logger.info(s"Got exception: ${exceptionType.getMessage}")
     }
+    unsupportedTypeError(u)
 
-    val uriWithParams = new URIBuilder("https://u1v9x5hkt1.execute-api.eu-west-1.amazonaws.com/v1")
-      .setParameter("filename", u.uploadInfo.filename.getOrElse(u.id))
-      .setParameter("uploadedBy", u.uploadedBy)
-      .build
-    val httpPost = new HttpPost(uriWithParams)
-
-    val bis = new BufferedInputStream(new FileInputStream(u.tempFile))
-    val bArray = Stream.continually(bis.read).takeWhile(-1 !=).map(_.toByte).toArray
-    httpPost.setEntity(new StringEntity(Base64.getEncoder.encodeToString(bArray)))
-
-    Logger.info(s"Performing image conversion request: $httpPost")
-
-    val httpClientResponse = HttpClients.custom()
-      .setConnectionManager(configuredPooledConnectionManager)
-      .build()
-      .execute(httpPost)
-
-    val base64ConvertedPng = EntityUtils.toString(httpClientResponse.getEntity)
-    Files.write(Base64.getDecoder.decode(base64ConvertedPng), u.tempFile)
-
-    val newMimeType = MimeTypeDetection.guessMimeType(u.tempFile)
-    Logger.info(s"New MimeType for file: $newMimeType")
-    val supportedMimeType = config.supportedMimeTypes.exists(newMimeType.contains(_))
-
-    val newUploadRequest = u.copy(mimeType = newMimeType)
-
-    if (supportedMimeType) storeFile(newUploadRequest) else unsupportedTypeError(newUploadRequest)
+//    val uriWithParams = new URIBuilder("https://u1v9x5hkt1.execute-api.eu-west-1.amazonaws.com/v1")
+//      .setParameter("filename", u.uploadInfo.filename.getOrElse(u.id))
+//      .setParameter("uploadedBy", u.uploadedBy)
+//      .build
+//    val httpPost = new HttpPost(uriWithParams)
+//
+//    val bis = new BufferedInputStream(new FileInputStream(u.tempFile))
+//    val bArray = Stream.continually(bis.read).takeWhile(-1 !=).map(_.toByte).toArray
+//    httpPost.setEntity(new StringEntity(Base64.getEncoder.encodeToString(bArray)))
+//
+//    Logger.info(s"Performing image conversion request: $httpPost")
+//
+//    val httpClientResponse = HttpClients.custom()
+//      .setConnectionManager(configuredPooledConnectionManager)
+//      .build()
+//      .execute(httpPost)
+//
+//    val base64ConvertedPng = EntityUtils.toString(httpClientResponse.getEntity)
+//    Files.write(Base64.getDecoder.decode(base64ConvertedPng), u.tempFile)
+//
+//    val newMimeType = MimeTypeDetection.guessMimeType(u.tempFile)
+//    Logger.info(s"New MimeType for file: $newMimeType")
+//    val supportedMimeType = config.supportedMimeTypes.exists(newMimeType.contains(_))
+//
+//    val newUploadRequest = u.copy(mimeType = newMimeType)
+//
+//    if (supportedMimeType) storeFile(newUploadRequest) else unsupportedTypeError(newUploadRequest)
   }
 
 
