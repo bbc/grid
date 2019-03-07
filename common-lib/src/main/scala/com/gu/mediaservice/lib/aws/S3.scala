@@ -10,6 +10,7 @@ import com.amazonaws.services.s3.{AmazonS3, AmazonS3ClientBuilder}
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.model.Image
 import org.joda.time.{DateTime, Duration}
+import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
@@ -19,6 +20,8 @@ case class S3Metadata(userMetadata: Map[String, String], objectMetadata: S3Objec
 case class S3ObjectMetadata(contentType: Option[String], cacheControl: Option[String], lastModified: Option[DateTime] = None)
 
 class S3(config: CommonConfig) {
+  private val log = LoggerFactory.getLogger(getClass)
+
   type Bucket = String
   type Key = String
   type UserMetadata = Map[String, String]
@@ -89,13 +92,17 @@ class S3(config: CommonConfig) {
   def pollForObject(bucket: Bucket, id: Key, pollIntervalMs: Int, maxAttempts: Int)
                    (implicit ex: ExecutionContext): Future[Option[AmazonS3Object]] =
     Future {
-      var s3Object = Option(client.getObject(new GetObjectRequest(bucket, id)))
-      var currentAttempts = 1
-      while (s3Object.isEmpty && currentAttempts < maxAttempts) {
-        Thread.sleep(pollIntervalMs)
-        s3Object = Option(client.getObject(new GetObjectRequest(bucket, id)))
+      var s3Object: Option[AmazonS3Object] = None
+      var currentAttempts = 0
+      do {
         currentAttempts += 1
-      }
+        log.info(s"Attempt $currentAttempts/$maxAttempts at retrieving object $bucket/$id")
+        try {
+          s3Object = Option(client.getObject(new GetObjectRequest(bucket, id)))
+        } catch {
+          case _: AmazonS3Exception => Thread.sleep(pollIntervalMs)
+        }
+      } while (s3Object.isEmpty && currentAttempts < maxAttempts)
       s3Object
   }
 
