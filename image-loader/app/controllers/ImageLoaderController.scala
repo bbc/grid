@@ -183,9 +183,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
       return unsupportedTypeError(u)
     }
 
-    val transformationBucketName = "int-grid-image-transformation" //TODO: Refactor this into a config value
-
-    val uploadObjFuture = store.storeImage(transformationBucketName, "in/" + u.id, u.tempFile, None)
+    val uploadObjFuture = store.storeImage(config.transformationBucket, "in/" + u.id, u.tempFile, None)
     Logger.info(s"Storing unsupported file into s3 at: ${"in/" + u.id}")
     val uploadResult = Await.ready(uploadObjFuture, Duration.Inf).value.get
     uploadResult match {
@@ -195,7 +193,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
         return fileConversionError(u)
     }
 
-    val pollObjFuture = store.pollForObject(transformationBucketName, "out/" + u.id, 100, 3000)  //Poll for 3000*100ms = 5 mins
+    val pollObjFuture = store.pollForObject(config.transformationBucket, "out/" + u.id, 100, 3000)  //Poll for 3000*100ms = 5 mins
     Logger.info(s"Polling for converted file in s3 at: ${"out/" + u.id}")
     val fetchResult = Await.ready(pollObjFuture, Duration.Inf).value.get
     val transformedS3ObjOpt = fetchResult match {
