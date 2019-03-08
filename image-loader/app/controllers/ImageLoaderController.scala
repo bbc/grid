@@ -30,6 +30,7 @@ import play.api.libs.json.Json
 import play.api.libs.ws.WSClient
 import play.api.mvc._
 
+import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.language.postfixOps
 import scala.util.control.NonFatal
@@ -181,34 +182,73 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
       return unsupportedTypeError(u)
     }
 
-    store.storeImage("int-grid-image-transformation", "in/" + u.id, u.tempFile, None).onComplete {
+//    store.storeImage("int-grid-image-transformation", "in/" + u.id, u.tempFile, None).onComplete {
+//      case Success(s3Object) =>
+//        Logger.info(s"Got s3 object back: $s3Object")
+//        //Poll for transformed object in the corresponding /out directory
+//        store.pollForObject("int-grid-image-transformation", "out/" + u.id, 100, 50).onComplete {
+//          case Success(transformedS3ObjectOpt) =>
+//            transformedS3ObjectOpt match {
+//              case Some(transformedS3Object) => {
+//                Logger.info(s"Got transformed s3 object back: $transformedS3Object")
+//                IOUtils.copy(transformedS3Object.getObjectContent, new FileOutputStream(u.tempFile))
+//
+//                val newMimeType = MimeTypeDetection.guessMimeType(u.tempFile)
+//                Logger.info(s"New MimeType for file: $newMimeType")
+//                val supportedMimeType = config.supportedMimeTypes.exists(newMimeType.contains(_))
+//
+//                val newUploadRequest = u.copy(mimeType = newMimeType)
+//
+//                return if (supportedMimeType) storeFile(newUploadRequest) else unsupportedTypeError(newUploadRequest)
+//              }
+//              case None => Logger.info(s"Could not find s3 object at path ${"in/" + u.id}")
+//          }
+//
+//          case Failure(exceptionType) => Logger.info(s"Got exception: ${exceptionType.getMessage}")
+//        }
+//
+//      case Failure(exceptionType) => Logger.info(s"Got exception: ${exceptionType.getMessage}")
+//    }
+
+    val uploadObjFuture = store.storeImage("int-grid-image-transformation", "in/" + u.id, u.tempFile, None)
+    Logger.info(s"Storing unsupported file into s3 at: ${"in/" + u.id}")
+    val uploadResult = Await.ready(uploadObjFuture, Duration.Inf).value.get
+    uploadResult match {
       case Success(s3Object) =>
-        Logger.info(s"Got s3 object back: $s3Object")
-        //Poll for transformed object in the corresponding /out directory
-        store.pollForObject("int-grid-image-transformation", "out/" + u.id, 100, 50).onComplete {
-          case Success(transformedS3ObjectOpt) =>
-            transformedS3ObjectOpt match {
-              case Some(transformedS3Object) => {
-                Logger.info(s"Got transformed s3 object back: $transformedS3Object")
-                IOUtils.copy(transformedS3Object.getObjectContent, new FileOutputStream(u.tempFile))
-
-                val newMimeType = MimeTypeDetection.guessMimeType(u.tempFile)
-                Logger.info(s"New MimeType for file: $newMimeType")
-                val supportedMimeType = config.supportedMimeTypes.exists(newMimeType.contains(_))
-
-                val newUploadRequest = u.copy(mimeType = newMimeType)
-
-                return if (supportedMimeType) storeFile(newUploadRequest) else unsupportedTypeError(newUploadRequest)
-              }
-              case None => Logger.info(s"Could not find s3 object at path ${"in/" + u.id}")
-          }
-
-          case Failure(exceptionType) => Logger.info(s"Got exception: ${exceptionType.getMessage}")
-        }
-
+        Logger.info(s"S3 upload complete, got s3 object back: $s3Object")
       case Failure(exceptionType) => Logger.info(s"Got exception: ${exceptionType.getMessage}")
+        return unsupportedTypeError(u)
     }
-    unsupportedTypeError(u)
+
+    val pollObjFuture = store.pollForObject("int-grid-image-transformation", "out/" + u.id, 100, 50)
+    Logger.info(s"Polling for converted file in s3 at: ${"out/" + u.id}")
+    val fetchResult = Await.ready(pollObjFuture, Duration.Inf).value.get
+    val transformedS3ObjOpt = fetchResult match {
+      case Success(s3ObjectOpt) =>
+        Logger.info(s"Poll complete, got s3 object back: $s3ObjectOpt")
+        s3ObjectOpt
+      case Failure(exceptionType) => Logger.info(s"Got exception: ${exceptionType.getMessage}")
+        return unsupportedTypeError(u)
+    }
+
+    transformedS3ObjOpt match {
+      case Some(transformedS3Obj) => {
+        Logger.info(s"Got transformed s3 object back: $transformedS3Obj")
+        IOUtils.copy(transformedS3Obj.getObjectContent, new FileOutputStream(u.tempFile))
+
+        val newMimeType = MimeTypeDetection.guessMimeType(u.tempFile)
+        Logger.info(s"New MimeType for file: $newMimeType")
+        val supportedMimeType = config.supportedMimeTypes.exists(newMimeType.contains(_))
+
+        val newUploadRequest = u.copy(mimeType = newMimeType)
+
+        if (supportedMimeType) storeFile(newUploadRequest) else unsupportedTypeError(newUploadRequest)
+      }
+      case None => Logger.info(s"Could not find s3 object at path ${"in/" + u.id}")
+        unsupportedTypeError(u)
+    }
+
+//    unsupportedTypeError(u)
 
 //    val uriWithParams = new URIBuilder("https://u1v9x5hkt1.execute-api.eu-west-1.amazonaws.com/v1")
 //      .setParameter("filename", u.uploadInfo.filename.getOrElse(u.id))
