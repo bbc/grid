@@ -149,6 +149,16 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
     )
   }
 
+  def fileConversionError(u: UploadRequest): Future[Result] = Future {
+    Logger.info(s"Rejected ${uploadRequestDescription(u)}: could not convert file into a png")
+
+    respondError(
+      UnsupportedMediaType,
+      "unsupported-conversion-failed",
+      s"Failed to convert unsupported media type into a supported media type. Please try uploading a supported media type instead:  ${config.supportedMimeTypes.mkString(", ")}"
+    )
+  }
+
   def storeFile(uploadRequest: UploadRequest): Future[Result] = {
     val result = for {
       imageUpload <- imageUploadOps.fromUploadRequest(uploadRequest)
@@ -182,34 +192,6 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
       return unsupportedTypeError(u)
     }
 
-//    store.storeImage("int-grid-image-transformation", "in/" + u.id, u.tempFile, None).onComplete {
-//      case Success(s3Object) =>
-//        Logger.info(s"Got s3 object back: $s3Object")
-//        //Poll for transformed object in the corresponding /out directory
-//        store.pollForObject("int-grid-image-transformation", "out/" + u.id, 100, 50).onComplete {
-//          case Success(transformedS3ObjectOpt) =>
-//            transformedS3ObjectOpt match {
-//              case Some(transformedS3Object) => {
-//                Logger.info(s"Got transformed s3 object back: $transformedS3Object")
-//                IOUtils.copy(transformedS3Object.getObjectContent, new FileOutputStream(u.tempFile))
-//
-//                val newMimeType = MimeTypeDetection.guessMimeType(u.tempFile)
-//                Logger.info(s"New MimeType for file: $newMimeType")
-//                val supportedMimeType = config.supportedMimeTypes.exists(newMimeType.contains(_))
-//
-//                val newUploadRequest = u.copy(mimeType = newMimeType)
-//
-//                return if (supportedMimeType) storeFile(newUploadRequest) else unsupportedTypeError(newUploadRequest)
-//              }
-//              case None => Logger.info(s"Could not find s3 object at path ${"in/" + u.id}")
-//          }
-//
-//          case Failure(exceptionType) => Logger.info(s"Got exception: ${exceptionType.getMessage}")
-//        }
-//
-//      case Failure(exceptionType) => Logger.info(s"Got exception: ${exceptionType.getMessage}")
-//    }
-
     val uploadObjFuture = store.storeImage("int-grid-image-transformation", "in/" + u.id, u.tempFile, None)
     Logger.info(s"Storing unsupported file into s3 at: ${"in/" + u.id}")
     val uploadResult = Await.ready(uploadObjFuture, Duration.Inf).value.get
@@ -217,7 +199,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
       case Success(s3Object) =>
         Logger.info(s"S3 upload complete, got s3 object back: $s3Object")
       case Failure(exceptionType) => Logger.info(s"Got exception: ${exceptionType.getMessage}")
-        return unsupportedTypeError(u)
+        return fileConversionError(u)
     }
 
     val pollObjFuture = store.pollForObject("int-grid-image-transformation", "out/" + u.id, 100, 50)
@@ -228,7 +210,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
         Logger.info(s"Poll complete, got s3 object back: $s3ObjectOpt")
         s3ObjectOpt
       case Failure(exceptionType) => Logger.info(s"Got exception: ${exceptionType.getMessage}")
-        return unsupportedTypeError(u)
+        return fileConversionError(u)
     }
 
     transformedS3ObjOpt match {
@@ -242,41 +224,11 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
 
         val newUploadRequest = u.copy(mimeType = newMimeType)
 
-        if (supportedMimeType) storeFile(newUploadRequest) else unsupportedTypeError(newUploadRequest)
+        if (supportedMimeType) storeFile(newUploadRequest) else fileConversionError(newUploadRequest)
       }
       case None => Logger.info(s"Could not find s3 object at path ${"in/" + u.id}")
-        unsupportedTypeError(u)
+        fileConversionError(u)
     }
-
-//    unsupportedTypeError(u)
-
-//    val uriWithParams = new URIBuilder("https://u1v9x5hkt1.execute-api.eu-west-1.amazonaws.com/v1")
-//      .setParameter("filename", u.uploadInfo.filename.getOrElse(u.id))
-//      .setParameter("uploadedBy", u.uploadedBy)
-//      .build
-//    val httpPost = new HttpPost(uriWithParams)
-//
-//    val bis = new BufferedInputStream(new FileInputStream(u.tempFile))
-//    val bArray = Stream.continually(bis.read).takeWhile(-1 !=).map(_.toByte).toArray
-//    httpPost.setEntity(new StringEntity(Base64.getEncoder.encodeToString(bArray)))
-//
-//    Logger.info(s"Performing image conversion request: $httpPost")
-//
-//    val httpClientResponse = HttpClients.custom()
-//      .setConnectionManager(configuredPooledConnectionManager)
-//      .build()
-//      .execute(httpPost)
-//
-//    val base64ConvertedPng = EntityUtils.toString(httpClientResponse.getEntity)
-//    Files.write(Base64.getDecoder.decode(base64ConvertedPng), u.tempFile)
-//
-//    val newMimeType = MimeTypeDetection.guessMimeType(u.tempFile)
-//    Logger.info(s"New MimeType for file: $newMimeType")
-//    val supportedMimeType = config.supportedMimeTypes.exists(newMimeType.contains(_))
-//
-//    val newUploadRequest = u.copy(mimeType = newMimeType)
-//
-//    if (supportedMimeType) storeFile(newUploadRequest) else unsupportedTypeError(newUploadRequest)
   }
 
 
