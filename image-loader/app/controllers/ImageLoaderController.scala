@@ -2,28 +2,19 @@ package controllers
 
 import java.io._
 import java.net.URI
-import java.nio.file.StandardCopyOption
-import java.util.Base64
 
 import com.google.api.client.util.IOUtils
-import com.google.common.io.Files
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.UpdateMessage
-import com.gu.mediaservice.lib.http.HttpClient.configuredPooledConnectionManager
 import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.mediaservice.model.UploadInfo
 import lib._
 import lib.imaging.MimeTypeDetection
 import lib.storage.ImageLoaderStore
 import model.{ImageUploadOps, UploadRequest}
-import org.apache.http.client.methods.{HttpGet, HttpPost}
-import org.apache.http.client.utils.URIBuilder
-import org.apache.http.entity.{ContentType, StringEntity}
-import org.apache.http.impl.client.HttpClients
-import org.apache.http.util.EntityUtils
 import org.joda.time.DateTime
 import play.api.Logger
 import play.api.libs.json.Json
@@ -192,7 +183,9 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
       return unsupportedTypeError(u)
     }
 
-    val uploadObjFuture = store.storeImage("int-grid-image-transformation", "in/" + u.id, u.tempFile, None)
+    val transformationBucketName = "int-grid-image-transformation" //TODO: Refactor this into a config value
+
+    val uploadObjFuture = store.storeImage(transformationBucketName, "in/" + u.id, u.tempFile, None)
     Logger.info(s"Storing unsupported file into s3 at: ${"in/" + u.id}")
     val uploadResult = Await.ready(uploadObjFuture, Duration.Inf).value.get
     uploadResult match {
@@ -202,7 +195,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
         return fileConversionError(u)
     }
 
-    val pollObjFuture = store.pollForObject("int-grid-image-transformation", "out/" + u.id, 100, 50)
+    val pollObjFuture = store.pollForObject(transformationBucketName, "out/" + u.id, 100, 3000)  //Poll for 3000*100ms = 5 mins
     Logger.info(s"Polling for converted file in s3 at: ${"out/" + u.id}")
     val fetchResult = Await.ready(pollObjFuture, Duration.Inf).value.get
     val transformedS3ObjOpt = fetchResult match {

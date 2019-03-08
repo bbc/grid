@@ -96,7 +96,7 @@ class S3(config: CommonConfig) {
       var currentAttempts = 0
       do {
         currentAttempts += 1
-        log.info(s"Attempt $currentAttempts/$maxAttempts at retrieving object $bucket/$id")
+        log.debug(s"Attempt $currentAttempts/$maxAttempts at retrieving object $bucket/$id")
         try {
           s3Object = Option(client.getObject(new GetObjectRequest(bucket, id)))
         } catch {
