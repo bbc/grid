@@ -2,34 +2,9 @@ package lib
 
 import com.gu.mediaservice.lib.aws.{MessageSender, UpdateMessage}
 import com.gu.mediaservice.lib.formatting._
-import com.gu.mediaservice.model.{LeasesByMedia, MediaLease}
+import com.gu.mediaservice.model.{LeaseNotice, LeasesByMedia, MediaLease}
 import org.joda.time.DateTime
 import play.api.libs.json._
-
-case class LeaseNotice(mediaId: String, leaseByMedia: JsValue) {
-  def toJson = Json.obj(
-    "id" -> mediaId,
-    "data" -> leaseByMedia,
-    "lastModified" -> printDateTime(DateTime.now())
-  )
-}
-
-object LeaseNotice {
-  import JodaWrites._
-
-  implicit val writer = new Writes[LeasesByMedia] {
-    def writes(leaseByMedia: LeasesByMedia) = {
-      LeasesByMedia.toJson(
-        Json.toJson(leaseByMedia.leases),
-        Json.toJson(leaseByMedia.lastModified)
-      )
-    }
-  }
-  def apply(mediaLease: MediaLease): LeaseNotice = LeaseNotice(
-    mediaLease.mediaId,
-    Json.toJson(LeasesByMedia(List(mediaLease), Some(mediaLease.createdAt)))
-  )
-}
 
 class LeaseNotifier(config: LeasesConfig, store: LeaseStore) extends MessageSender(config, config.topicArn) {
   private def build(mediaId: String, leases: List[MediaLease] ): LeaseNotice = {
@@ -39,7 +14,7 @@ class LeaseNotifier(config: LeasesConfig, store: LeaseStore) extends MessageSend
   def sendReindexLeases(mediaId: String) = {
     val replaceImageLeases = "replace-image-leases"
     val leases = store.getForMedia(mediaId)
-    val updateMessage = UpdateMessage(subject = replaceImageLeases, leases = Some(leases) )
+    val updateMessage = UpdateMessage(subject = replaceImageLeases, leases = Some(leases), id = Some(mediaId) )
     publish(build(mediaId, leases).toJson, replaceImageLeases, updateMessage)
   }
 
@@ -47,6 +22,12 @@ class LeaseNotifier(config: LeasesConfig, store: LeaseStore) extends MessageSend
     val addImageLease = "add-image-lease"
     val updateMessage = UpdateMessage(subject = addImageLease, mediaLease = Some(mediaLease), id = Some(mediaLease.mediaId), lastModified = Some(DateTime.now()))
     publish(MediaLease.toJson(mediaLease), addImageLease, updateMessage)
+  }
+
+  def sendAddLeases(mediaLeases: List[MediaLease], mediaId: String) = {
+    val replaceImageLeases = "replace-image-leases"
+    val updateMessage = UpdateMessage(subject = replaceImageLeases, leases = Some(mediaLeases), id = Some(mediaId), lastModified = Some(DateTime.now()))
+    publish(LeaseNotice(mediaId, Json.toJson(LeasesByMedia.build(mediaLeases))).toJson, replaceImageLeases, updateMessage)
   }
 
   def sendRemoveLease(mediaId: String, leaseId: String) = {

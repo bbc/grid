@@ -5,7 +5,7 @@ import java.util.UUID
 import com.gu.mediaservice.model
 import com.gu.mediaservice.model._
 import helpers.Fixtures
-import org.joda.time.{DateTime, DateTimeZone}
+import org.joda.time.{DateTime, Duration => JodaDuration, DateTimeZone}
 import org.scalatest.{BeforeAndAfterAll, FreeSpec, Matchers}
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
 import play.api.libs.json.{JsDefined, JsLookupResult, Json, __}
@@ -275,22 +275,35 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
 
       "can add image lease" in {
         val id = UUID.randomUUID().toString
-        val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None)
+        val timeBeforeEdit = DateTime.now.minusMinutes(1)
+        val image = createImageForSyndication(
+          id,
+          true,
+          Some(DateTime.now()),
+          None,
+          leasesLastModified = Some(timeBeforeEdit))
         Await.result(Future.sequence(ES.indexImage(id, Json.toJson(image))), fiveSeconds)
         reloadedImage(id).get.leases.leases.isEmpty shouldBe true
 
-        val lease = model.MediaLease(id = Some(UUID.randomUUID().toString), leasedBy = None, notes = Some("A test lease"), mediaId = UUID.randomUUID().toString)
+        val lease = model.MediaLease(
+          id = Some(UUID.randomUUID().toString),
+          leasedBy = None,
+          notes = Some("A test lease"),
+          mediaId = UUID.randomUUID().toString
+        )
 
         Await.result(Future.sequence(ES.addImageLease(id, JsDefined(Json.toJson(lease)), asJsLookup(DateTime.now))), fiveSeconds)
 
-        reloadedImage(id).get.leases.leases.nonEmpty shouldBe true
-        reloadedImage(id).get.leases.leases.head.id shouldBe lease.id
+        val newLeases = reloadedImage(id).get.leases
+        newLeases.leases.nonEmpty shouldBe true
+        newLeases.leases.head.id shouldBe lease.id
+        newLeases.lastModified.get.isAfter(timeBeforeEdit) shouldBe true
       }
 
       "can remove image lease" in {
         val lease = model.MediaLease(id = Some(UUID.randomUUID().toString), leasedBy = None, notes = Some("A test lease"), mediaId = UUID.randomUUID().toString)
         val id = UUID.randomUUID().toString
-        val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), lease = Some(lease))
+        val image = createImageForSyndication(id, true, Some(DateTime.now()), lease = Some(lease))
         Await.result(Future.sequence(ES.indexImage(id, Json.toJson(image))), fiveSeconds)
         reloadedImage(id).get.leases.leases.nonEmpty shouldBe true
 
@@ -301,33 +314,49 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
 
       "removing a lease should update the leases last modified time" in {
         val lease = model.MediaLease(id = Some(UUID.randomUUID().toString), leasedBy = None, notes = Some("A test lease"), mediaId = UUID.randomUUID().toString)
+        val timeBeforeEdit = DateTime.now
         val id = UUID.randomUUID().toString
-        val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), lease = Some(lease))
+        val image = createImageForSyndication(
+          id = UUID.randomUUID().toString,
+
+          true,
+          Some(DateTime.now()),
+          lease = Some(lease)
+        )
         Await.result(Future.sequence(ES.indexImage(id, Json.toJson(image))), fiveSeconds)
         reloadedImage(id).get.leases.leases.nonEmpty shouldBe true
 
-        val removalLastModified = DateTime.now.plusMinutes(1)
-        Await.result(Future.sequence(ES.removeImageLease(id, JsDefined(Json.toJson(lease.id)), asJsLookup(removalLastModified))), fiveSeconds)
+        Await.result(Future.sequence(ES.removeImageLease(id, JsDefined(Json.toJson(lease.id)), asJsLookup(timeBeforeEdit))), fiveSeconds)
 
-        reloadedImage(id).get.leases.leases.isEmpty shouldBe true
-        reloadedImage(id).get.lastModified.get.isEqual(removalLastModified) shouldBe true
+        val newLeases = reloadedImage(id).get.leases
+        newLeases.leases.isEmpty shouldBe true
+        newLeases.lastModified.get.isAfter(timeBeforeEdit) shouldBe true
       }
 
       "can replace leases" in {
         val lease = MediaLease(id = Some(UUID.randomUUID().toString), leasedBy = None, notes = Some("A test lease"), mediaId = UUID.randomUUID().toString)
         val id = UUID.randomUUID().toString
-        val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), lease = Some(lease))
+        val timeBeforeEdit = DateTime.now
+        val image = createImageForSyndication(
+          id = UUID.randomUUID().toString,
+          true,
+          Some(DateTime.now()),
+          lease = Some(lease),
+          leasesLastModified = Some(timeBeforeEdit)
+        )
         Await.result(Future.sequence(ES.indexImage(id, Json.toJson(image))), fiveSeconds)
 
         val updatedLease = MediaLease(id = Some(UUID.randomUUID().toString), leasedBy = None, notes = Some("An updated lease"), mediaId = UUID.randomUUID().toString)
         val anotherUpdatedLease = MediaLease(id = Some(UUID.randomUUID().toString), leasedBy = None, notes = Some("Another updated lease"), mediaId = UUID.randomUUID().toString)
-        val updatedLeases = LeasesByMedia.build(leases = List(updatedLease, anotherUpdatedLease))
-        updatedLeases.leases.size shouldBe 2
+        val updatedLeases = Seq(updatedLease, anotherUpdatedLease)
+        updatedLeases.size shouldBe 2
 
-        Await.result(Future.sequence(ES.replaceImageLeases(id, JsDefined(Json.toJson(updatedLeases)), asJsLookup(DateTime.now))), fiveSeconds)
+        Await.result(Future.sequence(ES.replaceImageLeases(id, updatedLeases)), fiveSeconds)
 
-        reloadedImage(id).get.leases.leases.size shouldBe 2
-        reloadedImage(id).get.leases.leases.head.notes shouldBe Some("An updated lease")
+        val newLeases = reloadedImage(id).get.leases
+        newLeases.leases.size shouldBe 2
+        newLeases.leases.head.notes shouldBe Some("An updated lease")
+        newLeases.lastModified.get.isAfter(timeBeforeEdit) shouldBe true
       }
     }
 
@@ -401,12 +430,18 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
 
       "updating syndication rights should update last modified date" in {
         val id = UUID.randomUUID().toString
-        val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None)
+        val beforeUpdate = DateTime.now()
+        val image = createImageForSyndication(
+          id = UUID.randomUUID().toString,
+          true,
+          Some(DateTime.now()),
+          None,
+          leasesLastModified = Some(beforeUpdate)
+        )
         ES.indexImage(id, Json.toJson(image))
         eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(image.id))
 
         val newSyndicationRights = SyndicationRights(published = Some(DateTime.now().minusWeeks(1)), suppliers = Seq.empty, rights = Seq.empty)
-        val beforeUpdate = DateTime.now()
 
         Await.result(Future.sequence(ES.updateImageSyndicationRights(id, Some(newSyndicationRights))), fiveSeconds)
 

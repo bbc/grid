@@ -2,7 +2,7 @@ package lib
 
 import _root_.play.api.libs.json._
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchConfig, ImageFields}
-import com.gu.mediaservice.model.{Image, Photoshoot, SyndicationRights}
+import com.gu.mediaservice.model.{Image, MediaLease, Photoshoot, SyndicationRights}
 import com.gu.mediaservice.syntax._
 import groovy.json.JsonSlurper
 import org.elasticsearch.action.update.{UpdateRequestBuilder, UpdateResponse}
@@ -156,17 +156,17 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: ThrallMetrics) extends
     }
   }
 
-  def replaceImageLeases(id: String, leaseByMedia: JsLookupResult, lastModified: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
+  def replaceImageLeases(id: String, leases: Seq[MediaLease])(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
     prepareImageUpdate(id) { request =>
       request.setScriptParams(Map(
-        "leaseByMedia" -> asGroovy(leaseByMedia.getOrElse(JsNull)),
-        "lastModified" -> asGroovy(lastModified.getOrElse(JsNull))
+        "leases" -> asGroovy(Json.toJson(leases)),
+        "lastModified" -> asGroovy(Json.toJson(DateTime.now.toString))
       ).asJava)
         .setScript(
           replaceLeasesScript +
             updateLastModifiedScript,
           scriptType)
-        .executeAndLog(s"updating all leases on image $id with: $leaseByMedia")
+        .executeAndLog(s"updating all leases on image $id with: ${leases.toString}")
         .recover { case e: DocumentMissingException => new UpdateResponse }
         .incrementOnFailure(metrics.failedUsagesUpdates) { case e: VersionConflictEngineException => true }
     }
@@ -176,7 +176,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: ThrallMetrics) extends
     prepareImageUpdate(id) { request =>
       request.setScriptParams(Map(
         "lease" -> asGroovy(lease.getOrElse(JsNull)),
-        "lastModified" -> asGroovy(lastModified.getOrElse(JsNull))
+        "lastModified" -> asGroovy(Json.toJson(currentIsoDateString))
       ).asJava)
         .setScript(
           addLeaseScript + updateLastModifiedScript,
@@ -191,7 +191,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: ThrallMetrics) extends
     prepareImageUpdate(id) { request =>
       request.setScriptParams(Map(
         "leaseId" -> asGroovy(leaseId.getOrElse(JsNull)),
-        "lastModified" -> asGroovy(lastModified.getOrElse(JsNull))
+        "lastModified" -> asGroovy(Json.toJson(currentIsoDateString))
       ).asJava)
         .setScript(
           removeLeaseScript + updateLastModifiedScript,
@@ -388,7 +388,9 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: ThrallMetrics) extends
     """.stripMargin
 
   private val replaceLeasesScript =
-    """ctx._source.leases = leaseByMedia;"""
+    """| ctx._source.leases.lastModified = lastModified;
+       | ctx._source.leases.leases = leases;
+    """.stripMargin
 
   private val removeLeaseScript =
     """| for(int i = 0; i < ctx._source.leases.leases.size(); i++) {
