@@ -76,7 +76,7 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
   }.get
 
   val thrallController = new ThrallController(controllerComponents)
-  val healthCheckController = new HealthCheck(es1Opt.get, messageConsumerForHealthCheck, config, controllerComponents)
+  val healthCheckController = new HealthCheck(es6pot.get, messageConsumerForHealthCheck, config, controllerComponents)
 
   override lazy val router = new Routes(httpErrorHandler, thrallController, healthCheckController, management)
 }
