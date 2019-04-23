@@ -57,23 +57,24 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
     es6
   }
 
-  val messageConsumerForHealthCheck = es1Opt.map { es1 =>
-    val thrallMessageConsumer = new ThrallMessageConsumer(config, es1, thrallMetrics, store, new SyndicationRightsOps(es1))
-    thrallMessageConsumer.startSchedule()
-    context.lifecycle.addStopHook {
-      () => thrallMessageConsumer.actorSystem.terminate()
-    }
-    thrallMessageConsumer
-  }.get
+//  val messageConsumerForHealthCheck = es1Opt.map { es1 =>
+//    val thrallMessageConsumer = new ThrallMessageConsumer(config, es1, thrallMetrics, store, new SyndicationRightsOps(es1))
+//    thrallMessageConsumer.startSchedule()
+//    context.lifecycle.addStopHook {
+//      () => thrallMessageConsumer.actorSystem.terminate()
+//    }
+//    thrallMessageConsumer
+//  }.get
 
-  es6pot.map { es6 =>
+  val messageConsumerForHealthCheck = es6pot.map { es6 =>
     val thrallKinesisMessageConsumer = new kinesis.ThrallMessageConsumer(config, es6, thrallMetrics,
       store, metadataEditorNotifications, new SyndicationRightsOps(es6), config.from)
     thrallKinesisMessageConsumer.start()
-  }
+    thrallKinesisMessageConsumer
+  }.get
 
   val thrallController = new ThrallController(controllerComponents)
-  val healthCheckController = new HealthCheck(es1Opt.get, messageConsumerForHealthCheck, config, controllerComponents)
+  val healthCheckController = new HealthCheck(es6pot.get, messageConsumerForHealthCheck, config, controllerComponents)
 
   override lazy val router = new Routes(httpErrorHandler, thrallController, healthCheckController, management)
 }
