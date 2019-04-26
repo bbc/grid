@@ -32,15 +32,15 @@ class MediaApiConfig(override val configuration: Configuration) extends CommonCo
 
   lazy val imagesAlias: String = properties.getOrElse("es.index.aliases.read", configuration.get[String]("es.index.aliases.read"))
 
-  val elasticsearchHost: String =
-    if (isDev)
-      properties.getOrElse("es.host", "localhost")
-    else
-      findElasticsearchHostByTags(ec2Client, Map(
-        "Stage" -> Seq(stage),
-        "Stack" -> Seq(elasticsearchStack),
-        "App"   -> Seq(elasticsearchApp)
-      ))
+  val elasticsearchHost: String = ""
+//    if (isDev)
+//      properties.getOrElse("es.host", "localhost")
+//    else
+//      findElasticsearchHostByTags(ec2Client, Map(
+//        "Stage" -> Seq(stage),
+//        "Stack" -> Seq(elasticsearchStack),
+//        "App"   -> Seq(elasticsearchApp)
+//      ))
 
   lazy val elasticsearchPort: Option[Int] = properties.get("es.port").map(_.toInt)
   lazy val elasticsearchCluster: Option[String] = properties.get("es.cluster")

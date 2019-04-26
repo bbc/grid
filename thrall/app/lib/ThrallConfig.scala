@@ -20,15 +20,15 @@ class ThrallConfig(override val configuration: Configuration) extends CommonConf
 
   lazy val thumbnailBucket: String = properties("s3.thumb.bucket")
 
-  lazy val elasticsearchHost: Option[String] = Some {
-    if (isDev)
-      properties.getOrElse("es.host", "localhost")
-    else
-      EC2.findElasticsearchHostByTags(ec2Client, Map(
-        "Stage" -> Seq(stage),
-        "Stack" -> Seq(elasticsearchStack),
-        "App" -> Seq(elasticsearchApp)
-      ))
+  lazy val elasticsearchHost: Option[String] = Some { ""
+//    if (isDev)
+//      properties.getOrElse("es.host", "localhost")
+//    else
+//      EC2.findElasticsearchHostByTags(ec2Client, Map(
+//        "Stage" -> Seq(stage),
+//        "Stack" -> Seq(elasticsearchStack),
+//        "App" -> Seq(elasticsearchApp)
+//      ))
   }
 
   lazy val elasticsearchPort: Option[Int] = properties.get("es.port").map(_.toInt)
