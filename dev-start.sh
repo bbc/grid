@@ -37,7 +37,7 @@ checkRequirements() {
 
     # image libraries
     checkRequirement gm # GraphicsMagick
-    #checkRequirement magick #ImageMagick
+    checkRequirement magick #ImageMagick
     checkRequirement convert
     checkRequirement pngquant
     checkRequirement exiftool
