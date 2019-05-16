@@ -1,8 +1,10 @@
 package helpers
 
+import java.io.FileInputStream
 import java.net.URI
 import java.util.UUID
 
+import com.gu.mediaservice.lib.config.Properties.fromStream
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.usage.{DigitalUsage, PublishedUsageStatus, Usage}
 import org.joda.time.DateTime
@@ -99,4 +101,13 @@ trait Fixtures {
     out
   }
 
+  def getTestProperties(): Map[String, String] = {
+    try {
+      fromStream(new FileInputStream(s"/etc/gu/test.properties"))
+    } catch {
+      case e: Exception =>
+        println(s"Exception thrown when trying to create FileInputStream: $e")
+        Map.empty
+    }
+  }
 }
