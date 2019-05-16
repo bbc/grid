@@ -18,6 +18,10 @@ import scala.concurrent.{Await, Future}
 
 trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with BeforeAndAfterAll with Eventually with ScalaFutures with DockerKit with DockerTestKit with DockerKitSpotify {
 
+  val testProps = getTestProperties
+  val es6TestUrl = testProps.getOrElse("es6.test.url", "http://localhost:9206")
+  val useEsDocker = testProps.getOrElse("es6.useDocker", "true").toBoolean
+  
   val oneHundredMilliseconds = Duration(100, MILLISECONDS)
   val fiveSeconds = Duration(5, SECONDS)
 
