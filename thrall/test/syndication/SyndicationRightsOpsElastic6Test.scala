@@ -3,7 +3,6 @@ package syndication
 import com.gu.mediaservice.lib.elasticsearch6.ElasticSearch6Config
 import com.whisk.docker.{DockerContainer, DockerReadyChecker}
 import lib._
-
 import scala.concurrent.duration._
 
 class SyndicationRightsOpsElastic6Test extends SyndicationRightsOpsTestsBase {
