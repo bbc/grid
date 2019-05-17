@@ -20,7 +20,7 @@ trait ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers
   val timeout = Timeout(Span(10, Seconds))
 
   val testProps = getTestProperties
-  val es6TestUrl = testProps.getOrElse("es6.test.url", "http://localhost:9206")
+  val es6TestUrl = testProps.getOrElse("es6.test.url", "http://localhost:9200")
   val useEsDocker = testProps.getOrElse("es6.useDocker", "true").toBoolean
 
   def esContainer: Option[DockerContainer]
