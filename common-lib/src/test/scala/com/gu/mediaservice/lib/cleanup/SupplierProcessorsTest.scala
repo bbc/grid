@@ -1,5 +1,6 @@
 package com.gu.mediaservice.lib.cleanup
 
+import com.gu.mediaservice.lib.config.{Company, MetadataConfig}
 import com.gu.mediaservice.model._
 import org.scalatest.{Matchers, FunSpec}
 
@@ -440,7 +441,7 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
       processedImage.usageRights should be(Agency("Ronald Grant Archive"))
       processedImage.metadata.credit should be(Some("Ronald Grant"))
     }
-    
+
     it("should match Ronald Grant Archive credit") {
       val image = createImageFromMetadata("credit" -> "Ronald Grant Archive")
       val processedImage = applyProcessors(image)
@@ -450,8 +451,14 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
   }
 
 
-  def applyProcessors(image: Image): Image =
-    SupplierProcessors.process(image)
-
-
+  def applyProcessors(image: Image): Image = {
+    val metadataConfig =
+      MetadataConfig(List(), List(),
+        List(Company("The Guardian", List("Graham Turner"))),
+        List(),
+        List(Company("The Guardian", List("Linda Nylind", "Murdo MacLeod"))),
+        List()
+      )
+    new SupplierProcessors(metadataConfig).process(image)
+  }
 }
