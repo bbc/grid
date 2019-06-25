@@ -1,19 +1,19 @@
 package com.gu.mediaservice.lib.config
 
 // TODO: Only import the semigroup syntax, but can't find out what to import
-import scalaz._
-import Scalaz._
+import java.io.File
 
+import com.gu.mediaservice.model.{ContractPhotographer, Photographer, StaffPhotographer}
+import play.api.libs.json.{JsArray, JsValue, Json}
+import scalaz.Scalaz._
 
-
-import com.gu.mediaservice.model.{StaffPhotographer, ContractPhotographer, Photographer}
+import scala.io.Source.fromFile
 
 object PhotographersList {
   type Store = Map[String, String]
   type CreditBylineMap = Map[String, List[String]]
 
-  import MetadataConfig.{ staffPhotographers, contractedPhotographers }
-
+  import MetadataConfig.{contractedPhotographers, staffPhotographers}
   def creditBylineMap(store: Store): CreditBylineMap = store
       .groupBy{ case (photographer, publication) => publication }
       .map{ case (publication, photographers) => publication -> photographers.keys.toList.sortWith(_.toLowerCase < _.toLowerCase) }
@@ -35,9 +35,25 @@ object PhotographersList {
       case (name, pub) => ContractPhotographer(name, Some(pub))
     })
   }
+
+  def getStaffFromJsonMap(json: JsValue, lookup: String): Map[String, String] = Map((for {
+    company <- json(lookup).as[JsArray].value
+    photographer <- company("photographers").as[JsArray].value
+  } yield (photographer.as[String] -> company("name").as[String])): _*)
 }
 
 object MetadataConfig {
+
+  // mimicking BaseStore.scala
+//  val s3 = new S3(CommonConfig)
+//  val content = s3.client.getObject("media-service-dev-configbucket-samn143r8mpp", "photographers.json")
+  // val s3Object = s3Client.getObject("media-service-dev-configbucket-samn143r8mpp", "photographers.json")
+
+  val file = new File("/Users/stephf02/Development/source/grid/common-lib/src/main/scala/com/gu/mediaservice/lib/config/photographers.json")
+  val photographers: String = if (file.exists) fromFile(file).mkString.trim else ""
+  val p: JsValue = Json.parse(photographers)
+  val externalStaffPhotographersFromConfig2 = PhotographersList.getStaffFromJsonMap(p, "externalStaffPhotographers")
+
 
   val externalStaffPhotographers: Map[String, String] = Map(
     // Current
@@ -79,6 +95,14 @@ object MetadataConfig {
     "John Reardon"          -> "The Observer",
     "Sean Gibson"           -> "The Observer"
   )
+
+  println((for {
+    (k, v1) <- externalStaffPhotographers
+    v2 = externalStaffPhotographersFromConfig2(k)
+  } yield {
+    println("v1: ", v1, " v2: ", v2)
+    (v1 == v2)
+  }))
 
   // these are people who aren't photographers by trade, but have taken photographs for us.
   // This is mainly used so when we ingest photos from Picdar, we make sure we categorise
@@ -156,6 +180,11 @@ object MetadataConfig {
   val contractPhotographersMap = PhotographersList.creditBylineMap(contractedPhotographers)
   val allPhotographersMap = PhotographersList.creditBylineMap(allPhotographers)
   val contractIllustratorsMap = PhotographersList.creditBylineMap(contractIllustrators)
+
+  println(externalPhotographersMap)
+  println(staffPhotographersMap)
+  println(allPhotographersMap)
+  println(externalPhotographersMap)
 
   val creativeCommonsLicense = List(
     "CC BY-4.0", "CC BY-SA-4.0", "CC BY-ND-4.0"

@@ -1,0 +1,61 @@
+{
+  "externalStaffPhotographers": [
+    {
+      "name": "The Guardian",
+      "photographers": [
+        "Ben Doherty",
+        "Bill Code",
+        "Calla Wahlquist",
+        "David Sillitoe",
+        "Graham Turner",
+        "Helen Davidson",
+        "Jill Mead",
+        "Jonny Weeks",
+        "Joshua Robertson",
+        "Rachel Vere",
+        "Roger Tooth",
+        "Sean Smith",
+        "Melissa Davey",
+        "Michael Safi",
+        "Michael Slezak",
+        "Sean Smith",
+        "Carly Earl",
+        "Dan Chung",
+        "Denis Thorpe",
+        "Don McPhee",
+        "Frank Baron",
+        "Frank Martin",
+        "Garry Weaser",
+        "Graham Finlayson",
+        "Martin Argles",
+        "Peter Johns",
+        "Robert Smithies",
+        "Tom Stuttard",
+        "Tricia De Courcy Ling",
+        "Walter Doughty"
+      ]
+    },
+    {
+      "name": "The Observer",
+      "photographers": [
+        "David Newell Smith",
+        "Tony McGrath",
+        "Catherine Shaw",
+        "John Reardon",
+        "Sean Gibson"
+      ]
+    }
+  ],
+  "internalStaffPhotographers": [
+    {
+      "name": "The Guardian",
+      "photographers": [
+        "E Hamilton West",
+        "Harriet St Johnston",
+        "Lorna Roach",
+        "Rachel Vere",
+        "Ken Saunders"
+      ]
+    }
+  ]
+}
