@@ -4,7 +4,7 @@ import java.io.File
 
 import com.gu.mediaservice.lib.aws.S3Object
 import com.gu.mediaservice.lib.cleanup.{MetadataCleaners, SupplierProcessors}
-import com.gu.mediaservice.lib.config.MetadataConfig
+import com.gu.mediaservice.lib.config.MetadataStore
 import com.gu.mediaservice.lib.formatting._
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.metadata.{FileMetadataHelper, ImageMetadataConverter}
@@ -14,7 +14,8 @@ import lib.ImageLoaderConfig
 import lib.imaging.FileMetadataReader
 import lib.storage.ImageLoaderStore
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.sys.process._
 
 case class OptimisedPng(optimisedFileStoreFuture: Future[Option[S3Object]], isPng24: Boolean,
@@ -69,7 +70,6 @@ class OptimisedPngOps(store: ImageLoaderStore, config: ImageLoaderConfig)(implic
 
 case class ImageUpload(uploadRequest: UploadRequest, image: Image)
 case object ImageUpload {
-  val metadataCleaners = new MetadataCleaners(MetadataConfig.allPhotographersMap)
 
   def createImage(uploadRequest: UploadRequest, source: Asset, thumbnail: Asset, png: Option[Asset],
                   fileMetadata: FileMetadata, metadata: ImageMetadata): Image = {
@@ -96,10 +96,16 @@ case object ImageUpload {
   }
 }
 
-class ImageUploadOps(store: ImageLoaderStore, config: ImageLoaderConfig, imageOps: ImageOperations, optimisedPngOps: OptimisedPngOps)(implicit val ec: ExecutionContext) {
+class ImageUploadOps(metadataStore: MetadataStore,
+                     loaderStore: ImageLoaderStore,
+                     config: ImageLoaderConfig,
+                     imageOps: ImageOperations,
+                     optimisedPngOps: OptimisedPngOps)(implicit val ec: ExecutionContext) {
   def fromUploadRequest(uploadRequest: UploadRequest): Future[ImageUpload] = {
 
     val uploadedFile = uploadRequest.tempFile
+
+    val metadataCleaners = new MetadataCleaners(Await.result(metadataStore.get, 5.seconds).allPhotographers)
 
     val fileMetadataFuture = uploadRequest.mimeType match {
       case Some("image/png") => FileMetadataReader.fromICPTCHeadersWithColorInfo(uploadedFile, uploadRequest.id, uploadRequest.mimeType.get)
@@ -158,7 +164,7 @@ class ImageUploadOps(store: ImageLoaderStore, config: ImageLoaderConfig, imageOp
           fullFileMetadata = fileMetadata.copy(colourModel = colourModel)
 
           metadata = ImageMetadataConverter.fromFileMetadata(fullFileMetadata)
-          cleanMetadata = ImageUpload.metadataCleaners.clean(metadata)
+          cleanMetadata = metadataCleaners.clean(metadata)
 
           sourceAsset = Asset.fromS3Object(s3Source, sourceDimensions)
           thumbAsset = Asset.fromS3Object(s3Thumb, thumbDimensions)
@@ -187,7 +193,7 @@ class ImageUploadOps(store: ImageLoaderStore, config: ImageLoaderConfig, imageOp
     })
   }
 
-  def storeSource(uploadRequest: UploadRequest) = store.storeOriginal(
+  def storeSource(uploadRequest: UploadRequest) = loaderStore.storeOriginal(
     uploadRequest.id,
     uploadRequest.tempFile,
     uploadRequest.mimeType,
@@ -196,7 +202,7 @@ class ImageUploadOps(store: ImageLoaderStore, config: ImageLoaderConfig, imageOp
       "upload_time" -> printDateTime(uploadRequest.uploadTime)
     ) ++ uploadRequest.identifiersMeta
   )
-  def storeThumbnail(uploadRequest: UploadRequest, thumbFile: File) = store.storeThumbnail(
+  def storeThumbnail(uploadRequest: UploadRequest, thumbFile: File) = loaderStore.storeThumbnail(
     uploadRequest.id,
     thumbFile,
     Some("image/jpeg")

@@ -1,7 +1,7 @@
 package com.gu.mediaservice.lib.play
 
 import com.gu.mediaservice.lib.auth.Authentication
-import com.gu.mediaservice.lib.config.CommonConfig
+import com.gu.mediaservice.lib.config.{CommonConfig, MetadataStore}
 import com.gu.mediaservice.lib.management.{BuildInfo, Management}
 import play.api.ApplicationLoader.Context
 import play.api.BuiltInComponentsFromContext
@@ -33,4 +33,9 @@ abstract class GridComponents(context: Context) extends BuiltInComponentsFromCon
 
   lazy val management = new Management(controllerComponents, buildInfo)
   val auth = new Authentication(config, actorSystem, defaultBodyParser, wsClient, controllerComponents, executionContext)
+
+  val metaDataConfigStore = new MetadataStore("media-service-dev-configbucket-samn143r8mpp", config)
+
+  metaDataConfigStore.scheduleUpdates(actorSystem.scheduler)
+  metaDataConfigStore.update()
 }

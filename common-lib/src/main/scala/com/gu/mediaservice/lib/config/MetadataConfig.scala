@@ -14,6 +14,7 @@ object PhotographersList {
   type CreditBylineMap = Map[String, List[String]]
 
   import MetadataConfig.{contractedPhotographers, staffPhotographers}
+
   def creditBylineMap(store: Store): CreditBylineMap = store
       .groupBy{ case (photographer, publication) => publication }
       .map{ case (publication, photographers) => publication -> photographers.keys.toList.sortWith(_.toLowerCase < _.toLowerCase) }
@@ -36,24 +37,43 @@ object PhotographersList {
     })
   }
 
-  def getStaffFromJsonMap(json: JsValue, lookup: String): Map[String, String] = Map((for {
+  // Function to replicate the hardcoded maps name -> credit
+  def getStaffFromJsonMap(json: JsValue, lookup: String): Store = Map((for {
     company <- json(lookup).as[JsArray].value
     photographer <- company("photographers").as[JsArray].value
-  } yield (photographer.as[String] -> company("name").as[String])): _*)
+  } yield photographer.as[String] -> company("name").as[String]): _*)
+
+  // Alternate to create Map(credit1 -> List(name), credit2 -> List(name), ...) from json
+  def creditBylineMap(json: JsValue, lookup: String): CreditBylineMap = Map((for {
+    company <- json(lookup).as[JsArray].value
+  } yield company("name").as[String] -> company("photographers").as[List[String]].sortWith(_.toLowerCase < _.toLowerCase)): _*)
 }
 
 object MetadataConfig {
 
   // mimicking BaseStore.scala
-//  val s3 = new S3(CommonConfig)
-//  val content = s3.client.getObject("media-service-dev-configbucket-samn143r8mpp", "photographers.json")
-  // val s3Object = s3Client.getObject("media-service-dev-configbucket-samn143r8mpp", "photographers.json")
+  //   val s3 = new S3(this)
+  //  val content = s3.client.getObject("media-service-dev-configbucket-samn143r8mpp", "photographers.json")
 
   val file = new File("/Users/stephf02/Development/source/grid/common-lib/src/main/scala/com/gu/mediaservice/lib/config/photographers.json")
   val photographers: String = if (file.exists) fromFile(file).mkString.trim else ""
-  val p: JsValue = Json.parse(photographers)
-  val externalStaffPhotographersFromConfig2 = PhotographersList.getStaffFromJsonMap(p, "externalStaffPhotographers")
+  val jsonConfig: JsValue = Json.parse(photographers)
 
+  val externalStaffPhotographersJ: Map[String, String] = PhotographersList.getStaffFromJsonMap(jsonConfig, "externalStaffPhotographers")
+  val internalStaffPhotographersJ: Map[String, String] = PhotographersList.getStaffFromJsonMap(jsonConfig, "internalStaffPhotographers")
+  val contractedPhotographersJ: Map[String, String] = PhotographersList.getStaffFromJsonMap(jsonConfig, "contractedPhotographers")
+
+  val staffPhotographersJ: Map[String, String] = externalStaffPhotographersJ ++ internalStaffPhotographersJ
+  val allPhotographersJ: Map[String, String] = staffPhotographersJ ++ contractedPhotographersJ
+
+  val externalPhotographersMapJ: Map[String, List[String]] = PhotographersList.creditBylineMap(jsonConfig, "externalStaffPhotographers")
+  val staffPhotographersMapJ: Map[String, List[String]] = PhotographersList.creditBylineMap(staffPhotographersJ)
+  val allPhotographersMapJ: Map[String, List[String]] = PhotographersList.creditBylineMap(allPhotographersJ)
+  val contractPhotographersMapJ: Map[String, List[String]] = PhotographersList.creditBylineMap(jsonConfig, "contractedPhotographers")
+  val contractIllustratorsMapJ: Map[String, List[String]] = PhotographersList.creditBylineMap(jsonConfig, "contractIllustrators")
+
+  val staffIllustratorsJ: List[String] = jsonConfig("staffIllustrators").as[List[String]]
+  val creativeCommonsLicenseJ: List[String] = jsonConfig("creativeCommonsLicense").as[List[String]]
 
   val externalStaffPhotographers: Map[String, String] = Map(
     // Current
@@ -96,19 +116,11 @@ object MetadataConfig {
     "Sean Gibson"           -> "The Observer"
   )
 
-  println((for {
-    (k, v1) <- externalStaffPhotographers
-    v2 = externalStaffPhotographersFromConfig2(k)
-  } yield {
-    println("v1: ", v1, " v2: ", v2)
-    (v1 == v2)
-  }))
-
   // these are people who aren't photographers by trade, but have taken photographs for us.
   // This is mainly used so when we ingest photos from Picdar, we make sure we categorise
   // them correctly.
   // TODO: Think about removin these once Picdar is dead.
-  val internalStaffPhotographers = List(
+  val internalStaffPhotographers = Map(
     "E Hamilton West"       -> "The Guardian",
     "Harriet St Johnston"   -> "The Guardian",
     "Lorna Roach"           -> "The Guardian",
@@ -174,20 +186,27 @@ object MetadataConfig {
   )
 
   val allPhotographers = staffPhotographers ++ contractedPhotographers
-
   val externalPhotographersMap = PhotographersList.creditBylineMap(externalStaffPhotographers)
   val staffPhotographersMap = PhotographersList.creditBylineMap(staffPhotographers)
   val contractPhotographersMap = PhotographersList.creditBylineMap(contractedPhotographers)
   val allPhotographersMap = PhotographersList.creditBylineMap(allPhotographers)
   val contractIllustratorsMap = PhotographersList.creditBylineMap(contractIllustrators)
 
-  println(externalPhotographersMap)
-  println(staffPhotographersMap)
-  println(allPhotographersMap)
-  println(externalPhotographersMap)
+
+//  println(externalStaffPhotographers == externalStaffPhotographersJ)
+//  println(internalStaffPhotographers == internalStaffPhotographersJ) // for some reason the hard coded values are a list not a map
+//  println(allPhotographers == allPhotographersJ)
+//  println(externalPhotographersMap == externalPhotographersMapJ)
+//  println("**********************")
+//  println(externalPhotographersMap)
+//  println(externalPhotographersMapJ)
+//  println(staffPhotographersMap == staffPhotographersMapJ)
+//  println(contractPhotographersMap == contractPhotographersMapJ)
+//  println(allPhotographersMap == allPhotographersMapJ)
+//  println(contractIllustratorsMap == contractIllustratorsMapJ)
+
 
   val creativeCommonsLicense = List(
     "CC BY-4.0", "CC BY-SA-4.0", "CC BY-ND-4.0"
   )
-
 }

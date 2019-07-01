@@ -1,8 +1,8 @@
 package model
 
-import play.api.libs.json._
-import com.gu.mediaservice.lib.config.{MetadataConfig, UsageRightsConfig}
+import com.gu.mediaservice.lib.config.{Company, MetadataConfig, MetadataConfigClass, UsageRightsConfig}
 import com.gu.mediaservice.model._
+import play.api.libs.json._
 
 
 // TODO: We'll be able to deprecate this and build it up directly from case
@@ -14,34 +14,35 @@ case class UsageRightsProperty(
   `type`: String,
   required: Boolean,
   options: Option[List[String]] = None,
-  optionsMap: Option[Map[String, List[String]]] = None,
+  optionsMap: Option[List[Company]] = None,
   optionsMapKey: Option[String] = None,
   examples: Option[String] = None
-)
+
+                              )
 
 
 object UsageRightsProperty {
-  type OptionsMap = Map[String, List[String]]
+  type OptionsMap = List[Company]
   type Options = List[String]
 
-  import MetadataConfig.{contractPhotographersMap, staffPhotographersMap, contractIllustratorsMap, staffIllustrators, creativeCommonsLicense}
+  import MetadataConfig._
   import UsageRightsConfig.freeSuppliers
 
   implicit val jsonWrites: Writes[UsageRightsProperty] = Json.writes[UsageRightsProperty]
 
   def sortList(l: List[String]) = l.sortWith(_.toLowerCase < _.toLowerCase)
 
-  val props: List[(UsageRightsSpec) => List[UsageRightsProperty]] =
+  val props: List[(UsageRightsSpec, MetadataConfigClass) => List[UsageRightsProperty]] =
     List(categoryUsageRightsProperties, restrictionProperties)
 
-  def getPropertiesForSpec(u: UsageRightsSpec): List[UsageRightsProperty] = props.flatMap(f => f(u))
+  def getPropertiesForSpec(u: UsageRightsSpec, m: MetadataConfigClass): List[UsageRightsProperty] = props.flatMap(f => f(u, m))
 
   private def requiredStringField(
     name: String,
     label: String,
     options: Option[List[String]] = None,
     examples: Option[String] = None,
-    optionsMap: Option[Map[String, List[String]]] = None,
+    optionsMap: Option[List[Company]] = None,
     optionsMapKey: Option[String] = None
   ) = UsageRightsProperty(name, label, "string", required = true, options,
                           optionsMap, optionsMapKey, examples)
@@ -61,12 +62,12 @@ object UsageRightsProperty {
     requiredStringField("creator", "Illustrator",
       optionsMap = Some(illustrators), optionsMapKey = Some(key))
 
-  private def restrictionProperties(u: UsageRightsSpec): List[UsageRightsProperty] = u match {
+  private def restrictionProperties(u: UsageRightsSpec, m: MetadataConfigClass): List[UsageRightsProperty] = u match {
     case NoRights => List()
     case _ => List(UsageRightsProperty("restrictions", "Restrictions", "text", u.defaultCost.contains(Conditional)))
   }
 
-  def categoryUsageRightsProperties(u: UsageRightsSpec) = u match {
+  def categoryUsageRightsProperties(u: UsageRightsSpec, m: MetadataConfigClass) = u match {
     case Agency => List(
       requiredStringField("supplier", "Supplier", Some(sortList(freeSuppliers))),
       UsageRightsProperty(
@@ -78,12 +79,12 @@ object UsageRightsProperty {
 
     case StaffPhotographer => List(
       publicationField(true),
-      photographerField(staffPhotographersMap, "publication")
+      photographerField(m.staffPhotographers, "publication")
     )
 
     case ContractPhotographer => List(
       publicationField(true),
-      photographerField(contractPhotographersMap, "publication")
+      photographerField(m.contractedPhotographers, "publication")
     )
 
     case CommissionedPhotographer => List(
@@ -93,18 +94,18 @@ object UsageRightsProperty {
 
     case ContractIllustrator => List(
       publicationField(true),
-      illustratorField(contractIllustratorsMap, "publication")
+      illustratorField(m.contractIllustrators, "publication")
     )
 
     case StaffIllustrator => List(
-      requiredStringField("creator", "Illustrator", Some(sortList(staffIllustrators))))
+      requiredStringField("creator", "Illustrator", Some(sortList(m.staffIllustrators))))
 
     case CommissionedIllustrator => List(
       publicationField(false),
       requiredStringField("creator", "Illustrator", examples = Some("Ellie Foreman Peck, Matt Bors")))
 
     case CreativeCommons => List(
-      requiredStringField("licence", "Licence", Some(creativeCommonsLicense)),
+      requiredStringField("licence", "Licence", Some(m.creativeCommonsLicense)),
       requiredStringField("source", "Source", examples = Some("Wikimedia Commons")),
       requiredStringField("creator", "Owner", examples = Some("User:Colin")),
       requiredStringField("contentLink", "Link to content", examples = Some("https://commons.wikimedia.org/wiki/File:Foreign_and_Commonwealth_Office_-_Durbar_Court.jpg"))

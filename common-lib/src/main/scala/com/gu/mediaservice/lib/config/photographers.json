@@ -57,5 +57,84 @@
         "Ken Saunders"
       ]
     }
+  ],
+  "contractedPhotographers": [
+    {
+      "name": "The Guardian",
+      "photographers": [
+        "Antonio Zazueta",
+        "Alicia Canter",
+        "Christopher Thomond",
+        "David Levene",
+        "Eamonn McCabe",
+        "Graeme Robertson",
+        "Johanna Parkin",
+        "Linda Nylind",
+        "Louise Hagger",
+        "Martin Godwin",
+        "Mike Bowers",
+        "Murdo MacLeod",
+        "Sarah Lee",
+        "Tom Jenkins",
+        "Tristram Kenton",
+        "Jill Mead"
+      ]
+    },
+    {
+      "name": "The Observer",
+      "photographers": [
+        "Andy Hall",
+        "Antonio Olmos",
+        "Gary Calton",
+        "Jane Bown",
+        "Jonathan Lovekin",
+        "Karen Robinson",
+        "Katherine Anne Rose",
+        "Richard Saker",
+        "Sophia Evans",
+        "Suki Dhanda"
+      ]
+    }
+  ],
+  "contractIllustrators": [
+    {
+      "name": "The Guardian",
+      "photographers": [
+        "Ben Lamb",
+        "Andrzej Krauze",
+        "Chris Ware",
+        "David Squires",
+        "First Dog on the Moon",
+        "Harry Venning",
+        "Kipper Williams",
+        "Martin Rowson",
+        "Matt Kenyon",
+        "Matthew Blease",
+        "Nicola Jennings",
+        "Rosalind Asquith",
+        "Steve Bell",
+        "Steven Appleby",
+        "Ben Jennings"
+      ]
+    },
+    {
+      "name": "The Observer",
+      "photographers": [
+        "Chris Riddell",
+        "David Foldvari",
+        "David Simonds",
+        "Ian Tovey"
+      ]
+    }
+  ],
+  "staffIllustrators": [
+    "Mona Chalabi",
+    "Sam Morris",
+    "Guardian Design"
+  ],
+  "creativeCommonsLicense": [
+    "CC BY-4.0",
+    "CC BY-SA-4.0",
+    "CC BY-ND-4.0"
   ]
 }

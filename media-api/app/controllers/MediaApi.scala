@@ -9,7 +9,8 @@ import com.gu.mediaservice.lib.auth.Authentication.{AuthenticatedService, PandaU
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.{ThrallMessageSender, UpdateMessage}
 import com.gu.mediaservice.lib.cleanup.{MetadataCleaners, SupplierProcessors}
-import com.gu.mediaservice.lib.config.MetadataConfig
+import scala.concurrent.duration._
+import com.gu.mediaservice.lib.config.MetadataStore
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
@@ -24,7 +25,7 @@ import play.api.libs.json._
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 class MediaApi(
                 auth: Authentication,
@@ -34,7 +35,8 @@ class MediaApi(
                 override val config: MediaApiConfig,
                 override val controllerComponents: ControllerComponents,
                 s3Client: S3Client,
-                mediaApiMetrics: MediaApiMetrics
+                mediaApiMetrics: MediaApiMetrics,
+                metadataStore: MetadataStore
 )(implicit val ec: ExecutionContext) extends BaseController with ArgoHelpers with PermissionsHandler {
 
   private val searchParamList = List("q", "ids", "offset", "length", "orderBy",
@@ -233,7 +235,8 @@ class MediaApi(
   def reindexImage(id: String) = auth.async { request =>
     implicit val r = request
 
-    val metadataCleaners = new MetadataCleaners(MetadataConfig.allPhotographersMap)
+    //  val metadataCleaners = new MetadataCleaners(MetadataConfig.allPhotographersMap)
+    val metadataCleaners = new MetadataCleaners(Await.result(metadataStore.get, 5.seconds).allPhotographers)
     elasticSearch.getImageById(id) map {
       case Some(image) if hasPermission(request, image) =>
         // TODO: apply rights to edits API too

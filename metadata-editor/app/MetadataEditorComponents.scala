@@ -23,7 +23,7 @@ class MetadataEditorComponents(context: Context) extends GridComponents(context)
   }
 
   val editsController = new EditsController(auth, store, notifications, config, controllerComponents)
-  val controller = new EditsApi(auth, config, controllerComponents)
+  val controller = new EditsApi(auth, config, controllerComponents, metaDataConfigStore)
 
   override val router = new Routes(httpErrorHandler, controller, editsController, management)
 }
