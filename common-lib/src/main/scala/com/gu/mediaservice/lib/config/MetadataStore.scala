@@ -35,4 +35,5 @@ class MetadataStore(bucket: String, config: CommonConfig)(implicit ec: Execution
   }
 
   def get: Future[MetadataConfigClass] = Future.successful(store.get()("hello"))
+
 }

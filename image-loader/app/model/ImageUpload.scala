@@ -14,8 +14,7 @@ import lib.ImageLoaderConfig
 import lib.imaging.FileMetadataReader
 import lib.storage.ImageLoaderStore
 
-import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.sys.process._
 
 case class OptimisedPng(optimisedFileStoreFuture: Future[Option[S3Object]], isPng24: Boolean,
@@ -105,8 +104,6 @@ class ImageUploadOps(metadataStore: MetadataStore,
 
     val uploadedFile = uploadRequest.tempFile
 
-    val metadataCleaners = new MetadataCleaners(Await.result(metadataStore.get, 5.seconds).allPhotographers)
-
     val fileMetadataFuture = uploadRequest.mimeType match {
       case Some("image/png") => FileMetadataReader.fromICPTCHeadersWithColorInfo(uploadedFile, uploadRequest.id, uploadRequest.mimeType.get)
       case Some("image/tiff") => FileMetadataReader.fromICPTCHeadersWithColorInfo(uploadedFile, uploadRequest.id, uploadRequest.mimeType.get)
@@ -163,6 +160,8 @@ class ImageUploadOps(metadataStore: MetadataStore,
           colourModel <- colourModelFuture
           fullFileMetadata = fileMetadata.copy(colourModel = colourModel)
 
+          metaDataConfig <- metadataStore.get
+          metadataCleaners = new MetadataCleaners(metaDataConfig.allPhotographers)
           metadata = ImageMetadataConverter.fromFileMetadata(fullFileMetadata)
           cleanMetadata = metadataCleaners.clean(metadata)
 
@@ -175,7 +174,7 @@ class ImageUploadOps(metadataStore: MetadataStore,
             None
 
           baseImage = ImageUpload.createImage(uploadRequest, sourceAsset, thumbAsset, pngAsset, fullFileMetadata, cleanMetadata)
-          processedImage = SupplierProcessors.process(baseImage)
+          processedImage = SupplierProcessors.process(baseImage, Some(metaDataConfig))
 
           // FIXME: dirty hack to sync the originalUsageRights and originalMetadata as well
           finalImage = processedImage.copy(

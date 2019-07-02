@@ -1,5 +1,6 @@
 package com.gu.mediaservice.lib.config
 
+import com.gu.mediaservice.model.{ContractPhotographer, Photographer, StaffPhotographer}
 import play.api.libs.json._
 
 case class MetadataConfigClass (
@@ -8,15 +9,26 @@ case class MetadataConfigClass (
   externalStaffPhotographers: List[Company],
   internalStaffPhotographers: List[Company],
   contractedPhotographers: List[Company],
-  contractIllustrators: List[Company])
-{
-  val staffPhotographers: List[Company] = flattenCompanyList(internalStaffPhotographers ++ externalStaffPhotographers)
-  val allPhotographers: List[Company] = flattenCompanyList(internalStaffPhotographers ++ externalStaffPhotographers ++ contractedPhotographers)
+  contractIllustrators: List[Company]) {
+  val staffPhotographers: List[Company] = MetadataConfigClass.flattenCompanyList(
+    internalStaffPhotographers ++ externalStaffPhotographers)
+  val allPhotographers: List[Company] = MetadataConfigClass.flattenCompanyList(
+    internalStaffPhotographers ++ externalStaffPhotographers ++ contractedPhotographers)
 
-  def flattenCompanyList(companies: List[Company]): List[Company] = companies
-    .groupBy(_.name)
-    .map { case (group, companies) => Company(group, companies.flatMap(company => company.photographers)) }
-    .toList
+  def caseInsensitiveLookup(store: List[Company], lookup: String) = {
+    store.map {
+      case Company(name, photographers) if photographers.map(_.toLowerCase) contains lookup.toLowerCase() => Some(lookup, name)
+      case _ => None
+    }.find(_.isDefined).flatten
+  }
+
+  def getPhotographer(photographer: String): Option[Photographer] = {
+    caseInsensitiveLookup(staffPhotographers, photographer).map {
+      case (name, pub) => StaffPhotographer(name, pub)
+    }.orElse(caseInsensitiveLookup(contractedPhotographers, photographer).map {
+      case (name, pub) => ContractPhotographer(name, Some(pub))
+    })
+  }
 }
 
 case class Company(name: String, photographers: List[String])
@@ -27,5 +39,12 @@ object Company {
 
 object MetadataConfigClass {
   implicit val metadataConfigClassFormats = Json.format[MetadataConfigClass]
+
+  def flattenCompanyList(companies: List[Company]): List[Company] = companies
+    .groupBy(_.name)
+    .map { case (group, companies) => Company(group, companies.flatMap(company => company.photographers)) }
+    .toList
+
+
 }
 

@@ -9,7 +9,6 @@ import com.gu.mediaservice.lib.auth.Authentication.{AuthenticatedService, PandaU
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.{ThrallMessageSender, UpdateMessage}
 import com.gu.mediaservice.lib.cleanup.{MetadataCleaners, SupplierProcessors}
-import scala.concurrent.duration._
 import com.gu.mediaservice.lib.config.MetadataStore
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.GridLogger
@@ -25,7 +24,7 @@ import play.api.libs.json._
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
 
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future}
 
 class MediaApi(
                 auth: Authentication,
@@ -236,40 +235,44 @@ class MediaApi(
     implicit val r = request
 
     //  val metadataCleaners = new MetadataCleaners(MetadataConfig.allPhotographersMap)
-    val metadataCleaners = new MetadataCleaners(Await.result(metadataStore.get, 5.seconds).allPhotographers)
-    elasticSearch.getImageById(id) map {
-      case Some(image) if hasPermission(request, image) =>
-        // TODO: apply rights to edits API too
-        // TODO: helper to abstract boilerplate
-        val canWrite = canUserWriteMetadata(request, image)
-        if (canWrite) {
-          val imageMetadata = ImageMetadataConverter.fromFileMetadata(image.fileMetadata)
-          val cleanMetadata = metadataCleaners.clean(imageMetadata)
-          val imageCleanMetadata = image.copy(metadata = cleanMetadata, originalMetadata = cleanMetadata)
-          val processedImage = SupplierProcessors.process(imageCleanMetadata)
+    metadataStore.get flatMap { metadataConfig =>
+      val metadataCleaners = new MetadataCleaners(metadataConfig.allPhotographers)
 
-          // FIXME: dirty hack to sync the originalUsageRights and originalMetadata as well
-          val finalImage = processedImage.copy(
-            originalMetadata    = processedImage.metadata,
-            originalUsageRights = processedImage.usageRights
-          )
+      elasticSearch.getImageById(id) map {
+        case Some(image) if hasPermission(request, image) =>
+          // TODO: apply rights to edits API too
+          // TODO: helper to abstract boilerplate
+          val canWrite = canUserWriteMetadata(request, image)
+          if (canWrite) {
+            val imageMetadata = ImageMetadataConverter.fromFileMetadata(image.fileMetadata)
+            println("Image metadata: ", imageMetadata)
+            val cleanMetadata = metadataCleaners.clean(imageMetadata)
+            val imageCleanMetadata = image.copy(metadata = cleanMetadata, originalMetadata = cleanMetadata)
+            val processedImage = SupplierProcessors.process(imageCleanMetadata, Some(metadataConfig))
 
-          val updateImage = "update-image"
-          val updateMessage = UpdateMessage(subject = updateImage, id = Some(finalImage.id), image = Some(finalImage))
-          messageSender.publish(updateMessage)
-
-          Ok(Json.obj(
-            "id" -> id,
-            "changed" -> JsBoolean(image != finalImage),
-            "data" -> Json.obj(
-              "oldImage" -> image,
-              "updatedImage" -> finalImage
+            // FIXME: dirty hack to sync the originalUsageRights and originalMetadata as well
+            val finalImage = processedImage.copy(
+              originalMetadata = processedImage.metadata,
+              originalUsageRights = processedImage.usageRights
             )
-          ))
-        } else {
-          ImageEditForbidden
-        }
-      case None => ImageNotFound(id)
+
+            val updateImage = "update-image"
+            val updateMessage = UpdateMessage(subject = updateImage, id = Some(finalImage.id), image = Some(finalImage))
+            messageSender.publish(updateMessage)
+
+            Ok(Json.obj(
+              "id" -> id,
+              "changed" -> JsBoolean(image != finalImage),
+              "data" -> Json.obj(
+                "oldImage" -> image,
+                "updatedImage" -> finalImage
+              )
+            ))
+          } else {
+            ImageEditForbidden
+          }
+        case None => ImageNotFound(id)
+      }
     }
   }
 

@@ -35,13 +35,19 @@ class EditsApi(auth: Authentication, config: EditsConfig,
 
   def index = auth { indexResponse }
 
-  val metaDataConfig = Await.result(metadataStore.get, 5.seconds)
+  val metadataConfig = Await.result(metadataStore.get, 5.seconds)
 
   val usageRightsResponse = {
-    val usageRightsData = UsageRights.all.map(u => CategoryResponse.fromUsageRights(u, metaDataConfig))
+    val usageRightsData = UsageRights.all.map(u => CategoryResponse.fromUsageRights(u, metadataConfig))
 
     respond(usageRightsData)
   }
+
+//  val usageRightsResponse = metadataStore.get.map { metadataConfig => {
+//      val usageRightsData = UsageRights.all.map(u => CategoryResponse.fromUsageRights(u, metadataConfig))
+//      respond(usageRightsData)
+//    }
+//  }
 
   def getUsageRights = auth { usageRightsResponse }
 }

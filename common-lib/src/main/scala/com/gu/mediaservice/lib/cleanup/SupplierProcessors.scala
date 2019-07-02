@@ -1,7 +1,7 @@
 package com.gu.mediaservice.lib.cleanup
 
-import com.gu.mediaservice.model.{NoRights, Agencies, Agency, Image, StaffPhotographer, ContractPhotographer}
-import com.gu.mediaservice.lib.config.PhotographersList
+import com.gu.mediaservice.lib.config.MetadataConfigClass
+import com.gu.mediaservice.model._
 
 trait ImageProcessor {
   def apply(image: Image): Image
@@ -27,23 +27,31 @@ object SupplierProcessors {
     PhotographerParser
   )
 
-  def process(image: Image): Image =
-    all.foldLeft(image) { case (im, processor) => processor(im) }
+  def process(image: Image, metadataConfigOption: Option[MetadataConfigClass] = None): Image =
+    all.foldLeft(image) {
+      case (im, PhotographerParser) => PhotographerParser(im, metadataConfigOption)
+      case (im, processor) => processor(im)
+    }
 }
 
 object PhotographerParser extends ImageProcessor {
-  def apply(image: Image): Image = {
+  def apply(image: Image) = ???
+  def apply(image: Image, metadataConfig: Option[MetadataConfigClass] = None): Image = {
+    println("Photographer parser : ", image.metadata)
     image.metadata.byline.flatMap { byline =>
-      PhotographersList.getPhotographer(byline).map{
-        case p: StaffPhotographer => image.copy(
-          usageRights = p,
-          metadata    = image.metadata.copy(credit = Some(p.publication), byline = Some(p.photographer))
-        )
-        case p: ContractPhotographer => image.copy(
-          usageRights = p,
-          metadata    = image.metadata.copy(credit = p.publication, byline = Some(p.photographer))
-        )
-        case _ => image
+      println("BY LINE: ", byline)
+      metadataConfig.flatMap { metadataConf =>
+        metadataConf.getPhotographer(byline).map {
+          case p: StaffPhotographer => image.copy(
+            usageRights = p,
+            metadata = image.metadata.copy(credit = Some(p.publication), byline = Some(p.photographer))
+          )
+          case p: ContractPhotographer => image.copy(
+            usageRights = p,
+            metadata = image.metadata.copy(credit = p.publication, byline = Some(p.photographer))
+          )
+          case _ => image
+        }
       }
     }
   }.getOrElse(image)
@@ -183,6 +191,7 @@ trait GettyProcessor {
 
 object GettyXmpParser extends ImageProcessor with GettyProcessor {
   def apply(image: Image): Image = {
+    println("Getty: ", image.metadata)
     val excludedCredit = List(
       "Replay Images", "newspix international", "i-images", "photoshot", "Ian Jones", "Photo News/Panoramic",
       "Panoramic/Avalon", "Panoramic", "Avalon", "INS News Agency Ltd", "Discovery.", "EPA", "EMPICS", "Empics News",
