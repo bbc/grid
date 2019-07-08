@@ -1,4 +1,4 @@
-import com.gu.mediaservice.lib.config.{MetadataConfigClass, PhotographersList}
+import com.gu.mediaservice.lib.config.MetadataConfigClass // PhotographersList
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers.ImageLoaderController
@@ -26,8 +26,8 @@ class ImageLoaderComponents(context: Context) extends GridComponents(context) {
       println("Creative: ", m.getPhotographer("Christopher Thomond"))
     }
   }
-  println(PhotographersList.getPhotographer("David Sillitoe"))
-  println(PhotographersList.getPhotographer("Christopher Thomond"))
+//  println(PhotographersList.getPhotographer("David Sillitoe"))
+//  println(PhotographersList.getPhotographer("Christopher Thomond"))
 
   val imageUploadOps = new ImageUploadOps(metaDataConfigStore, loaderStore, config, imageOperations, optimisedPngOps)
 
