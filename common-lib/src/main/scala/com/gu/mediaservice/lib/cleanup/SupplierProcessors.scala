@@ -27,17 +27,22 @@ object SupplierProcessors {
     PhotographerParser
   )
 
-  def process(image: Image, metadataConfigOption: Option[MetadataConfigClass] = None): Image =
+  def process(image: Image, metadataConfigOption: Option[MetadataConfigClass]): Image =
     all.foldLeft(image) {
-      case (im, PhotographerParser) => PhotographerParser(im, metadataConfigOption)
-      case (im, processor) => processor(im)
+      case (im, PhotographerParser) => {
+        println("**************************************!!!!!!!!!!!!!!!!!!!!!")
+        PhotographerParser(im, metadataConfigOption)
+      }
+      case (im, processor) => {
+        println(im.metadata.credit)
+        processor(im)
+      }
     }
 }
 
 object PhotographerParser extends ImageProcessor {
   def apply(image: Image) = ???
   def apply(image: Image, metadataConfig: Option[MetadataConfigClass] = None): Image = {
-    println("Photographer parser : ", image.metadata)
     image.metadata.byline.flatMap { byline =>
       println("BY LINE: ", byline)
       metadataConfig.flatMap { metadataConf =>
@@ -191,7 +196,6 @@ trait GettyProcessor {
 
 object GettyXmpParser extends ImageProcessor with GettyProcessor {
   def apply(image: Image): Image = {
-    println("Getty: ", image.metadata)
     val excludedCredit = List(
       "Replay Images", "newspix international", "i-images", "photoshot", "Ian Jones", "Photo News/Panoramic",
       "Panoramic/Avalon", "Panoramic", "Avalon", "INS News Agency Ltd", "Discovery.", "EPA", "EMPICS", "Empics News",

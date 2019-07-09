@@ -45,6 +45,5 @@ object MetadataConfigClass {
     .map { case (group, companies) => Company(group, companies.flatMap(company => company.photographers)) }
     .toList
 
-
 }
 

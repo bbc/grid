@@ -1,4 +1,4 @@
-import com.gu.mediaservice.lib.config.MetadataConfigClass // PhotographersList
+import com.gu.mediaservice.lib.config.MetadataConfigClass
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers.ImageLoaderController
@@ -19,6 +19,10 @@ class ImageLoaderComponents(context: Context) extends GridComponents(context) {
   val notifications = new Notifications(config)
   val downloader = new Downloader()
   val optimisedPngOps = new OptimisedPngOps(loaderStore, config)
+
+
+  metaDataConfigStore.scheduleUpdates(actorSystem.scheduler)
+  metaDataConfigStore.update()
 
   metaDataConfigStore.get.map {
     m: MetadataConfigClass => {

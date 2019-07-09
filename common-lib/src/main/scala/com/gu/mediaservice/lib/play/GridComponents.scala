@@ -34,8 +34,5 @@ abstract class GridComponents(context: Context) extends BuiltInComponentsFromCon
   lazy val management = new Management(controllerComponents, buildInfo)
   val auth = new Authentication(config, actorSystem, defaultBodyParser, wsClient, controllerComponents, executionContext)
 
-  val metaDataConfigStore = new MetadataStore("media-service-dev-configbucket-samn143r8mpp", config)
-
-  metaDataConfigStore.scheduleUpdates(actorSystem.scheduler)
-  metaDataConfigStore.update()
+  lazy val metaDataConfigStore = new MetadataStore(config.metadataConfigBucket, config)
 }

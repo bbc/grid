@@ -1,7 +1,8 @@
 package com.gu.mediaservice.lib.cleanup
 
+import com.gu.mediaservice.lib.config.{Company, MetadataConfigClass}
 import com.gu.mediaservice.model._
-import org.scalatest.{Matchers, FunSpec}
+import org.scalatest.{FunSpec, Matchers}
 
 class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
 
@@ -10,14 +11,14 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
     val processedImage = applyProcessors(image)
 
     processedImage.usageRights should be(NoRights)
-    processedImage.metadata.credit should be (None)
+    processedImage.metadata.credit should be(None)
   }
 
   it("should leave supplier and suppliersCollection empty if credit doesn't match") {
     val image = createImageFromMetadata("credit" -> "Unknown Party")
     val processedImage = applyProcessors(image)
-    processedImage.usageRights should be (NoRights)
-    processedImage.metadata.credit should be (Some("Unknown Party"))
+    processedImage.usageRights should be(NoRights)
+    processedImage.metadata.credit should be(Some("Unknown Party"))
   }
 
   describe("Photographer") {
@@ -35,7 +36,7 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
       processedImage.metadata.credit should be(Some("The Guardian"))
     }
 
-    it ("should correct casing of photographer") {
+    it("should correct casing of photographer") {
       val image = createImageFromMetadata("byline" -> "Murdo MacLeod")
       val processedImage = applyProcessors(image)
       processedImage.usageRights should be(ContractPhotographer("Murdo MacLeod", Option("The Guardian")))
@@ -75,14 +76,14 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
     it("should match 'Alamy' credit") {
       val image = createImageFromMetadata("credit" -> "Alamy")
       val processedImage = applyProcessors(image)
-      processedImage.usageRights should be (Agency("Alamy"))
+      processedImage.usageRights should be(Agency("Alamy"))
       processedImage.metadata.credit should be(Some("Alamy"))
     }
 
     it("should match 'Alamy Stock Photo' credit") {
       val image = createImageFromMetadata("credit" -> "Alamy Stock Photo")
       val processedImage = applyProcessors(image)
-      processedImage.usageRights should be (Agency("Alamy"))
+      processedImage.usageRights should be(Agency("Alamy"))
       processedImage.metadata.credit should be(Some("Alamy Stock Photo"))
     }
   }
@@ -91,28 +92,28 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
     it("should match 'Allstar Picture Library' credit") {
       val image = createImageFromMetadata("credit" -> "Allstar Picture Library")
       val processedImage = applyProcessors(image)
-      processedImage.usageRights should be (Agency("Allstar Picture Library"))
+      processedImage.usageRights should be(Agency("Allstar Picture Library"))
       processedImage.metadata.credit should be(Some("Allstar Picture Library"))
     }
 
     it("should match 'Sportsphoto Ltd./Allstar' credit") {
       val image = createImageFromMetadata("credit" -> "Sportsphoto Ltd./Allstar")
       val processedImage = applyProcessors(image)
-      processedImage.usageRights should be (Agency("Allstar Picture Library", Some("Sportsphoto Ltd.")))
+      processedImage.usageRights should be(Agency("Allstar Picture Library", Some("Sportsphoto Ltd.")))
       processedImage.metadata.credit should be(Some("Sportsphoto Ltd./Allstar"))
     }
 
     it("should match 'Allstar/UNIVERSAL' credit") {
       val image = createImageFromMetadata("credit" -> "Allstar/UNIVERSAL")
       val processedImage = applyProcessors(image)
-      processedImage.usageRights should be (Agency("Allstar Picture Library", Some("UNIVERSAL")))
+      processedImage.usageRights should be(Agency("Allstar Picture Library", Some("UNIVERSAL")))
       processedImage.metadata.credit should be(Some("Allstar/UNIVERSAL"))
     }
 
     it("should strip redundant byline but use it as canonical casing for credit") {
       val image = createImageFromMetadata("credit" -> "Allstar/UNIVERSAL PICTURES", "byline" -> "Universal Pictures")
       val processedImage = applyProcessors(image)
-      processedImage.usageRights should be (Agency("Allstar Picture Library", Some("Universal Pictures")))
+      processedImage.usageRights should be(Agency("Allstar Picture Library", Some("Universal Pictures")))
       processedImage.metadata.credit should be(Some("Allstar/Universal Pictures"))
       processedImage.metadata.byline should be(None)
     }
@@ -412,7 +413,7 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
       val processedImage = applyProcessors(image)
       processedImage.usageRights match {
         case u: Agency => {
-          u.supplier should be ("Rex Features")
+          u.supplier should be("Rex Features")
           u.suppliersCollection should be(None)
         }
 
@@ -426,7 +427,7 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
       val image = createImageFromMetadata("credit" -> "Bleddyn Butcher / Rex Features")
       val processedImage = applyProcessors(image)
 
-      processedImage.usageRights should be (Agency("Rex Features"))
+      processedImage.usageRights should be(Agency("Rex Features"))
     }
   }
 
@@ -438,7 +439,7 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
       processedImage.usageRights should be(Agency("Ronald Grant Archive"))
       processedImage.metadata.credit should be(Some("Ronald Grant"))
     }
-    
+
     it("should match Ronald Grant Archive credit") {
       val image = createImageFromMetadata("credit" -> "Ronald Grant Archive")
       val processedImage = applyProcessors(image)
@@ -455,7 +456,7 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
       processedImage.usageRights should be(Agency("Bloomberg"))
       processedImage.metadata.credit should be(Some("Bloomberg"))
     }
-    
+
     it("should detect Bloomberg via Getty as Getty with suppliersCollection Bloomberg and not as Bloomberg") {
       val image = createImageFromMetadata("credit" -> "Bloomberg via Getty Images", "source" -> "Bloomberg")
       val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Original Filename" -> "atari.jpg")))
@@ -467,8 +468,14 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
   }
 
 
-  def applyProcessors(image: Image): Image =
-    SupplierProcessors.process(image)
-
-
+  def applyProcessors(image: Image): Image = {
+    val metadataClass =
+      MetadataConfigClass(List(), List(),
+        List(Company("The Guardian", List("Graham Turner"))),
+        List(),
+        List(Company("The Guardian", List("Linda Nylind", "Murdo MacLeod"))),
+        List()
+      )
+    SupplierProcessors.process(image, Some(metadataClass))
+  }
 }

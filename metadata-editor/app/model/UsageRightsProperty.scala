@@ -17,9 +17,7 @@ case class UsageRightsProperty(
   optionsMap: Option[Map[String, List[String]]] = None,
   optionsMapKey: Option[String] = None,
   examples: Option[String] = None
-
                               )
-
 
 object UsageRightsProperty {
   type OptionsMap = Map[String, List[String]]

@@ -16,7 +16,7 @@ class MetadataStore(bucket: String, config: CommonConfig)(implicit ec: Execution
       fetchAll match {
         case Some(config) => store.send(_ => config)
         case None => {
-          println("Cannot parsess JSON *********************")
+          println("********* Cannot parse metadata config JSON ***********")
           Logger.warn("Could not parse metadata config JSON into MetadataConfig class")
         }
       }

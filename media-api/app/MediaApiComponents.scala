@@ -37,6 +37,9 @@ class MediaApiComponents(context: Context) extends GridComponents(context) {
 
   val imageResponse = new ImageResponse(config, s3Client, usageQuota)
 
+  metaDataConfigStore.scheduleUpdates(actorSystem.scheduler)
+  metaDataConfigStore.update()
+
   val mediaApi = new MediaApi(auth, messageSender, elasticSearch, imageResponse, config, controllerComponents, s3Client, mediaApiMetrics, metaDataConfigStore)
   val suggestionController = new SuggestionController(auth, elasticSearch, controllerComponents)
   val aggController = new AggregationController(auth, elasticSearch, controllerComponents)

@@ -39,6 +39,8 @@ trait CommonConfig {
 
   lazy val permissionsBucket = properties.getOrElse("permissions.bucket", "permissions-cache")
 
+  lazy val metadataConfigBucket = properties.getOrElse("metadata.config.bucket", "not used in this service")
+
   def withAWSCredentials[T, S <: AwsClientBuilder[S, T]](builder: AwsClientBuilder[S, T]): S = builder
     .withRegion(awsRegion)
     .withCredentials(awsCredentials)

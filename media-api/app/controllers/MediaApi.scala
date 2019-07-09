@@ -234,7 +234,6 @@ class MediaApi(
   def reindexImage(id: String) = auth.async { request =>
     implicit val r = request
 
-    //  val metadataCleaners = new MetadataCleaners(MetadataConfig.allPhotographersMap)
     metadataStore.get flatMap { metadataConfig =>
       val metadataCleaners = new MetadataCleaners(metadataConfig.allPhotographers)
 
