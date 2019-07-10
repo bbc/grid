@@ -14,7 +14,11 @@ class MetadataStore(bucket: String, config: CommonConfig)(implicit ec: Execution
     def update() {
       lastUpdated.send(_ => DateTime.now())
       fetchAll match {
-        case Some(config) => store.send(_ => config)
+        case Some(config) => {
+          store.send(_ => config)
+          println("********* PARSED *********", config("hello").contractIllustrators(1))
+          println()
+        }
         case None => {
           println("********* Cannot parse metadata config JSON ***********")
           Logger.warn("Could not parse metadata config JSON into MetadataConfig class")

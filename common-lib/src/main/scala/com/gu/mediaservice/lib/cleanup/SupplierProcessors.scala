@@ -29,20 +29,14 @@ object SupplierProcessors {
 
   def process(image: Image, metadataConfigOption: Option[MetadataConfigClass]): Image =
     all.foldLeft(image) {
-      case (im, PhotographerParser) => {
-        println("**************************************!!!!!!!!!!!!!!!!!!!!!")
-        PhotographerParser(im, metadataConfigOption)
-      }
-      case (im, processor) => {
-        println(im.metadata.credit)
-        processor(im)
-      }
+      case (im, PhotographerParser) => PhotographerParser(im, metadataConfigOption)
+      case (im, processor) => processor(im)
     }
 }
 
 object PhotographerParser extends ImageProcessor {
   def apply(image: Image) = ???
-  def apply(image: Image, metadataConfig: Option[MetadataConfigClass] = None): Image = {
+  def apply(image: Image, metadataConfig: Option[MetadataConfigClass]): Image = {
     image.metadata.byline.flatMap { byline =>
       println("BY LINE: ", byline)
       metadataConfig.flatMap { metadataConf =>
