@@ -1,6 +1,6 @@
 package com.gu.mediaservice.lib.cleanup
 
-import com.gu.mediaservice.lib.config.MetadataConfigClass
+import com.gu.mediaservice.lib.config.MetadataConfig
 import com.gu.mediaservice.model._
 
 trait ImageProcessor {
@@ -27,7 +27,7 @@ object SupplierProcessors {
     PhotographerParser
   )
 
-  def process(image: Image, metadataConfigOption: Option[MetadataConfigClass]): Image =
+  def process(image: Image, metadataConfigOption: Option[MetadataConfig]): Image =
     all.foldLeft(image) {
       case (im, PhotographerParser) => PhotographerParser(im, metadataConfigOption)
       case (im, processor) => processor(im)
@@ -36,7 +36,7 @@ object SupplierProcessors {
 
 object PhotographerParser extends ImageProcessor {
   def apply(image: Image) = ???
-  def apply(image: Image, metadataConfig: Option[MetadataConfigClass]): Image = {
+  def apply(image: Image, metadataConfig: Option[MetadataConfig]): Image = {
     image.metadata.byline.flatMap { byline =>
       println("BY LINE: ", byline)
       metadataConfig.flatMap { metadataConf =>

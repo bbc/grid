@@ -9,7 +9,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
 class MetadataStore(bucket: String, config: CommonConfig)(implicit ec: ExecutionContext)
-  extends BaseStore[String, MetadataConfigClass](bucket, config)(ec) {
+  extends BaseStore[String, MetadataConfig](bucket, config)(ec) {
 
     def update() {
       lastUpdated.send(_ => DateTime.now())
@@ -26,10 +26,10 @@ class MetadataStore(bucket: String, config: CommonConfig)(implicit ec: Execution
       }
     }
 
-  private def fetchAll: Option[Map[String, MetadataConfigClass]] = {
+  private def fetchAll: Option[Map[String, MetadataConfig]] = {
     getS3Object("photographers.json" ) match {
       case Some(fileContents) => {
-        Try(Json.parse(fileContents).as[MetadataConfigClass]) match {
+        Try(Json.parse(fileContents).as[MetadataConfig]) match {
           case Success(metadataConfigClass) => Some(Map("hello" -> metadataConfigClass))
           case Failure(_) => None
         }
@@ -38,6 +38,6 @@ class MetadataStore(bucket: String, config: CommonConfig)(implicit ec: Execution
     }
   }
 
-  def get: Future[MetadataConfigClass] = Future.successful(store.get()("hello"))
+  def get: Future[MetadataConfig] = Future.successful(store.get()("hello"))
 
 }

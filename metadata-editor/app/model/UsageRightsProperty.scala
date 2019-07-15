@@ -1,6 +1,6 @@
 package model
 
-import com.gu.mediaservice.lib.config.{Company, MetadataConfigClass, UsageRightsConfig}
+import com.gu.mediaservice.lib.config.{Company, MetadataConfig, UsageRightsConfig}
 import com.gu.mediaservice.model._
 import play.api.libs.json._
 
@@ -29,7 +29,7 @@ object UsageRightsProperty {
 
   def sortList(l: List[String]) = l.sortWith(_.toLowerCase < _.toLowerCase)
 
-  val props: List[(UsageRightsSpec, MetadataConfigClass) => List[UsageRightsProperty]] =
+  val props: List[(UsageRightsSpec, MetadataConfig) => List[UsageRightsProperty]] =
     List(categoryUsageRightsProperties, restrictionProperties)
 
   def companyListToMap(companies: List[Company]): OptionsMap = Map(companies
@@ -37,7 +37,7 @@ object UsageRightsProperty {
 
   def optionsFromCompanyList(companies: List[Company]): Options = sortList(companyListToMap(companies).keys.toList)
 
-  def getPropertiesForSpec(u: UsageRightsSpec, m: MetadataConfigClass): List[UsageRightsProperty] = props.flatMap(f => f(u, m))
+  def getPropertiesForSpec(u: UsageRightsSpec, m: MetadataConfig): List[UsageRightsProperty] = props.flatMap(f => f(u, m))
 
   private def requiredStringField(
     name: String,
@@ -63,12 +63,12 @@ object UsageRightsProperty {
     requiredStringField("creator", "Illustrator",
       optionsMap = Some(companyListToMap(illustrators)), optionsMapKey = Some(key))
 
-  private def restrictionProperties(u: UsageRightsSpec, m: MetadataConfigClass): List[UsageRightsProperty] = u match {
+  private def restrictionProperties(u: UsageRightsSpec, m: MetadataConfig): List[UsageRightsProperty] = u match {
     case NoRights => List()
     case _ => List(UsageRightsProperty("restrictions", "Restrictions", "text", u.defaultCost.contains(Conditional)))
   }
 
-  def categoryUsageRightsProperties(u: UsageRightsSpec, m: MetadataConfigClass) = u match {
+  def categoryUsageRightsProperties(u: UsageRightsSpec, m: MetadataConfig) = u match {
     case Agency => List(
       requiredStringField("supplier", "Supplier", Some(sortList(freeSuppliers))),
       UsageRightsProperty(

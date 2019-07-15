@@ -1,4 +1,4 @@
-import com.gu.mediaservice.lib.config.MetadataConfigClass
+import com.gu.mediaservice.lib.config.MetadataConfig
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers.ImageLoaderController
@@ -25,7 +25,7 @@ class ImageLoaderComponents(context: Context) extends GridComponents(context) {
   metaDataConfigStore.update()
 
   metaDataConfigStore.get.map {
-    m: MetadataConfigClass => {
+    m: MetadataConfig => {
       println("Creative: ", m.getPhotographer("David Sillitoe"))
       println("Creative: ", m.getPhotographer("Christopher Thomond"))
     }

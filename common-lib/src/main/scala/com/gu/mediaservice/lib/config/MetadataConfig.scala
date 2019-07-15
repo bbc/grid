@@ -3,16 +3,16 @@ package com.gu.mediaservice.lib.config
 import com.gu.mediaservice.model.{ContractPhotographer, Photographer, StaffPhotographer}
 import play.api.libs.json._
 
-case class MetadataConfigClass (
+case class MetadataConfig(
   staffIllustrators: List[String],
   creativeCommonsLicense: List[String],
   externalStaffPhotographers: List[Company],
   internalStaffPhotographers: List[Company],
   contractedPhotographers: List[Company],
   contractIllustrators: List[Company]) {
-  val staffPhotographers: List[Company] = MetadataConfigClass.flattenCompanyList(
+  val staffPhotographers: List[Company] = MetadataConfig.flattenCompanyList(
     internalStaffPhotographers ++ externalStaffPhotographers)
-  val allPhotographers: List[Company] = MetadataConfigClass.flattenCompanyList(
+  val allPhotographers: List[Company] = MetadataConfig.flattenCompanyList(
     internalStaffPhotographers ++ externalStaffPhotographers ++ contractedPhotographers)
 
   def caseInsensitiveLookup(store: List[Company], lookup: String) = {
@@ -37,8 +37,8 @@ object Company {
   implicit val companyClassFormats = Json.format[Company]
 }
 
-object MetadataConfigClass {
-  implicit val metadataConfigClassFormats = Json.format[MetadataConfigClass]
+object MetadataConfig {
+  implicit val metadataConfigClassFormats = Json.format[MetadataConfig]
 
   def flattenCompanyList(companies: List[Company]): List[Company] = companies
     .groupBy(_.name)
