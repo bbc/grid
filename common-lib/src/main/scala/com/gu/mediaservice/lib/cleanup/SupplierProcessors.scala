@@ -1,7 +1,7 @@
 package com.gu.mediaservice.lib.cleanup
 
-import com.gu.mediaservice.model.{NoRights, Agencies, Agency, Image, StaffPhotographer, ContractPhotographer}
 import com.gu.mediaservice.lib.config.PhotographersList
+import com.gu.mediaservice.model._
 
 trait ImageProcessor {
   def apply(image: Image): Image
@@ -9,7 +9,6 @@ trait ImageProcessor {
 
 object SupplierProcessors {
   val all: List[ImageProcessor] = List(
-    GettyXmpParser,
     GettyCreditParser,
     AapParser,
     ActionImagesParser,
@@ -193,7 +192,7 @@ object GettyXmpParser extends ImageProcessor with GettyProcessor {
 
     val excludedSource = List(
       "www.capitalpictures.com", "Replay Images", "UKTV", "PinPep", "Pinnacle Photo Agency Ltd", "News Images",
-      "London News Pictures Ltd", "Showtime", "Propaganda"
+      "London News Pictures Ltd", "Showtime", "Propaganda", "AFP"
     )
 
     val isExcludedByCredit = image.metadata.credit.exists(isExcluded(_, excludedCredit))
@@ -224,10 +223,20 @@ object GettyCreditParser extends ImageProcessor with GettyProcessor {
   val ViaGetty = ".+ via Getty(?: .*)?".r
   val SlashGetty = ".+/Getty(?: .*)?".r
 
+  val includesAFP = ".*AFP.*".r
+
   def apply(image: Image): Image = image.metadata.credit match {
-    case Some(IncludesGetty()) | Some(ViaGetty()) | Some(SlashGetty()) => image.copy(
-       usageRights = gettyAgencyWithCollection(image.metadata.source)
-    )
+    case Some(includesAFP()) => {
+      image.copy(
+        usageRights = Agency("AFP")
+      )
+    }
+    case Some(IncludesGetty()) | Some(ViaGetty()) | Some(SlashGetty()) => {
+      println(image.metadata.credit)
+      image.copy(
+        usageRights = gettyAgencyWithCollection(image.metadata.source)
+      )
+    }
     case Some(credit) => knownGettyCredits(image, credit)
     case _ => image
   }
