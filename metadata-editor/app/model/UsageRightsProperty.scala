@@ -1,6 +1,6 @@
 package model
 
-import com.gu.mediaservice.lib.config.{Company, MetadataConfig, UsageRightsConfig}
+import com.gu.mediaservice.lib.config.{Company, MetadataConfig}
 import com.gu.mediaservice.model._
 import play.api.libs.json._
 
@@ -22,8 +22,6 @@ case class UsageRightsProperty(
 object UsageRightsProperty {
   type OptionsMap = Map[String, List[String]]
   type Options = List[String]
-
-  import UsageRightsConfig.freeSuppliers
 
   implicit val jsonWrites: Writes[UsageRightsProperty] = Json.writes[UsageRightsProperty]
 
@@ -70,7 +68,7 @@ object UsageRightsProperty {
 
   def categoryUsageRightsProperties(u: UsageRightsSpec, m: MetadataConfig) = u match {
     case Agency => List(
-      requiredStringField("supplier", "Supplier", Some(sortList(freeSuppliers))),
+      requiredStringField("supplier", "Supplier", Some(sortList(m.freeSuppliers))),
       UsageRightsProperty(
         "suppliersCollection", "Collection", "string", required = false,
         examples = Some("AFP, FilmMagic, WireImage"))

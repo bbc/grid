@@ -26,12 +26,12 @@ class ImageLoaderComponents(context: Context) extends GridComponents(context) {
 
   metaDataConfigStore.get.map {
     m: MetadataConfig => {
+      println(m.freeSuppliers)
+      println(m.suppliersCollectionExcl)
       println("Creative: ", m.getPhotographer("David Sillitoe"))
       println("Creative: ", m.getPhotographer("Christopher Thomond"))
     }
   }
-//  println(PhotographersList.getPhotographer("David Sillitoe"))
-//  println(PhotographersList.getPhotographer("Christopher Thomond"))
 
   val imageUploadOps = new ImageUploadOps(metaDataConfigStore, loaderStore, config, imageOperations, optimisedPngOps)
 
