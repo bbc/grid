@@ -5,7 +5,7 @@ import play.api.libs.json._
 
 case class MetadataConfig(
   freeSuppliers: List[String],
-  suppliersCollectionExcl: Map[String, List[String]],
+  suppliersCollectionExcl: List[SupplierCollection],
   staffIllustrators: List[String],
   creativeCommonsLicense: List[String],
   externalStaffPhotographers: List[Company],
@@ -35,9 +35,14 @@ case class MetadataConfig(
 }
 
 case class Company(name: String, photographers: List[String])
+case class SupplierCollection(provider: String, collections: List[String])
 
 object Company {
   implicit val companyClassFormats = Json.format[Company]
+}
+
+object SupplierCollection {
+  implicit val companyClassFormats = Json.format[SupplierCollection]
 }
 
 object MetadataConfig {
