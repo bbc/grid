@@ -23,6 +23,35 @@ sealed trait UsageRightsSpec {
 }
 
 object UsageRights {
+
+  val usageRightsMap = Map(
+    "NoRights" -> NoRights,
+    "Handout" -> Handout,
+    "PrImage" -> PrImage,
+    "Screengrab" -> Screengrab,
+    "SocialMedia" -> SocialMedia,
+    "Agency" -> Agency,
+    "CommissionedAgency" -> CommissionedAgency,
+    "Chargeable" -> Chargeable,
+    "Bylines" -> Bylines,
+    "StaffPhotographer" -> StaffPhotographer,
+    "ContractPhotographer" -> ContractPhotographer,
+    "CommissionedPhotographer" -> CommissionedPhotographer,
+    "CreativeCommons" -> CreativeCommons,
+    "GuardianWitness" -> GuardianWitness,
+    "Pool" -> Pool,
+    "CrownCopyright" -> CrownCopyright,
+    "Obituary" -> Obituary,
+    "ContractIllustrator" -> ContractIllustrator,
+    "CommissionedIllustrator" -> CommissionedIllustrator,
+    "StaffIllustrator" -> StaffIllustrator,
+    "Composite" -> Composite,
+    "PublicDomain" -> PublicDomain,
+    "Felix" -> Felix
+  )
+
+  def getAll(usageRights: List[String]) = usageRights.map(usageRightsMap(_))
+
   val all = List(
     NoRights, Handout, PrImage, Screengrab, SocialMedia,
     Agency, CommissionedAgency, Chargeable, Bylines,
@@ -498,3 +527,21 @@ object PublicDomain extends UsageRightsSpec {
   implicit val formats: Format[PublicDomain] =
     UsageRights.subtypeFormat(PublicDomain.category)(Json.format[PublicDomain])
 }
+
+final case class Felix(restrictions: Option[String] = None) extends UsageRights {
+  val defaultCost = PublicDomain.defaultCost
+}
+object Felix extends UsageRightsSpec {
+  val category = "Felix"
+  val defaultCost = Some(Free)
+  val name = "Felix"
+  val description =
+    "Images out of copyright or bequeathed to Felix"
+
+  override val caution = Some("ONLY use if out of copyright or bequeathed to public")
+
+  implicit val formats: Format[PublicDomain] =
+    UsageRights.subtypeFormat(PublicDomain.category)(Json.format[PublicDomain])
+}
+
+

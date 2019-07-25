@@ -4,15 +4,17 @@ import com.gu.mediaservice.model.{ContractPhotographer, Photographer, StaffPhoto
 import play.api.libs.json._
 
 case class MetadataConfig(
-  freeSuppliers: List[String],
-  suppliersCollectionExcl: List[SupplierCollection],
-  staffIllustrators: List[String],
-  creativeCommonsLicense: List[String],
-  externalStaffPhotographers: List[Company],
-  internalStaffPhotographers: List[Company],
-  contractedPhotographers: List[Company],
-  contractIllustrators: List[Company]
+                          usageRights: List[String],
+                          freeSuppliers: List[String],
+                          suppliersCollectionExcl: List[SupplierCollection],
+                          staffIllustrators: List[String],
+                          creativeCommonsLicense: List[String],
+                          externalStaffPhotographers: List[Company],
+                          internalStaffPhotographers: List[Company],
+                          contractedPhotographers: List[Company],
+                          contractIllustrators: List[Company]
                          ) {
+
   val staffPhotographers: List[Company] = MetadataConfig.flattenCompanyList(
     internalStaffPhotographers ++ externalStaffPhotographers)
   val allPhotographers: List[Company] = MetadataConfig.flattenCompanyList(
