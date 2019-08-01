@@ -125,7 +125,7 @@ object Authentication {
 
   def validateUser(authedUser: AuthenticatedUser, userValidationEmailDomain: String, multifactorChecker: Option[Google2FAGroupChecker], validEmails: Option[List[String]]): Boolean = {
     val isValidEmail = validEmails match {
-      case Some(emails) => emails.contains(authedUser.user.email)
+      case Some(emails) => emails.contains(authedUser.user.email.toLowerCase)
       case _ => false
     }
     val isValidDomain = authedUser.user.email.endsWith("@" + userValidationEmailDomain)
