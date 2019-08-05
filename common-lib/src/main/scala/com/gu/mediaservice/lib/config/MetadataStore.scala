@@ -5,7 +5,7 @@ import org.joda.time.DateTime
 import play.api.Logger
 import play.api.libs.json.Json
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success, Try}
 
 class MetadataStore(bucket: String, config: CommonConfig)(implicit ec: ExecutionContext)
@@ -38,6 +38,6 @@ class MetadataStore(bucket: String, config: CommonConfig)(implicit ec: Execution
     }
   }
 
-  def get: Future[MetadataConfig] = Future.successful(store.get()("hello"))
+  def get = store.get()("hello")
 
 }

@@ -34,6 +34,13 @@ case class MetadataConfig(
       case (name, pub) => ContractPhotographer(name, Some(pub))
     })
   }
+
+  def isFreeSupplier(supplier: String) = freeSuppliers.contains(supplier)
+
+  def isExcludedColl(supplier: String, supplierColl: String) =
+    suppliersCollectionExcl
+      .filter(_.provider == supplier)
+      .exists(_.collections.contains(supplierColl))
 }
 
 case class Company(name: String, photographers: List[String])

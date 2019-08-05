@@ -5,6 +5,7 @@ import com.gu.mediaservice.lib.management.ManagementWithPermissions
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers._
 import lib._
+import lib.usagerights.CostCalculator
 import play.api.ApplicationLoader.Context
 import router.Routes
 
@@ -35,10 +36,11 @@ class MediaApiComponents(context: Context) extends GridComponents(context) {
   val elasticSearch = new lib.elasticsearch.impls.elasticsearch6.ElasticSearch(config, mediaApiMetrics, es6Config, () => usageQuota.usageStore.overQuotaAgencies)
   elasticSearch.ensureAliasAssigned()
 
-  val imageResponse = new ImageResponse(config, s3Client, usageQuota)
 
   metaDataConfigStore.scheduleUpdates(actorSystem.scheduler)
   metaDataConfigStore.update()
+
+  val imageResponse = new ImageResponse(config, s3Client, new CostCalculator(metaDataConfigStore, usageQuota))
 
   val mediaApi = new MediaApi(auth, messageSender, elasticSearch, imageResponse, config, controllerComponents, s3Client, mediaApiMetrics, metaDataConfigStore)
   val suggestionController = new SuggestionController(auth, elasticSearch, controllerComponents)

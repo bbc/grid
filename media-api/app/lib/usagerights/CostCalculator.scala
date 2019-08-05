@@ -1,17 +1,19 @@
 package lib.usagerights
 
-import com.gu.mediaservice.lib.config.UsageRightsConfig
+import com.gu.mediaservice.lib.config.MetadataStore
 import com.gu.mediaservice.model._
 import lib.UsageQuota
 
-trait CostCalculator {
-  import UsageRightsConfig.{freeSuppliers, suppliersCollectionExcl}
+import scala.concurrent.ExecutionContext
+
+case class CostCalculator(metadataStore: MetadataStore, quotas: UsageQuota)(implicit val ec: ExecutionContext) {
 
   val defaultCost = Pay
-  val quotas: UsageQuota
 
   def getCost(supplier: String, collection: Option[String]): Option[Cost] = {
-      val free = isFreeSupplier(supplier) && ! collection.exists(isExcludedColl(supplier, _))
+      val c = metadataStore.get
+      val free = c.isFreeSupplier(supplier) && ! collection.exists(c.isExcludedColl(supplier, _))
+
       if (free) Some(Free) else None
   }
 
@@ -44,8 +46,4 @@ trait CostCalculator {
         .getOrElse(defaultCost)
   }
 
-  private def isFreeSupplier(supplier: String) = freeSuppliers.contains(supplier)
-
-  private def isExcludedColl(supplier: String, supplierColl: String) =
-    suppliersCollectionExcl.get(supplier).exists(_.contains(supplierColl))
 }
