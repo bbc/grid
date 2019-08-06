@@ -57,7 +57,7 @@ abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, config: CommonCon
   }
 
   def scheduleUpdates(scheduler: Scheduler) {
-    scheduler.schedule(0.seconds, 10.minutes)(update())
+    scheduler.schedule(0.seconds, 0.3.minutes)(update())
   }
 
   def update(): Unit
