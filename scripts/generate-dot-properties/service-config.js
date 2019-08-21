@@ -9,6 +9,7 @@ function getAuthConfig(config) {
         |s3.config.bucket=${config.stackProps.ConfigBucket}
         |auth.keystore.bucket=${config.stackProps.KeyBucket}
         |aws.region=${config.aws.region}
+        |metrics.request.enabled=false
         |`;
 }
 
@@ -21,6 +22,7 @@ function getCollectionsConfig(config) {
         |dynamo.table.collections=${config.stackProps.CollectionsDynamoTable}
         |dynamo.table.imageCollections=${config.stackProps.ImageCollectionsDynamoTable}
         |thrall.kinesis.stream.name=${config.stackProps.ThrallMessageQueue}
+        |metrics.request.enabled=false
         |`;
 }
 
@@ -33,6 +35,7 @@ function getCropperConfig(config) {
         |publishing.image.host=${config.stackProps.ImageOriginBucket}.s3.amazonaws.com
         |thrall.kinesis.stream.name=${config.stackProps.ThrallMessageQueue}
         |s3.config.bucket=${config.stackProps.ConfigBucket}
+        |metrics.request.enabled=false
         |`;
 }
 
@@ -44,6 +47,7 @@ function getImageLoaderConfig(config) {
         |s3.thumb.bucket=${config.stackProps.ThumbBucket}
         |auth.keystore.bucket=${config.stackProps.KeyBucket}
         |thrall.kinesis.stream.name=${config.stackProps.ThrallMessageQueue}
+        |metrics.request.enabled=false
         |`;
 }
 
@@ -62,6 +66,7 @@ function getKahunaConfig(config) {
         |links.usageRightsHelp=${config.links.usageRightsHelp}
         |links.invalidSessionHelp=${config.links.invalidSessionHelp}
         |links.supportEmail=${config.links.supportEmail}
+        |metrics.request.enabled=false
         |`;
 }
 
@@ -72,6 +77,7 @@ function getLeasesConfig(config) {
         |auth.keystore.bucket=${config.stackProps.KeyBucket}
         |thrall.kinesis.stream.name=${config.stackProps.ThrallMessageQueue}
         |dynamo.tablename.leasesTable=${config.stackProps.LeasesDynamoTable}
+        |metrics.request.enabled=false
         |`;
 }
 
@@ -92,6 +98,7 @@ function getMediaApiConfig(config) {
         |es6.shards=${config.es6.shards}
         |es6.replicas=${config.es6.replicas}
         |quota.store.key=rcs-quota.json
+        |metrics.request.enabled=false
         |`;
 }
 
@@ -104,6 +111,7 @@ function getMetadataEditorConfig(config) {
         |thrall.kinesis.stream.name=${config.stackProps.ThrallMessageQueue}
         |dynamo.table.edits=${config.stackProps.EditsDynamoTable}
         |indexed.images.sqs.queue.url=${config.stackProps.IndexedImageMetadataQueueUrl}
+        |metrics.request.enabled=false
         |`;
 }
 
@@ -133,6 +141,7 @@ function getThrallConfig(config) {
         |es6.shards=${config.es6.shards}
         |es6.replicas=${config.es6.replicas}
         |thrall.kinesis.stream.name=${config.stackProps.ThrallMessageQueue}
+        |metrics.request.enabled=false
         |`;
 }
 
@@ -151,6 +160,7 @@ function getUsageConfig(config) {
         |crier.preview.name=${config.crier.preview.streamName}
         |crier.live.name=${config.crier.live.streamName}
         |app.name=usage
+        |metrics.request.enabled=false
         |`;
 }
 
