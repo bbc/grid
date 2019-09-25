@@ -136,7 +136,7 @@ class ImageUploadOps(metadataStore: MetadataStore,
         case Some(mime) => mime match {
           case transcodedMime if config.transcodedMimeTypes.contains(mime) =>
             for {
-            transformedImage <- imageOps.transformImage(uploadedFile, uploadRequest.mimeType, config.tempDir)
+            transformedImage <- imageOps.transformImage(uploadedFile, uploadRequest.mimeType, config.tempDir, config.transcodedOptimisedQuality)
             } yield transformedImage
           case _ =>
             Future.apply(uploadedFile)
