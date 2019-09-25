@@ -88,7 +88,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, implicit val cos
 
     val links: List[Link] = tier match {
       case Internal => imageLinks(id, imageUrl, pngUrl, withWritePermission, valid)
-      case _ => List(downloadLink(id))
+      case _ => List(downloadLink(id), downloadOptimisedLink(id))
     }
 
     val isDeletable = canBeDeleted(image) && withDeleteImagePermission
@@ -99,6 +99,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, implicit val cos
   }
 
   def downloadLink(id: String) = Link("download", s"${config.rootUri}/images/$id/download")
+  def downloadOptimisedLink(id: String) = Link("downloadOptimised", s"${config.rootUri}/images/$id/downloadOptimised{&width,height,quality}")
 
   def imageLinks(id: String, secureUrl: String, securePngUrl: Option[String], withWritePermission: Boolean, valid: Boolean) = {
     val cropLink = Link("crops", s"${config.cropperUri}/crops/$id")
@@ -114,9 +115,9 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, implicit val cos
     val fileMetadataLink = Link("fileMetadata", s"${config.rootUri}/images/$id/fileMetadata")
 
     val baseLinks = if (withWritePermission) {
-      List(editLink, optimisedLink, imageLink, usageLink, leasesLink, fileMetadataLink, downloadLink(id))
+      List(editLink, optimisedLink, imageLink, usageLink, leasesLink, fileMetadataLink, downloadLink(id), downloadOptimisedLink(id))
     } else {
-      List(optimisedLink, imageLink, usageLink, leasesLink, fileMetadataLink, downloadLink(id))
+      List(optimisedLink, imageLink, usageLink, leasesLink, fileMetadataLink, downloadLink(id), downloadOptimisedLink(id))
     }
 
     val baseLinksWithOptimised = optimisedPngLink match {
