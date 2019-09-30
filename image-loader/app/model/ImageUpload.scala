@@ -44,12 +44,12 @@ class OptimisedPngOps(store: ImageLoaderStore, config: ImageLoaderConfig)(implic
 
   private def isTransformedFilePath(filePath: String) = filePath.contains("transformed-")
 
-  def build (file: File, uploadRequest: UploadRequest, fileMetadata: FileMetadata): OptimisedPng = {
+  def build (file: File, uploadRequest: UploadRequest, fileMetadata: FileMetadata, speed: Double = 4): OptimisedPng = {
     if (OptimisedPng.shouldOptimise(uploadRequest.mimeType, fileMetadata)) {
 
       val optimisedFile = {
         val optimisedFilePath = config.tempDir.getAbsolutePath + "/optimisedpng - " + uploadRequest.imageId + ".png"
-        Seq("pngquant", "--quality", "1-85", file.getAbsolutePath, "--output", optimisedFilePath).!
+        Seq("pngquant", "--quality", "1-85", "--speed", speed.toString, file.getAbsolutePath, "--output", optimisedFilePath).!
         new File(optimisedFilePath)
       }
       val pngStoreFuture: Future[Option[S3Object]] = Some(storeOptimisedPng(uploadRequest, optimisedFile))
@@ -144,7 +144,7 @@ class ImageUploadOps(store: ImageLoaderStore, config: ImageLoaderConfig, imageOp
       toOptimiseFileFuture.flatMap(toOptimiseFile => {
         Logger.info("optimised image created")(uploadRequest.toLogMarker)
 
-        val optimisedPng = optimisedPngOps.build(toOptimiseFile, uploadRequest, fileMetadata)
+        val optimisedPng = optimisedPngOps.build(toOptimiseFile, uploadRequest, fileMetadata, config.optimiseSpeed)
 
         bracket(thumbFuture)(_.delete) { thumb =>
           // Run the operations in parallel
