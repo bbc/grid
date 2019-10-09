@@ -7,9 +7,10 @@ const landscape = {key: 'landscape', ratio: 5 / 3, ratioString: '5:3'};
 const portrait = {key: 'portrait', ratio: 4 / 5, ratioString: '4:5'};
 const video = {key: 'video', ratio: 16 / 9, ratioString: '16:9'};
 const square = {key: 'square', ratio: 1, ratioString: '1:1'};
+const hero = {key: 'hero', ratio: 4 / 3, ratioString: '4:3'};
 const freeform = {key: 'freeform', ratio: null};
 
-const cropOptions = [landscape, portrait, video, square, freeform];
+const cropOptions = [landscape, portrait, video, square, hero, freeform];
 
 export const cropUtil = angular.module('util.crop', ['util.storage']);
 
@@ -18,6 +19,7 @@ cropUtil.constant('portrait', portrait);
 cropUtil.constant('video', video);
 cropUtil.constant('square', square);
 cropUtil.constant('freeform', freeform);
+cropUtil.constant('hero', hero);
 cropUtil.constant('cropOptions', cropOptions);
 cropUtil.constant('defaultCrop', landscape);
 

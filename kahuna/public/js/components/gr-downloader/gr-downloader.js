@@ -38,7 +38,11 @@ downloader.controller('DownloaderCtrl', [
     ctrl.imagesArray = () => Array.isArray(ctrl.images) ?
         ctrl.images : Array.from(ctrl.images.values());
 
+    console.log(ctrl.imagesArray());
+
     ctrl.imageCount = () => ctrl.imagesArray().length;
+
+    ctrl.fileSize = bytesToSize(10000)
 
     const uris$ = imageDownloadsService.getDownloads(ctrl.imagesArray()[0]);
     inject$($scope, uris$, ctrl, 'firstImageUris');
