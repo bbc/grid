@@ -1,6 +1,8 @@
 package model
 
 import java.io.File
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 
 import com.gu.mediaservice.lib.aws.S3Object
 import com.gu.mediaservice.lib.cleanup.{MetadataCleaners, SupplierProcessors}
@@ -209,7 +211,7 @@ class ImageUploadOps(metadataStore: MetadataStore,
     ) ++ uploadRequest.identifiersMeta
 
     val meta = uploadRequest.uploadInfo.filename match {
-      case Some(f) => baseMeta ++ Map("file_name" -> f)
+      case Some(f) => baseMeta ++ Map("file_name" -> URLEncoder.encode(f, StandardCharsets.UTF_8.name()))
       case _ => baseMeta
     }
 
