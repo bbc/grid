@@ -46,6 +46,8 @@ class Authentication(config: CommonConfig, actorSystem: ActorSystem,
 
   private val userValidationEmailDomain = config.stringOpt("panda.userDomain").getOrElse("guardian.co.uk")
 
+  private val usePermissionsValidation = config.stringOpt("panda.usePermissionsValidation").getOrElse("false").toBoolean
+
   override lazy val panDomainSettings = buildPandaSettings()
 
   final override def authCallbackUrl: String = s"${config.services.authBaseUri}/oauthCallback"
@@ -72,7 +74,7 @@ class Authentication(config: CommonConfig, actorSystem: ActorSystem,
 
   final override def validateUser(authedUser: AuthenticatedUser): Boolean = {
     val validEmails = validEmailsStore.getValidEmails
-    Authentication.validateUser(authedUser, userValidationEmailDomain, multifactorChecker, validEmails)
+    Authentication.validateUser(authedUser, userValidationEmailDomain, multifactorChecker, validEmails, usePermissionsValidation)
   }
 
   override def cacheValidation: Boolean = true  //dont call 'validateUser' every api request if user has a valid session
@@ -126,18 +128,20 @@ object Authentication {
     case _ => principal.apiKey.name
   }
 
-  def validateUser(authedUser: AuthenticatedUser, userValidationEmailDomain: String, multifactorChecker: Option[Google2FAGroupChecker], validEmails: Option[List[String]]): Boolean = {
-//    val isValidEmail = validEmails match {
-//      case Some(emails) => emails.contains(authedUser.user.email.toLowerCase)
-//      case _ => false
-//    }
+  def validateUser(authedUser: AuthenticatedUser, userValidationEmailDomain: String, multifactorChecker: Option[Google2FAGroupChecker],
+                   validEmails: Option[List[String]], usePermissionsValidation: Boolean): Boolean = {
+    val isValidEmail = validEmails match {
+      case Some(emails) => emails.contains(authedUser.user.email.toLowerCase)
+      case _ => false
+    }
     val isValidDomain = authedUser.user.email.endsWith("@" + userValidationEmailDomain)
     val passesMultifactor = if(multifactorChecker.nonEmpty) { authedUser.multiFactor } else { true }
     val inAccessGroup = authedUser.permissions.exists(_.toLowerCase.contains("grid access"))
 
-    val isValid = inAccessGroup && isValidDomain && passesMultifactor
+    val isValid = ((usePermissionsValidation && inAccessGroup) || (!usePermissionsValidation && isValidEmail)) && isValidDomain && passesMultifactor
 
-    GridLogger.info(s"Validated user ${authedUser.user.email} as ${if(isValid) "valid" else "invalid"}")
+    GridLogger.info(s"Validated user ${authedUser.user.email} as ${if(isValid) "valid" else "invalid"} using " +
+                        s"${if(usePermissionsValidation) "permissions" else "white list"} validation")
     isValid
   }
 }
