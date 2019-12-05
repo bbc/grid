@@ -23,6 +23,18 @@ object ImageMetadataConverter {
       .distinct
   }
 
+  private def extractPeople(fileMetadata: FileMetadata): List[String] = {
+    val xmpIptcPeople = fileMetadata.xmp.filterKeys(_ matches "Iptc4xmpExt:PersonInImage\\[\\d+\\]")
+      .values
+      .toList
+
+    val xmpGettyPeople = fileMetadata.xmp.filterKeys(_ matches "GettyImagesGIFT:Personality\\[\\d+\\]")
+      .values
+      .toList
+
+    (xmpIptcPeople ::: xmpGettyPeople).distinct
+  }
+
   def fromFileMetadata(fileMetadata: FileMetadata): ImageMetadata =
     ImageMetadata(
       dateTaken           = (fileMetadata.exifSub.get("Date/Time Original Composite") flatMap parseRandomDate) orElse
@@ -66,7 +78,8 @@ object ImageMetadataConverter {
                             fileMetadata.iptc.get("Province/State"),
       country             = fileMetadata.xmp.get("photoshop:Country") orElse
                             fileMetadata.iptc.get("Country/Primary Location Name"),
-      subjects            = extractSubjects(fileMetadata))
+      subjects            = extractSubjects(fileMetadata),
+      peopleInImage       = extractPeople(fileMetadata))
 
   // IPTC doesn't appear to enforce the datetime format of the field, which means we have to
   // optimistically attempt various formats observed in the wild. Dire times.

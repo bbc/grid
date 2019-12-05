@@ -37,7 +37,7 @@ object ImageExtras {
   def hasCurrentDenyLease(leases: LeasesByMedia): Boolean = leases.leases.exists(lease => lease.access == DenyUseLease && isCurrent(lease))
 
   def validityMap(image: Image, withWritePermission: Boolean)(
-    implicit cost: CostCalculator, quotas: UsageQuota): ValidMap = {
+    implicit cost: CostCalculator): ValidMap = {
 
     val shouldOverride = validityOverrides(image, withWritePermission).exists(_._2 == true)
 
@@ -45,13 +45,13 @@ object ImageExtras {
       ValidityCheck(validCheck, overrideable, shouldOverride)
 
     Map(
-      "paid_image"           -> createCheck(cost.isPay(image.usageRights)),
-      "conditional_paid"     -> createCheck(cost.isConditional(image.usageRights)),
+//      "paid_image"           -> createCheck(cost.isPay(image.usageRights)),
+//      "conditional_paid"     -> createCheck(cost.isConditional(image.usageRights)), //TODO: Need a better way around this, potentially extracting this to config. This allows all conditional/restricted images to be edited as normal. Reason being we want 'amber' images to be usable
       "no_rights"            -> createCheck(!hasRights(image.usageRights)),
       "missing_credit"       -> createCheck(!hasCredit(image.metadata), overrideable = false),
       "missing_description"  -> createCheck(!hasDescription(image.metadata), overrideable = false),
       "current_deny_lease"   -> createCheck(hasCurrentDenyLease(image.leases)),
-      "over_quota"           -> createCheck(quotas.isOverQuota(image.usageRights))
+      "over_quota"           -> createCheck(cost.quotas.isOverQuota(image.usageRights))
     )
   }
 

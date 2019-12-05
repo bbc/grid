@@ -1,7 +1,8 @@
 package com.gu.mediaservice.lib.cleanup
 
+import com.gu.mediaservice.lib.config.{Company, MetadataConfig, SupplierMatch, UsageRightsConfig}
 import com.gu.mediaservice.model._
-import org.scalatest.{Matchers, FunSpec}
+import org.scalatest.{FunSpec, Matchers}
 
 class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
 
@@ -440,7 +441,7 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
       processedImage.usageRights should be(Agency("Ronald Grant Archive"))
       processedImage.metadata.credit should be(Some("Ronald Grant"))
     }
-    
+
     it("should match Ronald Grant Archive credit") {
       val image = createImageFromMetadata("credit" -> "Ronald Grant Archive")
       val processedImage = applyProcessors(image)
@@ -450,8 +451,72 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
   }
 
 
-  def applyProcessors(image: Image): Image =
-    SupplierProcessors.process(image)
+  describe("AFP") {
+    it("should match AFP credit") {
+      val image = createImageFromMetadata("credit" -> "AFP/Getty Images")
+      val processedImage = applyProcessors(image, List(SupplierMatch("AfpParser", List("AFP/.*"), List("AFP"))))
+      processedImage.usageRights should be(Agency("AFP"))
+    }
+
+    it("should match AFP source") {
+      val image = createImageFromMetadata("source" -> "AFP")
+      val processedImage = applyProcessors(image, List(SupplierMatch("AfpParser", List("AFP/.*"), List("AFP"))))
+      processedImage.usageRights should be(Agency("AFP"))
+    }
+  }
 
 
+  def applyProcessors(image: Image, extraSupplierMatches: List[SupplierMatch] = List()): Image = {
+
+    val matches: List[SupplierMatch] =
+      List(
+        SupplierMatch("GettyXmpParser", List(), List()),
+        SupplierMatch("GettyCreditParser", List(".*Getty Images.*", ".+ via Getty(?: .*)?", ".+/Getty(?: .*)?"), List()),
+        SupplierMatch("AapParser", List("AAPIMAGE", "AAP IMAGE", "AAP"), List()),
+        SupplierMatch("ActionImagesParser", List("Action Images", "Action Images via Reuters"), List()),
+        SupplierMatch("AlamyParser", List("Alamy", "Alamy Stock Photo"), List()),
+        SupplierMatch("AllStarParser", List("Allstar Picture Library"), List()),
+        SupplierMatch("ApParser", List("ap", "associated press"), List()),
+        SupplierMatch("BarcroftParser", List("barcroft media", "barcroft images", "barcroft india", "barcroft usa", "barcroft cars"), List("barcroft media", "barcroft images", "barcroft india", "barcroft usa", "barcroft cars")),
+        SupplierMatch("BloombergParser", List("Bloomberg"), List()),
+        SupplierMatch("CorbisParser", List(), List("Corbis")),
+        SupplierMatch("EpaParser", List(".*\\bEPA\\b.*"), List()),
+        SupplierMatch("PaParser", List("PA", "PA WIRE", "PA Wire/PA Images", "PA Wire/PA Photos", "PA Wire/Press Association Images", "PA Archive/PA Photos", "PA Archive/PA Images", "PA Archive/Press Association Ima", "PA Archive/Press Association Images", "Press Association Images"), List("PA")),
+        SupplierMatch("ReutersParser", List("REUTERS", "Reuters", "RETUERS", "REUTERS/"), List()),
+        SupplierMatch("RexParser", List(".+/ Rex Features"), List("Rex Features", "REX/Shutterstock")),
+        SupplierMatch("RonaldGrantParser", List("www.ronaldgrantarchive.com", "Ronald Grant Archive"), List()),
+      ) ++ extraSupplierMatches
+
+    val supplierParsers = List(
+      "GettyXmp",
+      "GettyCredit",
+      "Aap",
+      "ActionImages",
+      "Alamy",
+      "AllStar",
+      "Ap",
+      "Barcroft",
+      "Bloomberg",
+      "Corbis",
+      "Epa",
+      "Pa",
+      "Reuters",
+      "Rex",
+      "RonaldGrant",
+      "Afp",
+      "Photographer"
+    )
+
+    val usageRightsConfig =
+      UsageRightsConfig(matches, supplierParsers, Map(), List(), List(), Map())
+
+    val metadataConfig =
+      MetadataConfig(List(), List(),
+        List(Company("The Guardian", List("Graham Turner"))),
+        List(),
+        List(Company("The Guardian", List("Linda Nylind", "Murdo MacLeod"))),
+        List()
+      )
+    new SupplierProcessors(metadataConfig).process(image, usageRightsConfig)
+  }
 }

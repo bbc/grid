@@ -17,16 +17,8 @@ import play.utils.UriEncoding
 
 import scala.util.{Failure, Try}
 
-class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: UsageQuota) extends EditsResponse {
-  //  implicit val dateTimeFormat = DateFormat
-  implicit val usageQuotas = usageQuota
-
-  object Costing extends CostCalculator {
-    val quotas = usageQuotas
-  }
-
-  implicit val costing = Costing
-
+class ImageResponse(config: MediaApiConfig, s3Client: S3Client, implicit val costCalculator: CostCalculator) extends EditsResponse {
+//  implicit val dateTimeFormat = DateFormat
   val metadataBaseUri: String = config.services.metadataBaseUri
 
   type FileMetadataEntity = EmbeddedEntity[FileMetadata]
@@ -96,7 +88,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
 
     val links: List[Link] = tier match {
       case Internal => imageLinks(id, imageUrl, pngUrl, withWritePermission, valid)
-      case _ => List(downloadLink(id))
+      case _ => List(downloadLink(id), downloadOptimisedLink(id))
     }
 
     val isDeletable = canBeDeleted(image) && withDeleteImagePermission
@@ -107,6 +99,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
   }
 
   def downloadLink(id: String) = Link("download", s"${config.rootUri}/images/$id/download")
+  def downloadOptimisedLink(id: String) = Link("downloadOptimised", s"${config.rootUri}/images/$id/downloadOptimised?{&width,height,quality}")
 
   def imageLinks(id: String, secureUrl: String, securePngUrl: Option[String], withWritePermission: Boolean, valid: Boolean) = {
     val cropLink = Link("crops", s"${config.cropperUri}/crops/$id")
@@ -122,9 +115,9 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
     val fileMetadataLink = Link("fileMetadata", s"${config.rootUri}/images/$id/fileMetadata")
 
     val baseLinks = if (withWritePermission) {
-      List(editLink, optimisedLink, imageLink, usageLink, leasesLink, fileMetadataLink, downloadLink(id))
+      List(editLink, optimisedLink, imageLink, usageLink, leasesLink, fileMetadataLink, downloadLink(id), downloadOptimisedLink(id))
     } else {
-      List(optimisedLink, imageLink, usageLink, leasesLink, fileMetadataLink, downloadLink(id))
+      List(optimisedLink, imageLink, usageLink, leasesLink, fileMetadataLink, downloadLink(id), downloadOptimisedLink(id))
     }
 
     val baseLinksWithOptimised = optimisedPngLink match {
@@ -177,7 +170,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
       (source \ "userMetadata" \ "usageRights").asOpt[JsObject]
     ).flatten.foldLeft(Json.obj())(_ ++ _).as[UsageRights]
 
-    val cost = Costing.getCost(usageRights)
+    val cost = costCalculator.getCost(usageRights)
 
     __.json.update(__.read[JsObject].map(_ ++ Json.obj("cost" -> cost.toString)))
   }

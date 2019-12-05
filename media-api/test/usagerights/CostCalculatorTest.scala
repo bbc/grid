@@ -1,23 +1,35 @@
 package lib.usagerights
 
+import com.gu.mediaservice.lib.config.{UsageRightsConfig, UsageRightsStore}
 import com.gu.mediaservice.model._
 import lib.UsageQuota
+import org.mockito.Mockito._
 import org.scalatest.mockito.MockitoSugar
-import org.scalatest.{FunSpec, Matchers}
+import org.scalatest.{AsyncFunSpec, Matchers}
 
-class CostCalculatorTest extends FunSpec with Matchers with MockitoSugar {
+class CostCalculatorTest extends AsyncFunSpec with Matchers with MockitoSugar {
 
   describe("from usage rights") {
 
     val Quota = mock[UsageQuota]
+    val usageRightsStore = mock[UsageRightsStore]
 
-    object Costing extends CostCalculator {
-      val quotas = Quota
+    when(usageRightsStore.get) thenReturn UsageRightsConfig(List(), List(),
+      Map(
+        "Rex Features"-> Pay,
+        "Alamy"       -> Pay,
+        "Reuters"     -> Pay,
+        "EPA"         -> Conditional,
+        "Getty Images"-> Free,
+        "AFP"         -> Conditional,
+        "PA"          -> Conditional
+      ),List(), List("Getty Images"), Map("Getty Images" -> List("Terry O'Neill")))
+
+    object Costing extends CostCalculator(usageRightsStore, Quota) {
       override def getOverQuota(usageRights: UsageRights) = None
     }
 
-    object OverQuotaCosting extends CostCalculator {
-      val quotas = Quota
+    object OverQuotaCosting extends CostCalculator(usageRightsStore, Quota) {
       override def getOverQuota(usageRights: UsageRights) = Some(Overquota)
     }
 
@@ -53,6 +65,20 @@ class CostCalculatorTest extends FunSpec with Matchers with MockitoSugar {
 
     it("should not be pay-for with a free supplier but excluded collection") {
       val usageRights = Agency("Getty Images", Some("Terry O'Neill"))
+      val cost = Costing.getCost(usageRights)
+
+      cost should be (Pay)
+    }
+
+    it("should be Conditional for an agency set to be conditional in usage rights config") {
+      val usageRights = Agency("EPA")
+      val cost = Costing.getCost(usageRights)
+
+      cost should be (Conditional)
+    }
+
+    it("should be Pay for an agency set to be pay in usage rights config") {
+      val usageRights = Agency("Alamy")
       val cost = Costing.getCost(usageRights)
 
       cost should be (Pay)

@@ -97,6 +97,7 @@ object Mappings {
     standardAnalysed("city").copyTo("metadata.englishAnalysedCatchAll"),
     standardAnalysed("state").copyTo("metadata.englishAnalysedCatchAll"),
     standardAnalysed("country").copyTo("metadata.englishAnalysedCatchAll"),
+    nonAnalysedList("peopleInImage").copyTo("metadata.englishAnalysedCatchAll"),
     sStemmerAnalysed("englishAnalysedCatchAll")
   )
 
@@ -242,6 +243,10 @@ object Mappings {
     keywordField("front")
   )
 
+  def downloadUsageMetadata(name: String): ObjectField = nonDynamicObjectField(name).fields(
+    keywordField("downloadedBy")
+  )
+
   def usagesMapping(name: String): NestedField = nestedField(name).
     fields(
     keywordField("id"),
@@ -256,7 +261,8 @@ object Mappings {
     printUsageMetadata("printUsageMetadata"),
     digitalUsageMetadata("digitalUsageMetadata"),
     syndicationUsageMetadata("syndicationUsageMetadata"),
-    frontUsageMetadata("frontUsageMetadata")
+    frontUsageMetadata("frontUsageMetadata"),
+    downloadUsageMetadata("downloadUsageMetadata")
   )
 
   def leaseMapping(name: String): ObjectField = nonDynamicObjectField(name).fields(

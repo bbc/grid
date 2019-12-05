@@ -93,7 +93,7 @@
     <div class="image-info__group">
         <dl class="image-info__group--dl metadata-line">
             <dt class="image-info__group--dl__key metadata-line__key image-info__wrap" ng:if="ctrl.metadata.dateTaken">Taken on</dt>
-            <dd class="image-info__group--dl__value metadata-line__info" ng:if="ctrl.metadata.dateTaken">{{ctrl.metadata.dateTaken | date:'d MMM yyyy, HH:mm'}}</dd>
+            <dd class="image-info__group--dl__value metadata-line__info" ng:if="ctrl.metadata.dateTaken">{{ctrl.metadata.dateTaken | date:'d MMM yyyy, HH:mm:ss'}}</dd>
 
             <dt class="image-info__byline image-info__wrap metadata-line image-info__group--dl__key metadata-line__key" ng:if="ctrl.metadata.byline || ctrl.userCanEdit">By</dt>
             <dd class="image-info__wrap image-info__group--dl__value metadata-line__info" ng:if="ctrl.metadata.byline || ctrl.userCanEdit">
@@ -192,7 +192,7 @@
             <dt class="image-info__group--dl__key metadata-line__key image-info__wrap">Uploaded</dt>
             <dd class="image-info__group--dl__value metadata-line__info">
                         <span class="metadata-line__info">
-                            {{ctrl.image.data.uploadTime | date:'d MMM yyyy, HH:mm'}}
+                            {{ctrl.image.data.uploadTime | date:'d MMM yyyy, HH:mm:ss'}}
                         </span>
             </dd>
 
@@ -226,6 +226,20 @@
                         <a ui:sref="search.results({query: (subject | queryFilter:'subject')})">
                             {{subject}}
                         </a>
+                    </span>
+                </span>
+            </dd>
+
+            <dt ng:if="ctrl.metadata.peopleInImage.length > 0"
+                class="image-info__group--dl__key metadata-line__key image-info__wrap">
+                People
+            </dt>
+            <dd ng:if="ctrl.metadata.peopleInImage.length > 0"
+                class="image-info__group--dl__value metadata-line__info">
+                <span class="metadata-line__info">
+                    <span ng:repeat="person in ctrl.metadata.peopleInImage">
+                        <a ui:sref="search.results({query: (person | queryFilter:'person')})">{{person}}</a>
+                        <span ng-if="ctrl.metadata.peopleInImage.length > 1 && $index != ctrl.metadata.peopleInImage.length - 1">, </span>
                     </span>
                 </span>
             </dd>

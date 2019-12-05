@@ -2,18 +2,20 @@ package lib
 
 import java.net.URI
 
+import com.gu.mediaservice.lib.config.UsageRightsStore
 import com.gu.mediaservice.model._
 import lib.usagerights.CostCalculator
 import org.joda.time.DateTime
 import org.scalatest.mockito.MockitoSugar
-import org.scalatest.{FunSpec, Matchers}
+import org.scalatest.{AsyncFunSpec, Matchers}
 
-class ImageExtrasTest extends FunSpec with Matchers with MockitoSugar {
+
+class ImageExtrasTest extends AsyncFunSpec with Matchers with MockitoSugar   {
 
   val Quota = mock[UsageQuota]
+  val usageRightsStore = mock[UsageRightsStore]
 
-  object Costing extends CostCalculator {
-    val quotas = Quota
+  object Costing extends CostCalculator(usageRightsStore, Quota) {
     override def getOverQuota(usageRights: UsageRights) = None
   }
 
@@ -49,13 +51,13 @@ class ImageExtrasTest extends FunSpec with Matchers with MockitoSugar {
   )
 
   val baseValidityMap = Map(
-    "paid_image" -> ValidityCheck(invalid = true,overrideable = true,shouldOverride = false),
+//    "paid_image" -> ValidityCheck(invalid = true,overrideable = true,shouldOverride = false),
     "missing_description" -> ValidityCheck(invalid = true,overrideable = false,shouldOverride = false),
     "missing_credit" -> ValidityCheck(invalid = true,overrideable = false,shouldOverride = false),
     "over_quota" -> ValidityCheck(invalid = false,overrideable = true,shouldOverride = false),
     "current_deny_lease" -> ValidityCheck(invalid = false,overrideable = true,shouldOverride = false),
     "no_rights" -> ValidityCheck(invalid = true,overrideable = true,shouldOverride = false),
-    "conditional_paid" -> ValidityCheck(invalid = false,overrideable = true,shouldOverride = false)
+//    "conditional_paid" -> ValidityCheck(invalid = false,overrideable = true,shouldOverride = false) //TODO: See comment in ImageExtras
   )
 
   describe("Invalid Images") {
@@ -85,7 +87,7 @@ class ImageExtrasTest extends FunSpec with Matchers with MockitoSugar {
       val validityMap  = ImageExtras.validityMap(baseImage, withWritePermission = false)
       val invalidReasons = ImageExtras.invalidReasons(validityMap)
       val expectedInvalidReasons = Map(
-        "paid_image" -> "Paid imagery requires a lease",
+//        "paid_image" -> "Paid imagery requires a lease",
         "missing_description" -> "Missing description *",
         "missing_credit" -> "Missing credit information *",
         "no_rights" -> "No rights to use this image"

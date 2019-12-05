@@ -3,13 +3,14 @@ package controllers
 import java.net.URI
 
 import akka.stream.scaladsl.StreamConverters
+import com.google.common.net.HttpHeaders
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model._
-import com.gu.mediaservice.lib.auth.Authentication.{AuthenticatedService, PandaUser, Principal}
+import com.gu.mediaservice.lib.auth.Authentication.{AuthenticatedService, OnBehalfOfService, OnBehalfOfUser, PandaUser, Principal}
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.{ThrallMessageSender, UpdateMessage}
 import com.gu.mediaservice.lib.cleanup.{MetadataCleaners, SupplierProcessors}
-import com.gu.mediaservice.lib.config.MetadataConfig
+import com.gu.mediaservice.lib.config.{MetadataStore, UsageRightsStore}
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
@@ -17,14 +18,18 @@ import com.gu.mediaservice.model._
 import com.gu.permissions.PermissionDefinition
 import lib._
 import lib.elasticsearch._
+import org.apache.http.entity.ContentType
 import org.http4s.UriTemplate
 import org.joda.time.DateTime
+import play.api.Logger
 import play.api.http.HttpEntity
 import play.api.libs.json._
+import play.api.libs.ws.WSClient
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.control.NonFatal
 
 class MediaApi(
                 auth: Authentication,
@@ -34,7 +39,10 @@ class MediaApi(
                 override val config: MediaApiConfig,
                 override val controllerComponents: ControllerComponents,
                 s3Client: S3Client,
-                mediaApiMetrics: MediaApiMetrics
+                mediaApiMetrics: MediaApiMetrics,
+                metadataStore: MetadataStore,
+                usageRightsStore: UsageRightsStore,
+                ws: WSClient
 )(implicit val ec: ExecutionContext) extends BaseController with ArgoHelpers with PermissionsHandler {
 
   private val searchParamList = List("q", "ids", "offset", "length", "orderBy",
@@ -215,25 +223,76 @@ class MediaApi(
 
     elasticSearch.getImageById(id) flatMap {
       case Some(image) if hasPermission(request, image) => {
+          val apiKey = request.user.apiKey
+          GridLogger.info(s"Download original image: $id from user: ${Authentication.getEmail(request.user)}", apiKey, id)
+          mediaApiMetrics.incrementImageDownload(apiKey, mediaApiMetrics.OriginalDownloadType)
+          val s3Object = s3Client.getObject(config.imageBucket, image.source.file)
+          val file = StreamConverters.fromInputStream(() => s3Object.getObjectContent)
+          val entity = HttpEntity.Streamed(file, image.source.size, image.source.mimeType)
+
+          postToUsages(config.usageUri + "/usages/download", auth.getOnBehalfOfPrincipal(request.user, request), id, Authentication.getEmail(request.user))
+
+          Future.successful(
+            Result(ResponseHeader(OK), entity).withHeaders("Content-Disposition" -> s3Client.getContentDisposition(image, Source))
+          )
+      }
+      case _ => Future.successful(ImageNotFound(id))
+    }
+  }
+
+  def downloadOptimisedImage(id: String, width: Integer, height: Integer, quality: Integer) = auth.async { request =>
+    implicit val r = request
+
+    elasticSearch.getImageById(id) flatMap {
+      case Some(image) if hasPermission(request, image) => {
         val apiKey = request.user.apiKey
-        GridLogger.info(s"Download original image $id", apiKey, id)
-        mediaApiMetrics.incrementOriginalImageDownload(apiKey)
-        val s3Object = s3Client.getObject(config.imageBucket, image.source.file)
-        val file = StreamConverters.fromInputStream(() => s3Object.getObjectContent)
-        val entity = HttpEntity.Streamed(file, image.source.size, image.source.mimeType)
+        GridLogger.info(s"Download optimised image: $id from user: ${Authentication.getEmail(request.user)}", apiKey, id)
+        mediaApiMetrics.incrementImageDownload(apiKey, mediaApiMetrics.OptimisedDownloadType)
+
+        val sourceImageUri =
+          new URI(s3Client.signUrl(config.imageBucket, image.optimisedPng.getOrElse(image.source).file, image, imageType = image.optimisedPng match {
+            case Some(_) => OptimisedPng
+            case _ => Source
+          }))
+
+        postToUsages(config.usageUri + "/usages/download", auth.getOnBehalfOfPrincipal(request.user, request), id, Authentication.getEmail(request.user))
 
         Future.successful(
-          Result(ResponseHeader(OK), entity).withHeaders("Content-Disposition" -> s3Client.getContentDisposition(image, Source))
+          Redirect(config.imgopsUri + List(sourceImageUri.getPath, sourceImageUri.getRawQuery).mkString("?") + s"&w=$width&h=$height&q=$quality")
         )
       }
       case _ => Future.successful(ImageNotFound(id))
     }
   }
 
+  def postToUsages(uri: String, onBehalfOfPrincipal: Authentication.OnBehalfOfPrincipal, mediaId: String, user: String) = {
+    val baseRequest = ws.url(uri)
+      .withHttpHeaders(Authentication.originalServiceHeaderName -> config.appName,
+          HttpHeaders.ORIGIN -> config.rootUri,
+          HttpHeaders.CONTENT_TYPE -> ContentType.APPLICATION_JSON.getMimeType)
+
+    val request = onBehalfOfPrincipal match {
+      case OnBehalfOfService(service) =>
+        print(service.apiKey.name)
+        baseRequest.addHttpHeaders(Authentication.apiKeyHeaderName -> service.apiKey.name)
+      case OnBehalfOfUser(_, cookie) =>
+        baseRequest.addCookies(cookie)
+    }
+
+    val usagesMetadata = Map("mediaId" -> mediaId,
+        "dateAdded" -> printDateTime(DateTime.now()),
+        "downloadedBy" -> user)
+
+    GridLogger.info(s"Making usages download request")
+    request.post(Json.toJson(Map("data" -> usagesMetadata))) //fire and forget
+  }
+
   def reindexImage(id: String) = auth.async { request =>
     implicit val r = request
 
-    val metadataCleaners = new MetadataCleaners(MetadataConfig.allPhotographersMap)
+    val metadataConfig = metadataStore.get
+    val metadataCleaners = new MetadataCleaners(metadataConfig.allPhotographers)
+
     elasticSearch.getImageById(id) map {
       case Some(image) if hasPermission(request, image) =>
         // TODO: apply rights to edits API too
@@ -243,11 +302,12 @@ class MediaApi(
           val imageMetadata = ImageMetadataConverter.fromFileMetadata(image.fileMetadata)
           val cleanMetadata = metadataCleaners.clean(imageMetadata)
           val imageCleanMetadata = image.copy(metadata = cleanMetadata, originalMetadata = cleanMetadata)
-          val processedImage = SupplierProcessors.process(imageCleanMetadata)
+          val usageRightsConfig = usageRightsStore.get
+          val processedImage = new SupplierProcessors(metadataConfig).process(imageCleanMetadata, usageRightsConfig)
 
           // FIXME: dirty hack to sync the originalUsageRights and originalMetadata as well
           val finalImage = processedImage.copy(
-            originalMetadata    = processedImage.metadata,
+            originalMetadata = processedImage.metadata,
             originalUsageRights = processedImage.usageRights
           )
 

@@ -5,13 +5,15 @@ import com.amazonaws.services.s3.AmazonS3ClientBuilder
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.{Request => _, _}
-import com.gu.mediaservice.lib.config.CommonConfig
+import com.gu.mediaservice.lib.config.{CommonConfig, ValidEmailsStore}
 import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.pandomainauth.PanDomainAuthSettingsRefresher
 import com.gu.pandomainauth.action.{AuthActions, UserRequest}
-import com.gu.pandomainauth.model.{AuthenticatedUser, User}
-import com.gu.pandomainauth.service.Google2FAGroupChecker
+import com.gu.pandomainauth.model.{AuthenticatedUser, PanDomainAuthSettings, User}
+import com.gu.pandomainauth.service.{CookieUtils, Google2FAGroupChecker, OAuthException}
+import play.api.Logger
 import play.api.libs.ws.{DefaultWSCookie, WSClient, WSCookie}
+import play.api.mvc.Results.Redirect
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
 
@@ -38,7 +40,13 @@ class Authentication(config: CommonConfig, actorSystem: ActorSystem,
 
   keyStore.scheduleUpdates(actorSystem.scheduler)
 
+  val validEmailsStore = new ValidEmailsStore(config.permissionsBucket, config)
+
+  validEmailsStore.scheduleUpdates(actorSystem.scheduler)
+
   private val userValidationEmailDomain = config.stringOpt("panda.userDomain").getOrElse("guardian.co.uk")
+
+  private val usePermissionsValidation = config.stringOpt("panda.usePermissionsValidation").getOrElse("false").toBoolean
 
   override lazy val panDomainSettings = buildPandaSettings()
 
@@ -65,7 +73,16 @@ class Authentication(config: CommonConfig, actorSystem: ActorSystem,
   }
 
   final override def validateUser(authedUser: AuthenticatedUser): Boolean = {
-    Authentication.validateUser(authedUser, userValidationEmailDomain, multifactorChecker)
+    val validEmails = validEmailsStore.getValidEmails
+    Authentication.validateUser(authedUser, userValidationEmailDomain, multifactorChecker, validEmails, usePermissionsValidation)
+  }
+
+  override def cacheValidation: Boolean = true  //dont call 'validateUser' every api request if user has a valid session
+
+
+  override def showUnauthedMessage(message: String)(implicit request: RequestHeader): Result = {
+    Logger.info(message)
+    Forbidden("You are not authorised to access The Grid, to get authorisation please email The Grid support team")
   }
 
   def getOnBehalfOfPrincipal(principal: Principal, originalRequest: Request[_]): OnBehalfOfPrincipal = principal match {
@@ -111,10 +128,20 @@ object Authentication {
     case _ => principal.apiKey.name
   }
 
-  def validateUser(authedUser: AuthenticatedUser, userValidationEmailDomain: String, multifactorChecker: Option[Google2FAGroupChecker]): Boolean = {
+  def validateUser(authedUser: AuthenticatedUser, userValidationEmailDomain: String, multifactorChecker: Option[Google2FAGroupChecker],
+                   validEmails: Option[List[String]], usePermissionsValidation: Boolean): Boolean = {
+    val isValidEmail = validEmails match {
+      case Some(emails) => emails.contains(authedUser.user.email.toLowerCase)
+      case _ => false
+    }
     val isValidDomain = authedUser.user.email.endsWith("@" + userValidationEmailDomain)
     val passesMultifactor = if(multifactorChecker.nonEmpty) { authedUser.multiFactor } else { true }
+    val inAccessGroup = authedUser.permissions.exists(_.toLowerCase.contains("grid access"))
 
-    isValidDomain && passesMultifactor
+    val isValid = ((usePermissionsValidation && inAccessGroup) || (!usePermissionsValidation && isValidEmail)) && isValidDomain && passesMultifactor
+
+    GridLogger.info(s"Validated user ${authedUser.user.email} as ${if(isValid) "valid" else "invalid"} using " +
+                        s"${if(usePermissionsValidation) "permissions" else "white list"} validation")
+    isValid
   }
 }
