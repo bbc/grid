@@ -51,7 +51,7 @@ class OptimisedPngOps(store: ImageLoaderStore, config: ImageLoaderConfig)(implic
     if (OptimisedPng.shouldOptimise(uploadRequest.mimeType, fileMetadata)) {
 
       val optimisedFile = {
-        val optimisedFilePath = config.tempDir.getAbsolutePath + "/optimisedpng - " + uploadRequest.imageId + ".png"
+        val optimisedFilePath = config.tempDir.getAbsolutePath + "/optimisedpng-" + uploadRequest.imageId + ".png"
         Seq("pngquant", "--quality", "1-85", "--speed", speed.toString, file.getAbsolutePath, "--output", optimisedFilePath).!
         new File(optimisedFilePath)
       }
