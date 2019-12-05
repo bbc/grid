@@ -52,22 +52,21 @@ class OptimisedPngOps(store: ImageLoaderStore, config: ImageLoaderConfig)(implic
 
       val optimisedFile = {
         val optimisedFilePath = config.tempDir.getAbsolutePath + "/optimisedpng-" + uploadRequest.imageId + ".png"
-        Seq("pngquant", "--quality", "1-85", "--speed", speed.toString, file.getAbsolutePath, "--output", optimisedFilePath).!
+        Seq("pngquant", "--quality", "1-85", "--speed", speed.toString, file.getAbsolutePath, "--output", optimisedFilePath, "-v").!
         new File(optimisedFilePath)
       }
-      val pngStoreFuture: Future[Option[S3Object]] = Some(storeOptimisedPng(uploadRequest, optimisedFile))
-        .map(result => result.map(Option(_)))
-        .getOrElse(Future.successful(None))
+      if(optimisedFile.exists()) {  //may fail due to poor quality
+        val pngStoreFuture: Future[Option[S3Object]] = Some(storeOptimisedPng(uploadRequest, optimisedFile))
+          .map(result => result.map(Option(_)))
+          .getOrElse(Future.successful(None))
 
-      if (isTransformedFilePath(file.getAbsolutePath))
-        file.delete
+        if (isTransformedFilePath(file.getAbsolutePath))
+          file.delete
 
-      OptimisedPng(pngStoreFuture, isPng24 = true, Some(optimisedFile))
+        return OptimisedPng(pngStoreFuture, isPng24 = true, Some(optimisedFile))
+      }
     }
-
-    else {
-      OptimisedPng(Future(None), isPng24 = false, None)
-    }
+    OptimisedPng(Future(None), isPng24 = false, None)
   }
 }
 
