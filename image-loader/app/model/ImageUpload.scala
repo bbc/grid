@@ -52,18 +52,21 @@ class OptimisedPngOps(store: ImageLoaderStore, config: ImageLoaderConfig)(implic
 
       val optimisedFile = {
         val optimisedFilePath = config.tempDir.getAbsolutePath + "/optimisedpng-" + uploadRequest.imageId + ".png"
-        Seq("pngquant", "--quality", "1-85", "--speed", speed.toString, file.getAbsolutePath, "--output", optimisedFilePath, "-v").!
+        Seq("pngquant", "--quality", "1-85", "--speed", speed.toString, file.getAbsolutePath, "--output", optimisedFilePath).!
         new File(optimisedFilePath)
       }
+      if (isTransformedFilePath(file.getAbsolutePath)) {
+        file.delete
+      }
+
       if(optimisedFile.exists()) {  //may fail due to poor quality
         val pngStoreFuture: Future[Option[S3Object]] = Some(storeOptimisedPng(uploadRequest, optimisedFile))
           .map(result => result.map(Option(_)))
           .getOrElse(Future.successful(None))
 
-        if (isTransformedFilePath(file.getAbsolutePath))
-          file.delete
-
         return OptimisedPng(pngStoreFuture, isPng24 = true, Some(optimisedFile))
+      } else {
+        Logger.warn("Failed to pngquant optimise image")(uploadRequest.toLogMarker)
       }
     }
     OptimisedPng(Future(None), isPng24 = false, None)
