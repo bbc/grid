@@ -5,12 +5,16 @@
   "main": "generate-dot-properties.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "generate-properties": "./generate-dot-properties.js"
+    "generate-properties": "./generate-dot-properties.js",
+    "snyk-protect": "snyk protect",
+    "prepare": "npm run snyk-protect"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "aws-sdk": "^2.158.0",
-    "json5": "^0.5.1"
-  }
+    "json5": "^0.5.1",
+    "snyk": "^1.316.1"
+  },
+  "snyk": true
 }
