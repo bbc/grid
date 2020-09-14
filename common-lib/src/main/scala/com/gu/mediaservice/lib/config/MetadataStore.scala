@@ -26,7 +26,7 @@ class MetadataStore(bucket: String, config: CommonConfig)(implicit ec: Execution
       case None => Logger.warn("Could not parse metadata config JSON into MetadataConfig class")
     }
   }
-
+  implicit val metadataConfigClassFormats = Json.format[MetadataConfig]
   private def fetchAll: Option[Map[String, MetadataConfig]] = {
     getS3Object(metadataStoreKey) match {
       case Some(fileContents) => Try(Json.parse(fileContents).as[MetadataConfig]) match {

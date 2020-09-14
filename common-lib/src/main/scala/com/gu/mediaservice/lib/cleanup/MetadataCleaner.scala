@@ -1,26 +1,27 @@
 package com.gu.mediaservice.lib.cleanup
 
-import com.gu.mediaservice.lib.config.Company
-import com.gu.mediaservice.model.ImageMetadata
+import com.gu.mediaservice.lib.config.{MetadataConfig, MetadataStore, UsageRightsStore}
+import com.gu.mediaservice.model.{Image, ImageMetadata}
 
-trait MetadataCleaner {
+
+
+trait MetadataCleaner extends ImageProcessor {
   def clean(metadata: ImageMetadata): ImageMetadata
+
+  override def apply(image: Image): Image = image.copy(metadata = clean(image.metadata))
 }
 
-class MetadataCleaners(companies: List[Company]) {
+class GuardianMetadataCleaners extends MetadataCleaners(MetadataConfig.allPhotographersMap)
 
-  val attrCreditFromBylineCleaners = companies.map { company =>
-    AttributeCreditFromByline(company.photographers, company.name)
-  }
-
-  val allCleaners: List[MetadataCleaner] = List(
+class MetadataCleaners(creditBylineMap: Map[String, List[String]])
+  extends ComposeImageProcessors(
     CleanRubbishLocation,
     StripCopyrightPrefix,
     RedundantTokenRemover,
     BylineCreditReorganise,
     UseCanonicalGuardianCredit,
-    ExtractGuardianCreditFromByline
-  ) ++ attrCreditFromBylineCleaners ++ List(
+    ExtractGuardianCreditFromByline,
+    AttributeCreditFromByline.fromCreditBylineMap(creditBylineMap),
     CountryCode,
     GuardianStyleByline,
     CapitaliseByline,
@@ -33,11 +34,6 @@ class MetadataCleaners(companies: List[Company]) {
     PhotographerRenamer
   )
 
-  def clean(inputMetadata: ImageMetadata): ImageMetadata =
-    allCleaners.foldLeft(inputMetadata) {
-      case (metadata, cleaner) => cleaner.clean(metadata)
-    }
-}
 
 // By vague order of importance:
 

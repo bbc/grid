@@ -9,7 +9,7 @@ import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.aws.{S3Object, UpdateMessage}
-import com.gu.mediaservice.lib.cleanup.{MetadataCleaners, SupplierProcessors}
+import com.gu.mediaservice.lib.cleanup.{ImageProcessor, MetadataCleaners, SupplierProcessors}
 import com.gu.mediaservice.lib.config.{MetadataStore, UsageRightsStore}
 import com.gu.mediaservice.lib.formatting._
 import com.gu.mediaservice.lib.imaging.ImageOperations
@@ -265,7 +265,7 @@ class ImageUploadOps(metadataStore: MetadataStore,
         case _ =>
           Future.apply(uploadedFile)
       }
-
+      val processor = config.imageProcessor
       toOptimiseFileFuture.flatMap(toOptimiseFile => {
         Logger.info("optimised image created")(uploadRequest.toLogMarker)
 
@@ -296,7 +296,7 @@ class ImageUploadOps(metadataStore: MetadataStore,
                 metaDataConfig.allPhotographers)
               metadata = ImageMetadataConverter.fromFileMetadata(
                 fullFileMetadata)
-              cleanMetadata = metadataCleaners.clean(metadata)
+          //    cleanMetadata = metadataCleaners.clean(metadata)
 
               sourceAsset = Asset.fromS3Object(s3Source, sourceDimensions)
               thumbAsset = Asset.fromS3Object(s3Thumb, thumbDimensions)
@@ -313,16 +313,16 @@ class ImageUploadOps(metadataStore: MetadataStore,
                                                   thumbAsset,
                                                   pngAsset,
                                                   fullFileMetadata,
-                                                  cleanMetadata)
-              processedImage = new SupplierProcessors(metaDataConfig)
-                .process(baseImage, usageRightsConfig)
+                metadata)
+
+            } yield {
+              val processedImage = processor(baseImage)
 
               // FIXME: dirty hack to sync the originalUsageRights and originalMetadata as well
-              finalImage = processedImage.copy(
+              val finalImage = processedImage.copy(
                 originalMetadata = processedImage.metadata,
                 originalUsageRights = processedImage.usageRights
               )
-            } yield {
               if (optimisedPng.isPng24)
                 optimisedPng.optimisedTempFile.get.delete
               Logger.info("Ending image ops")(uploadRequest.toLogMarker)
@@ -447,7 +447,7 @@ object Uploader {
   }
 
   def fromUploadRequestShared(uploadRequest: UploadRequest,
-                              deps: ImageUploadOpsDependencies)(
+                              deps: ImageUploadOpsDependencies, processor: ImageProcessor)(
       implicit ec: ExecutionContext,
       logMarker: LogMarker): Future[Image] = {
 
@@ -471,7 +471,8 @@ object Uploader {
                           deps,
                           uploadedFile,
                           fileMetadataFuture,
-                          fileMetadata)
+                          fileMetadata,
+                          processor)
 //      (ec, addLogMarkers(fileMetadata.toLogMarker))
     })
   }
@@ -487,7 +488,8 @@ object Uploader {
       deps: ImageUploadOpsDependencies,
       uploadedFile: File,
       fileMetadataFuture: Future[FileMetadata],
-      fileMetadata: FileMetadata)(implicit ec: ExecutionContext,
+      fileMetadata: FileMetadata,
+      processor: ImageProcessor)(implicit ec: ExecutionContext,
                                   logMarker: LogMarker) = {
     Logger.info("Have read file metadata")
     Logger.info("stored source file")
@@ -534,7 +536,8 @@ object Uploader {
             fileMetadataFuture,
             colourModelFuture,
             optimisedPng,
-            uploadRequest
+            uploadRequest,
+            processor
           )
           Logger.info(s"Deleting temp file ${uploadedFile.getAbsolutePath}")
           uploadedFile.delete()
@@ -567,7 +570,8 @@ object Uploader {
                            fileMetadataFuture: Future[FileMetadata],
                            colourModelFuture: Future[Option[String]],
                            optimisedPng: OptimisedPng,
-                           uploadRequest: UploadRequest)(
+                           uploadRequest: UploadRequest,
+                           processor: ImageProcessor)(
       implicit ec: ExecutionContext,
       logMarker: LogMarker): Future[Image] = {
     Logger.info("Starting image ops")
@@ -584,7 +588,7 @@ object Uploader {
       metaDataConfig = metadataStore.get
       metadataCleaners = new MetadataCleaners(metaDataConfig.allPhotographers)
       metadata = ImageMetadataConverter.fromFileMetadata(fullFileMetadata)
-      cleanMetadata = metadataCleaners.clean(metadata)
+     // cleanMetadata = metadataCleaners.clean(metadata)
 
       sourceAsset = Asset.fromS3Object(s3Source, sourceDimensions)
       thumbAsset = Asset.fromS3Object(s3Thumb, thumbDimensions)
@@ -599,21 +603,22 @@ object Uploader {
                                           thumbAsset,
                                           pngAsset,
                                           fullFileMetadata,
-                                          cleanMetadata)
+        metadata)
 
       usageRightsConfig = usageRightsStore.get
-      processedImage = new SupplierProcessors(metaDataConfig)
-        .process(baseImage, usageRightsConfig)
+
+
+    } yield {
+      val processedImage = processor(baseImage)
 
       // FIXME: dirty hack to sync the originalUsageRights and originalMetadata as well
-      finalImage = processedImage.copy(
+      processedImage.copy(
         originalMetadata = processedImage.metadata,
         originalUsageRights = processedImage.usageRights
       )
-    } yield {
       if (optimisedPng.isPng24) optimisedPng.optimisedTempFile.get.delete
       Logger.info("Ending image ops")
-      finalImage
+      processedImage
     }
   }
 
@@ -693,7 +698,7 @@ class Uploader(
       storeOptimisedPng)
 
     val finalImage =
-      fromUploadRequestShared(uploadRequest, sideEffectDependencies)
+      fromUploadRequestShared(uploadRequest, sideEffectDependencies, config.imageProcessor)
 
     finalImage.map(img =>
       Stopwatch("finalImage") { ImageUpload(uploadRequest, img) })
