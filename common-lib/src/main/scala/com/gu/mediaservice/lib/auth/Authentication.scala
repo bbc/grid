@@ -100,6 +100,18 @@ class Authentication(config: CommonConfig, actorSystem: ActorSystem,
   }
 
   private def buildPandaSettings() = {
+    println(config.services.domainRoot )
+    println(config.stringOpt("panda.system"))
+    println(config.stringOpt("panda.bucketName"))
+    println(config.stringOpt("panda.settingsFileKey"))
+    println(config.useLocalAuth)
+    println(config.awsCredentials.getCredentials.getAWSAccessKeyId)
+    println(config.awsCredentials.getCredentials.getAWSSecretKey)
+
+    config.awsEndpointConfiguration.map{
+      x => println(x.getServiceEndpoint)
+    }
+
     new PanDomainAuthSettingsRefresher(
       domain = config.services.domainRoot,
       system = config.stringOpt("panda.system").getOrElse("media-service"),
