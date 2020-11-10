@@ -1,0 +1,37 @@
+gr-add-meta{
+    display: flex;
+    height: 25px;
+}
+
+gr-add-meta:hover {
+    color: white;
+}
+
+gr-add-meta .small {
+    border: none;
+    padding: 0;
+}
+
+.gr-add-meta__form {
+}
+.gr-add-meta__form select {
+    width: 265px;
+}
+
+.gr-add-meta__form__input {
+    width: 265px;
+    margin-top: 3px;
+    margin-bottom: 3px;
+}
+
+.gr-add-meta__form__buttons {
+    display: flex;
+}
+
+.gr-add-meta__form__buttons__button-cancel, .gr-add-label__form__buttons__button-save{
+    margin-left: 1px;
+}
+.image-info__heading--meta {
+    width: 94%;
+    float: left;
+}

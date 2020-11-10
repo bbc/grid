@@ -4,6 +4,9 @@ import template from './gr-image-metadata.html';
 
 import '../../image/service';
 import '../../edits/service';
+import './gr-image-metadata.css';
+
+
 import '../gr-description-warning/gr-description-warning';
 
 export const module = angular.module('gr.imageMetadata', [
@@ -33,6 +36,23 @@ module.controller('grImageMetadataCtrl', [
 
         let ctrl = this;
 
+        const getMetadataFields = () => {
+        const metadata = ctrl.image.data.metadata;
+        const metadataFields = [
+             {name: 'credit uri', value: 'creditUri'},
+             {name: 'title', value: 'title'},
+             {name: 'suppliers reference', value: 'suppliersReference'},
+             {name: 'source', value: 'source'},
+             {name: 'special instructions', value: 'specialInstructions'},
+             {name: 'subLocation', value: 'subLocation'},
+             {name: 'city', value: 'city'},
+             {name: 'state', value: 'state'},
+             {name: 'country', value: 'country'}
+             ];
+         const missingMetadataFields = metadataFields.filter(meta => !Object.keys(metadata).includes(meta.value));
+         return missingMetadataFields;
+        }
+        ctrl.metadataFields = getMetadataFields()
         ctrl.showUsageRights = false;
         ctrl.usageRights = imageService(ctrl.image).usageRights;
 
@@ -118,6 +138,8 @@ module.controller('grImageMetadataCtrl', [
                             value: value
                           }
                         );
+                        if(ctrl.addMetaFormActive) ctrl.metadataFormReset()
+                        ctrl.metadataFields = getMetadataFields()
                     }
                 })
                 .catch(() => {
@@ -145,6 +167,16 @@ module.controller('grImageMetadataCtrl', [
                     return 'failed to save (press esc to cancel)';
                 });
         };
+        ctrl.selectChanged = () => {
+          ctrl.itemSelected = true
+        }
+
+        ctrl.metadataFormReset = () => {
+            ctrl.metadataFieldValue = '';
+            ctrl.addMetaFormActive = false;
+            ctrl.itemSelected = false
+            ctrl.addingMetadata = false
+        };
 
         ctrl.removeImageFromCollection = (collection) => {
             ctrl.removingCollection = collection;
@@ -154,6 +186,9 @@ module.controller('grImageMetadataCtrl', [
 
         ctrl.displayLeases = () => {
             return ctrl.userCanEdit || ctrl.image.leases > 0;
+        };
+       ctrl.displayMetadataFields = () => {
+            return ctrl.userCanEdit || ctrl.metadataFields > 0;
         };
 
         $scope.$on('$destroy', function() {
