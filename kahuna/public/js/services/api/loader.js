@@ -20,10 +20,14 @@ loaderApi.factory('loaderApi', ['mediaApi', function(mediaApi) {
         const options = {
             // We could get the guessed mime-type from the File, but
             // it could be wrong, so might as well just send as data
-            headers: {'Content-Type': 'application/octet-stream'},
+            headers: {'Content-Type': 'application/octet-stream',
+                      'Content-Range': 'bytes=0-4095',
+                      'Content-Length': '4096'
+                      },
             // Skip angular's default JSON-converting transform
             transformRequest: []
         };
+        console.log(imageData + uploadInfo);
         return getLoaderRoot().
             follow('load', uploadInfo).post(imageData, options);
     }

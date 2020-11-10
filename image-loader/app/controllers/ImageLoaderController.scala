@@ -46,7 +46,7 @@ class ImageLoaderController(auth: Authentication,
 
   def index: Action[AnyContent] = auth { indexResponse }
 
-  def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String]): Action[DigestedFile] = {
+  def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String]): Action[DigestedFile] =  {
     implicit val context: RequestLoggingContext = RequestLoggingContext(
       initialMarkers = Map(
         "requestType" -> "load-image",
