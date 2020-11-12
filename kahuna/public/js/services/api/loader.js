@@ -27,7 +27,6 @@ loaderApi.factory('loaderApi', ['mediaApi', function(mediaApi) {
             // Skip angular's default JSON-converting transform
             transformRequest: []
         };
-        console.log(imageData + uploadInfo);
         return getLoaderRoot().
             follow('load', uploadInfo).post(imageData, options);
     }
