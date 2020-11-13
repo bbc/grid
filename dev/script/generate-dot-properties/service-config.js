@@ -75,6 +75,7 @@ function getImageLoaderConfig(config) {
         |s3.config.bucket=${config.coreStackProps.ConfigBucket}
         |security.cors.allowedOrigins=${getCorsAllowedOriginString(config)}
         |metrics.request.enabled=false
+        |transcoded.mime.types=image/tiff
         |`;
 }
 
