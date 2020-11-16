@@ -194,7 +194,7 @@ function getUsageConfig(config) {
         |capi.apiKey=${config.guardian.capi.live.key}
         |dynamo.tablename.usageRecordTable=UsageRecordTable
         |composer.baseUrl=composer.${config.DOMAIN}
-        |thrall.kinesis.stream.name=${config.coreStackProps.ThrallLowPriorityMessageStream}
+        |thrall.kinesis.stream.name=${config.coreStackProps.ThrallMessageStream}
         |aws.local.endpoint=https://localstack.media.${config.DOMAIN}
         |crier.live.arn=${config.guardian.crier.live.roleArn}
         |crier.preview.arn=${config.guardian.crier.preview.roleArn}
