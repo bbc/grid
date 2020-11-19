@@ -34,7 +34,7 @@ case class OptimisedPng(optimisedFileStoreFuture: Future[Option[S3Object]], isPn
 
 case object OptimisedPng {
 
-  def shouldOptimise(mimeType: Option[MimeType], fileMetadata: FileMetadata): Boolean =
+  def shouldOptimise(mimeType: Option[MimeType], fileMetadata: FileMetadata): Boolean = {
     mimeType match {
       case Some(Png) =>
         fileMetadata.colourModelInformation.get("colorType") match {
@@ -42,9 +42,10 @@ case object OptimisedPng {
           case Some("True Color with Alpha") => true
           case _ => false
         }
-      case Some(Tiff) => true
+      case Some(Tiff) => false
       case _ => false
     }
+  }
 }
 
 class OptimisedPngOps(store: ImageLoaderStore, config: ImageLoaderConfig)(implicit val ec: ExecutionContext, val logMaker: LogMarker = MarkerMap()) {
@@ -89,7 +90,7 @@ object OptimisedPngOps {
             config: ImageUploadOpsCfg,
             storeOrProject: (UploadRequest, File) => Future[S3Object])
            (implicit ec: ExecutionContext, logMarker: LogMarker): OptimisedPng = {
-
+          
     val result = if (!OptimisedPng.shouldOptimise(uploadRequest.mimeType, fileMetadata)) {
       OptimisedPng(Future(None), isPng24 = false, None)
     } else {
@@ -97,8 +98,10 @@ object OptimisedPngOps {
       val pngStoreFuture: Future[Option[S3Object]] = Some(storeOrProject(uploadRequest, optimisedFile))
         .map(result => result.map(Option(_)))
         .getOrElse(Future.successful(None))
+
       if (isTransformedFilePath(file.getAbsolutePath))
         file.delete
+
       OptimisedPng(pngStoreFuture, isPng24 = true, Some(optimisedFile))
     }
     result
@@ -334,7 +337,7 @@ object Uploader {
     val uploadedFile = uploadRequest.tempFile
 
     val fileMetadataFuture = toFileMetadata(uploadedFile, uploadRequest.imageId, uploadRequest.mimeType)
-
+    
     Logger.info("Have read file headers")
 
     fileMetadataFuture.flatMap(fileMetadata => {
@@ -367,7 +370,7 @@ object Uploader {
     Logger.info("Have read file metadata")
     Logger.info("stored source file")
     // FIXME: pass mimeType
-    val colourModelFuture = ImageOperations.identifyColourModel(uploadedFile, Jpeg)
+    val colourModelFuture = ImageOperations.identifyColourModel(uploadedFile, uploadRequest.mimeType.getOrElse(Jpeg))
     val sourceDimensionsFuture = FileMetadataReader.dimensions(uploadedFile, uploadRequest.mimeType)
 
     // if the file needs pre-processing into a supported type of file, do it now and create the new upload request.
@@ -377,6 +380,7 @@ object Uploader {
       val thumbFuture = createThumbFuture(fileMetadataFuture, colourModelFuture, uploadRequest, deps)
       Logger.info("thumbnail created")
 
+      //problematic code is here: toOptimiseFile
       val optimisedPng = OptimisedPngOps.build(
         toOptimiseFile,
         uploadRequest,
@@ -384,11 +388,11 @@ object Uploader {
         config,
         storeOrProjectOptimisedPNG)(ec, logMarker)
       Logger.info(s"optimised image ($toOptimiseFile) created")
-
+        
       bracket(thumbFuture)(_.delete) { thumb =>
         // Run the operations in parallel
         val thumbStoreFuture = storeOrProjectThumbFile(uploadRequest, thumb)
-        val thumbDimensionsFuture = FileMetadataReader.dimensions(thumb, Some(Jpeg))
+        val thumbDimensionsFuture = FileMetadataReader.dimensions(thumb, uploadRequest.mimeType)
 
         val finalImage = toFinalImage(
           stores.metadataStore,
@@ -405,7 +409,6 @@ object Uploader {
         Logger.info(s"Deleting temp file ${uploadedFile.getAbsolutePath}")
         uploadedFile.delete()
         toOptimiseFile.delete()
-
         finalImage
       }
     })
@@ -529,9 +532,12 @@ class Uploader(val store: ImageLoaderStore,
 
   def fromUploadRequest(uploadRequest: UploadRequest)
                        (implicit logMarker: LogMarker): Future[ImageUpload] = {
+    
     val sideEffectDependencies = ImageUploadOpsDependencies(toImageUploadOpsCfg(config), imageOps,
       storeSource, storeThumbnail, storeOptimisedPng)
+
     val finalImage = fromUploadRequestShared(uploadRequest, sideEffectDependencies)
+    
     finalImage.map(img => Stopwatch("finalImage"){ImageUpload(uploadRequest, img)})
   }
 
@@ -550,7 +556,7 @@ class Uploader(val store: ImageLoaderStore,
                             (implicit logMarker: LogMarker) = store.storeThumbnail(
     uploadRequest.imageId,
     thumbFile,
-    Some(Jpeg)
+    Some(uploadRequest.mimeType.getOrElse(Jpeg))
   )
 
   private def storeOptimisedPng(uploadRequest: UploadRequest, optimisedPngFile: File)
