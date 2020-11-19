@@ -84,17 +84,15 @@ class ImageLoaderController(auth: Authentication,
         result
       } recover {
         case e =>
-          println("failure dey o")
           Logger.error("loadImage request ended with a failure", e)
           (e match {
-            case e: UnsupportedMimeTypeException => 
+            case e: UnsupportedMimeTypeException =>
               FailureResponse.unsupportedMimeType(e, config.supportedMimeTypes)
-            case e: ImageProcessingException => 
+            case e: ImageProcessingException =>
               FailureResponse.notAnImage(e, config.supportedMimeTypes).as(ArgoMediaType)
-            case e: java.io.IOException => 
+            case e: java.io.IOException =>
               FailureResponse.badImage(e).as(ArgoMediaType)
             case e =>
-              println("last bus stop: " + e.getMessage)
               Logger.error("Failed upload", e)
               InternalServerError(Json.obj("error" -> e.getMessage)).as(ArgoMediaType)
           }).as(ArgoMediaType)
