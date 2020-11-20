@@ -5,5 +5,7 @@ module.exports = merge(shared,{
   mode: 'development',
   devServer: {
     publicPath: '/public/dist/',
+     hot: true,
+     watch: true
   },
 });
