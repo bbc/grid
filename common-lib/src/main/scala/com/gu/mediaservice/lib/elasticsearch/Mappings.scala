@@ -44,6 +44,7 @@ object Mappings {
         syndicationRightsMapping("syndicationRights"),
         usageRightsMapping("originalUsageRights"),
         assetMapping("source"),
+        assetMapping("originalSource"),
         assetMapping("thumbnail"),
         assetMapping("optimisedPng"),
         userMetadataMapping("userMetadata"),

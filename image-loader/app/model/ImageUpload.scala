@@ -123,7 +123,7 @@ object OptimisedPngOps {
 case class ImageUpload(uploadRequest: UploadRequest, image: Image)
 case object ImageUpload {
 
-  def createImage(uploadRequest: UploadRequest, source: Asset, thumbnail: Asset, png: Option[Asset],
+  def createImage(uploadRequest: UploadRequest, source: Asset, originalSource: Option[Asset], thumbnail: Asset, png: Option[Asset],
                   fileMetadata: FileMetadata, metadata: ImageMetadata): Image = {
     val usageRights = NoRights
     Image(
@@ -134,6 +134,7 @@ case object ImageUpload {
       uploadRequest.identifiers,
       uploadRequest.uploadInfo,
       source,
+      originalSource,
       Some(thumbnail),
       png,
       fileMetadata,
@@ -243,7 +244,7 @@ class ImageUploadOps(metadataStore: MetadataStore,
 
             usageRightsConfig = usageRightsStore.get
 
-            baseImage = ImageUpload.createImage(uploadRequest, sourceAsset, thumbAsset, pngAsset, fullFileMetadata, cleanMetadata)
+            baseImage = ImageUpload.createImage(uploadRequest, sourceAsset, None, thumbAsset, pngAsset, fullFileMetadata, cleanMetadata)
             processedImage = new SupplierProcessors(metaDataConfig).process(baseImage, usageRightsConfig)
 
             // FIXME: dirty hack to sync the originalUsageRights and originalMetadata as well
@@ -300,7 +301,8 @@ case class ImageUploadOpsDependencies(
                                        imageOps: ImageOperations,
                                        storeOrProjectOriginalFile: UploadRequest => Future[S3Object],
                                        storeOrProjectThumbFile: (UploadRequest, File) => Future[S3Object],
-                                       storeOrProjectOptimisedPNG: (UploadRequest, File) => Future[S3Object]
+                                       storeOrProjectOptimisedPNG: (UploadRequest, File) => Future[S3Object],
+                                       storeOrProjectSourceFile: UploadRequest => Future[S3Object]
                                      )
 
 object Uploader {
@@ -345,6 +347,7 @@ object Uploader {
         storeOrProjectOriginalFile,
         storeOrProjectThumbFile,
         storeOrProjectOptimisedPNG,
+        storeOrProjectSourceFile,
         uploadRequest,
         deps,
         uploadedFile,
@@ -361,6 +364,7 @@ object Uploader {
                                   storeOrProjectOriginalFile: UploadRequest => Future[S3Object],
                                   storeOrProjectThumbFile: (UploadRequest, File) => Future[S3Object],
                                   storeOrProjectOptimisedPNG: (UploadRequest, File) => Future[S3Object],
+                                  storeOrProjectSourceFile: UploadRequest => Future[S3Object],
                                   uploadRequest: UploadRequest,
                                   deps: ImageUploadOpsDependencies,
                                   uploadedFile: File,
@@ -373,6 +377,17 @@ object Uploader {
     val colourModelFuture = ImageOperations.identifyColourModel(uploadedFile, uploadRequest.mimeType.getOrElse(Jpeg))
     val sourceDimensionsFuture = FileMetadataReader.dimensions(uploadedFile, uploadRequest.mimeType)
 
+    //If file is to be optimised, store source file
+    val sourceStoreFileFutureOption = uploadRequest.mimeType match {
+      case Some(mime) if config.transcodedMimeTypes.contains(mime) =>
+        Some(storeOrProjectSourceFile(uploadRequest))
+      case _ => None
+    }
+
+    //Convert Option[Future[_] to Future[Option[_]]
+    val sourceStoreFileOptionFuture = sourceStoreFileFutureOption.map(_.map(Some(_))).getOrElse(Future.successful(None))
+    
+    val sourceFile = uploadRequest.tempFile
     // if the file needs pre-processing into a supported type of file, do it now and create the new upload request.
     createOptimisedFileFuture(uploadRequest, deps).flatMap(uploadRequest => {
       val sourceStoreFuture = storeOrProjectOriginalFile(uploadRequest)
@@ -404,11 +419,15 @@ object Uploader {
           fileMetadataFuture,
           colourModelFuture,
           optimisedPng,
-          uploadRequest
+          sourceStoreFileOptionFuture,
+          uploadRequest,
         )
         Logger.info(s"Deleting temp file ${uploadedFile.getAbsolutePath}")
         uploadedFile.delete()
         toOptimiseFile.delete()
+        //Delete source file if some optimization was done
+        sourceStoreFileFutureOption.map(_ => sourceFile.delete())
+
         finalImage
       }
     })
@@ -435,6 +454,7 @@ object Uploader {
                            fileMetadataFuture: Future[FileMetadata],
                            colourModelFuture: Future[Option[String]],
                            optimisedPng: OptimisedPng,
+                           optionalSourceFileStorageFuture: Future[Option[S3Object]],
                            uploadRequest: UploadRequest)
                           (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Image] = {
     Logger.info("Starting image ops")
@@ -446,13 +466,14 @@ object Uploader {
       thumbDimensions <- thumbDimensionsFuture
       fileMetadata <- fileMetadataFuture
       colourModel <- colourModelFuture
+      optionalSourceFileStorage <- optionalSourceFileStorageFuture
       fullFileMetadata = fileMetadata.copy(colourModel = colourModel)
 
       metaDataConfig = metadataStore.get
       metadataCleaners = new MetadataCleaners(metaDataConfig.allPhotographers)
       metadata = ImageMetadataConverter.fromFileMetadata(fullFileMetadata)
       cleanMetadata = metadataCleaners.clean(metadata)
-
+      originalSourceAsset = optionalSourceFileStorage.map(optionalSourceFile => Asset.fromS3Object(optionalSourceFile, sourceDimensions))
       sourceAsset = Asset.fromS3Object(s3Source, sourceDimensions)
       thumbAsset = Asset.fromS3Object(s3Thumb, thumbDimensions)
 
@@ -461,7 +482,7 @@ object Uploader {
       else
         None
 
-      baseImage = ImageUpload.createImage(uploadRequest, sourceAsset, thumbAsset, pngAsset, fullFileMetadata, cleanMetadata)
+      baseImage = ImageUpload.createImage(uploadRequest, sourceAsset, originalSourceAsset, thumbAsset, pngAsset, fullFileMetadata, cleanMetadata)
 
       usageRightsConfig = usageRightsStore.get
       processedImage = new SupplierProcessors(metaDataConfig).process(baseImage, usageRightsConfig)
@@ -533,7 +554,7 @@ class Uploader(val store: ImageLoaderStore,
                        (implicit logMarker: LogMarker): Future[ImageUpload] = {
 
     val sideEffectDependencies = ImageUploadOpsDependencies(toImageUploadOpsCfg(config), imageOps,
-      storeSource, storeThumbnail, storeOptimisedPng)
+      storeSource, storeThumbnail, storeOptimisedPng, storeSourceFile)
 
     val finalImage = fromUploadRequestShared(uploadRequest, sideEffectDependencies)
 
@@ -556,6 +577,13 @@ class Uploader(val store: ImageLoaderStore,
     uploadRequest.imageId,
     thumbFile,
     Some(uploadRequest.mimeType.getOrElse(Jpeg))
+  )
+
+  private def storeSourceFile(uploadRequest: UploadRequest)
+                             (implicit logMarker: LogMarker) = store.storeSource(
+    uploadRequest.imageId,
+    uploadRequest.tempFile,
+    uploadRequest.mimeType
   )
 
   private def storeOptimisedPng(uploadRequest: UploadRequest, optimisedPngFile: File)

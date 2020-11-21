@@ -16,6 +16,7 @@ case class Image(
   identifiers:         Map[String, String],
   uploadInfo:          UploadInfo,
   source:              Asset,
+  originalSource:      Option[Asset],
   thumbnail:           Option[Asset],
   optimisedPng:        Option[Asset],
   fileMetadata:        FileMetadata,
@@ -86,6 +87,7 @@ object Image {
       (__ \ "identifiers").readNullable[Map[String, String]].map(_ getOrElse Map()) ~
       (__ \ "uploadInfo").readNullable[UploadInfo].map(_ getOrElse UploadInfo()) ~
       (__ \ "source").read[Asset] ~
+      (__ \ "originalSource").readNullable[Asset] ~
       (__ \ "thumbnail").readNullable[Asset] ~
       (__ \ "optimisedPng").readNullable[Asset] ~
       (__ \ "fileMetadata").readNullable[FileMetadata].map(_ getOrElse FileMetadata()) ~
@@ -110,6 +112,7 @@ object Image {
       (__ \ "identifiers").write[Map[String, String]] ~
       (__ \ "uploadInfo").write[UploadInfo] ~
       (__ \ "source").write[Asset] ~
+      (__ \ "originalSource").writeNullable[Asset] ~
       (__ \ "thumbnail").writeNullable[Asset] ~
       (__ \ "optimisedPng").writeNullable[Asset] ~
       (__ \ "fileMetadata").write[FileMetadata] ~

@@ -129,7 +129,7 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
   def projectImageFromUploadRequest(uploadRequest: UploadRequest)
                                    (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Image] = {
     val dependenciesWithProjectionsOnly = ImageUploadOpsDependencies(config, imageOps,
-      projectOriginalFileAsS3Model, projectThumbnailFileAsS3Model, projectOptimisedPNGFileAsS3Model)
+      projectOriginalFileAsS3Model, projectThumbnailFileAsS3Model, projectOptimisedPNGFileAsS3Model, projectOriginalSourceFileAsS3Model)
     fromUploadRequestShared(uploadRequest, dependenciesWithProjectionsOnly)
   }
 
@@ -137,6 +137,19 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
                                           (implicit ec: ExecutionContext)= Future {
     val meta: Map[String, String] = toMetaMap(uploadRequest)
     val key = ImageIngestOperations.fileKeyFromId(uploadRequest.imageId)
+    S3Ops.projectFileAsS3Object(
+      config.originalFileBucket,
+      key,
+      uploadRequest.tempFile,
+      uploadRequest.mimeType,
+      meta
+    )
+  }
+
+  private def projectOriginalSourceFileAsS3Model(uploadRequest: UploadRequest)
+                                          (implicit ec: ExecutionContext)= Future {
+    val meta: Map[String, String] = toMetaMap(uploadRequest)
+    val key = ImageIngestOperations.sourceFileFromId(uploadRequest.imageId)
     S3Ops.projectFileAsS3Object(
       config.originalFileBucket,
       key,

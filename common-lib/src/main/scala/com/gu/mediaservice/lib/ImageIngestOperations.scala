@@ -2,16 +2,20 @@ package com.gu.mediaservice.lib
 
 import java.io.File
 
+import com.gu.mediaservice.lib.ImageIngestOperations.sourceFileFromId
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.aws.S3Object
 import com.gu.mediaservice.lib.logging.LogMarker
 import com.gu.mediaservice.model.{MimeType, Png}
+
 import scala.concurrent.Future
 
 object ImageIngestOperations {
   def fileKeyFromId(id: String): String = id.take(6).mkString("/") + "/" + id
 
   def optimisedPngKeyFromId(id: String): String = "optimised/" + fileKeyFromId(id: String)
+  def sourceFileFromId(id: String): String = "source/" + fileKeyFromId(id: String)
+
 }
 
 class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config: CommonConfig, isVersionedS3: Boolean = false)
@@ -22,6 +26,10 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config
   def storeOriginal(id: String, file: File, mimeType: Option[MimeType], meta: Map[String, String] = Map.empty)
                    (implicit logMarker: LogMarker): Future[S3Object] =
     storeImage(imageBucket, fileKeyFromId(id), file, mimeType, meta)
+
+  def storeSource(id: String, file: File, mimeType: Option[MimeType])
+                 (implicit logMarker: LogMarker): Future[S3Object] =
+    storeImage(imageBucket, sourceFileFromId(id), file, mimeType)
 
   def storeThumbnail(id: String, file: File, mimeType: Option[MimeType])
                     (implicit logMarker: LogMarker): Future[S3Object] =
