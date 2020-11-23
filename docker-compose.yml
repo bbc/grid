@@ -1,7 +1,7 @@
 version: '3.7'
 services:
   elasticsearch:
-    image: elasticsearch:7.5.2
+    image: elasticsearch:7.7.1
     volumes:
       - "./dev/elasticsearch/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml"
       - "./dev/elasticsearch/jvm.options:/usr/share/elasticsearch/config/jvm.options"

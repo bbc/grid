@@ -8,6 +8,8 @@ export var fileUploader = angular.module('kahuna.upload.fileUploader', [
 ]);
 
 
+
+
 fileUploader.controller('FileUploaderCtrl',
                   ['$state', 'uploadManager',
                    function($state, uploadManager) {
