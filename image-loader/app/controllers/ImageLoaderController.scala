@@ -13,7 +13,7 @@ import com.gu.mediaservice.model.UnsupportedMimeTypeException
 import lib._
 import lib.imaging.{NoSuchImageExistsInS3, UserImageLoaderException}
 import lib.storage.ImageLoaderStore
-import model.{Projector, Uploader}
+import model.{Projector, Uploader, VirusScanner}
 import play.api.Logger
 import play.api.libs.json.Json
 import play.api.libs.ws.WSClient
@@ -30,6 +30,7 @@ class ImageLoaderController(auth: Authentication,
                             config: ImageLoaderConfig,
                             uploader: Uploader,
                             projector: Projector,
+                            virusScanner: VirusScanner,
                             override val controllerComponents: ControllerComponents,
                             wSClient: WSClient)
                            (implicit val ec: ExecutionContext)
@@ -47,6 +48,7 @@ class ImageLoaderController(auth: Authentication,
   def index: Action[AnyContent] = auth { indexResponse }
 
   def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String]): Action[DigestedFile] =  {
+
     implicit val context: RequestLoggingContext = RequestLoggingContext(
       initialMarkers = Map(
         "requestType" -> "load-image",
@@ -63,6 +65,24 @@ class ImageLoaderController(auth: Authentication,
     Logger.info("body parsed")
     val parsedBody = DigestBodyParser.create(tempFile)
 
+
+//game plan A
+//1. upload image
+//2. optimise(store metadata etc) image
+//3. send image to quarantine bucket
+//4. await notification from sns
+//5. send image to clean bucket
+//6. send image upload notification
+//7. thrall receives notification and does it's thing
+
+//game plan B
+//1. upload image
+//2. send image to quarantine bucket (sling scanner scans, sends to clean bucket if clean)
+//3. receive sns notification from image ingest operation
+//4. optimise(store metadata etc) image
+//5. send image upload notification
+//6. thrall receives notification and does it's thing
+
     auth.async(parsedBody) { req =>
       val result = for {
         uploadRequest <- uploader.loadFile(
@@ -73,6 +93,8 @@ class ImageLoaderController(auth: Authentication,
           DateTimeUtils.fromValueOrNow(uploadTime),
           filename.flatMap(_.trim.nonEmptyOpt),
           context.requestId)
+        scanFile <- virusScanner.sendToQuarantine(uploadRequest)
+        //listen for topic
         result <- uploader.storeFile(uploadRequest)
       } yield result
 

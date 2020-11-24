@@ -616,7 +616,4 @@ class Uploader(val store: ImageLoaderStore,
       Json.obj("uri" -> uri)
     }
   }
-
 }
-
-

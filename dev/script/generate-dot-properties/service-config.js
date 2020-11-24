@@ -69,6 +69,7 @@ function getImageLoaderConfig(config) {
         |aws.region=${config.AWS_DEFAULT_REGION}
         |s3.image.bucket=${config.coreStackProps.ImageBucket}
         |s3.thumb.bucket=${config.coreStackProps.ThumbBucket}
+        |s3.quarantine.bucket=${config.coreStackProps.QuarantineBucket}
         |auth.keystore.bucket=${config.coreStackProps.KeyBucket}
         |thrall.kinesis.stream.name=${config.coreStackProps.ThrallMessageStream}
         |aws.local.endpoint=https://localstack.media.${config.DOMAIN}
