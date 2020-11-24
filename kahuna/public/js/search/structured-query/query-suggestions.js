@@ -33,11 +33,12 @@ export const filterFields = [
     'usages@status',
     'usages@reference',
     'has',
-    'croppedBy',
+    '',
     'filename',
     'photoshoot',
     'leasedBy',
-    'is'
+    'is',
+    'mimeType'
 ].sort();
 // TODO: add date fields
 
