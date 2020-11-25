@@ -29,7 +29,7 @@
     <div class="image-info">
         <div class="image-info__group">
             <dl>
-                <dt class="image-info__heading">Original <span class="image-info__file-size"> {{:: ctrl.image.data.source.size | asFileSize}}</span></dt>
+                <dt class="image-info__heading">Original <span class="image-info__file-size"> {{:: (ctrl.image.data.originalSource.size || ctrl.image.data.source.size) | asFileSize}}</span></dt>
                     <dd class="image-info__heading--crops">
                         <div class="image-crop"
                              ng-class="{'image-crop--selected': !ctrl.crop}">
