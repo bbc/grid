@@ -36,7 +36,7 @@ object VirusScanner{
   }
 
   def fromQuarantineUploadRequestShared(uploadRequest: UploadRequest, deps: QuarantineImageUploadOpsDependencies)
-                             (implicit ec: ExecutionContext, logMarker: LogMarker) = {
+                             (implicit ec: ExecutionContext, logMarker: LogMarker): Future[JsObject] = {
 
     import deps._
 
@@ -53,14 +53,13 @@ object VirusScanner{
                                   uploadRequest: UploadRequest,
                                   deps: QuarantineImageUploadOpsDependencies,
                               )
-                                 (implicit ec: ExecutionContext, logMarker: LogMarker) = {
-    Logger.info("stored for quarantine file")
-      println("uploading to virus scan")
+                                 (implicit ec: ExecutionContext, logMarker: LogMarker): Future[JsObject] = {
+    Logger.info("storing quarantine file")
       val sourceStoreFuture = storeOriginalFile(uploadRequest)
        val s3Source = for{
                         s3Source <- sourceStoreFuture
                       }yield (s3Source)
-         s3Source.map(println)
+      s3Source.map(result => Json.obj("status" -> "uploaded to quarantine bucket")) recover {case e => Json.obj("error" -> e.getMessage)}
 
   }
 
@@ -90,8 +89,7 @@ class VirusScanner(val store: SlingScannerStore,
 
 
   def sendToQuarantine(uploadRequest: UploadRequest)
-                        (implicit logMarker: LogMarker) = Future {
-                          println("sending to quarantine")
+                        (implicit logMarker: LogMarker): Future[JsObject] =  {
 
     val sideEffectDependencies = QuarantineImageUploadOpsDependencies(toQuarantineUploadOpsCfg(config), imageOps, storeSource)
      fromQuarantineUploadRequestShared(uploadRequest, sideEffectDependencies)
@@ -109,22 +107,4 @@ class VirusScanner(val store: SlingScannerStore,
       meta
     )
   }
-
-  // def storeFile(uploadRequest: UploadRequest)
-  //              (implicit ec:ExecutionContext,
-  //               logMarker: LogMarker): Future[JsObject] = {
-
-  //   Logger.info("Storing file")
-
-  //   for {
-  //     imageUpload <- fromUploadRequest(uploadRequest)
-  //     updateMessage = UpdateMessage(subject = "image", image = Some(imageUpload.image))
-  //     _ <- Future { notifications.publish(updateMessage) }
-  //     // TODO: centralise where all these URLs are constructed
-  //     uri = s"${config.apiUri}/images/${uploadRequest.imageId}"
-  //   } yield {
-  //     Json.obj("uri" -> uri)
-  //   }
-  // }
-
 }

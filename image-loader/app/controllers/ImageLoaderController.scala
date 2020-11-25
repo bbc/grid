@@ -60,28 +60,12 @@ class ImageLoaderController(auth: Authentication,
     )
     Logger.info("loadImage request start")
 
+    
     // synchronous write to file
-    val tempFile = createTempFile("requestBody")
+    val tempFile = createFile("requestBody")
     Logger.info("body parsed")
     val parsedBody = DigestBodyParser.create(tempFile)
 
-
-//game plan A
-//1. upload image
-//2. optimise(store metadata etc) image
-//3. send image to quarantine bucket
-//4. await notification from sns
-//5. send image to clean bucket
-//6. send image upload notification
-//7. thrall receives notification and does it's thing
-
-//game plan B
-//1. upload image
-//2. send image to quarantine bucket (sling scanner scans, sends to clean bucket if clean)
-//3. receive sns notification from image ingest operation
-//4. optimise(store metadata etc) image
-//5. send image upload notification
-//6. thrall receives notification and does it's thing
 
     auth.async(parsedBody) { req =>
       val result = for {
@@ -93,11 +77,8 @@ class ImageLoaderController(auth: Authentication,
           DateTimeUtils.fromValueOrNow(uploadTime),
           filename.flatMap(_.trim.nonEmptyOpt),
           context.requestId)
-        scanFile <- virusScanner.sendToQuarantine(uploadRequest)
-        //listen for topic
-        result <- uploader.storeFile(uploadRequest)
+        result <- virusScanner.sendToQuarantine(uploadRequest)
       } yield result
-
       result.onComplete( _ => Try { deleteTempFile(tempFile) } )
 
       result map { r =>
@@ -106,17 +87,9 @@ class ImageLoaderController(auth: Authentication,
         result
       } recover {
         case e =>
-          println("failure dey o")
           Logger.error("loadImage request ended with a failure", e)
           (e match {
-            case e: UnsupportedMimeTypeException => 
-              FailureResponse.unsupportedMimeType(e, config.supportedMimeTypes)
-            case e: ImageProcessingException => 
-              FailureResponse.notAnImage(e, config.supportedMimeTypes).as(ArgoMediaType)
-            case e: java.io.IOException => 
-              FailureResponse.badImage(e).as(ArgoMediaType)
             case e =>
-              println("last bus stop: " + e.getMessage)
               Logger.error("Failed upload", e)
               InternalServerError(Json.obj("error" -> e.getMessage)).as(ArgoMediaType)
           }).as(ArgoMediaType)
@@ -218,6 +191,12 @@ class ImageLoaderController(auth: Authentication,
     val tempFile = File.createTempFile(prefix, "", config.tempDir)
     Logger.info(s"Created temp file ${tempFile.getName} in ${config.tempDir}")
     tempFile
+  }
+
+  def createFile(prefix: String)(implicit logMarker: LogMarker): File = {
+    val file = new File(prefix)
+    Logger.info(s"Created file ${file.getName}")
+    file
   }
 
   def deleteTempFile(tempFile: File)(implicit logMarker: LogMarker): Future[Unit] = Future {
