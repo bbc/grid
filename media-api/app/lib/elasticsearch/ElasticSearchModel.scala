@@ -125,6 +125,7 @@ object SearchParams {
       case s if s.contains("tif") || s.contains("tiff") => "image/tiff"
       case s if s.contains("jpg") || s.contains("jpeg") => "image/jpeg"
       case s if s.contains("png") => "image/png"
+      case _ => searchString
     }
 
     def modifier(condition: Condition): Condition = condition match {

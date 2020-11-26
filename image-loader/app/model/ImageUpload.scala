@@ -377,7 +377,7 @@ object Uploader {
     val colourModelFuture = ImageOperations.identifyColourModel(uploadedFile, uploadRequest.mimeType.getOrElse(Jpeg))
     val sourceDimensionsFuture = FileMetadataReader.dimensions(uploadedFile, uploadRequest.mimeType)
 
-    //If file is to be optimised, store source file
+    //If file is to be optimised, store source file. Source file was not stored for media/tiff on prior versions.
     val sourceStoreFileFutureOption = uploadRequest.mimeType match {
       case Some(mime) if config.transcodedMimeTypes.contains(mime) =>
         Some(storeOrProjectSourceFile(uploadRequest))
@@ -386,7 +386,7 @@ object Uploader {
 
     //Convert Option[Future[_] to Future[Option[_]]
     val sourceStoreFileOptionFuture = sourceStoreFileFutureOption.map(_.map(Some(_))).getOrElse(Future.successful(None))
-    
+
     val sourceFile = uploadRequest.tempFile
     // if the file needs pre-processing into a supported type of file, do it now and create the new upload request.
     createOptimisedFileFuture(uploadRequest, deps).flatMap(uploadRequest => {
