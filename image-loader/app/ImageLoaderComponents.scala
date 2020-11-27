@@ -1,13 +1,13 @@
 import com.gu.mediaservice.lib.config.{MetadataStore, UsageRightsStore}
 import com.gu.mediaservice.lib.imaging.ImageOperations
-import com.gu.mediaservice.lib.logging.LogMarker
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers.ImageLoaderController
 import lib._
-import lib.storage.{ImageLoaderStore}
+import lib.storage.ImageLoaderStore
 import model.{ImageUploadOps, OptimisedPngOps, Projector, Uploader}
 import play.api.ApplicationLoader.Context
 import router.Routes
+
 import scala.concurrent.ExecutionContext
 
 class ImageLoaderComponents(context: Context)(implicit ec: ExecutionContext = ExecutionContext.global) extends GridComponents(context) {
