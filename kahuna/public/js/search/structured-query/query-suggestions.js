@@ -33,7 +33,7 @@ export const filterFields = [
     'usages@status',
     'usages@reference',
     'has',
-    '',
+    'croppedBy',
     'filename',
     'photoshoot',
     'leasedBy',
