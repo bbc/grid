@@ -286,6 +286,14 @@ class ImageUploadOps(metadataStore: MetadataStore,
     Some(Jpeg)
   )
 }
+
+case class ScanImageUploadOpsCfg(quarantineBucket: String)
+
+case class QuarantineImageUploadOpsDependencies(
+                                       config: ScanImageUploadOpsCfg,
+                                       imageOps: ImageOperations,
+                                       storeOriginalFile: UploadRequest => Future[S3Object])
+
 case class ImageUploadOpsCfg(
                               tempDir: File,
                               thumbWidth: Int,
@@ -306,6 +314,35 @@ case class ImageUploadOpsDependencies(
 object Uploader {
 
 
+  def toQuarantineUploadOpsCfg(config: ImageLoaderConfig): ScanImageUploadOpsCfg = {
+    ScanImageUploadOpsCfg(config.quarantineBucket)
+  }
+
+  def fromQuarantineUploadRequestShared(uploadRequest: UploadRequest, deps: QuarantineImageUploadOpsDependencies)
+                             (implicit ec: ExecutionContext, logMarker: LogMarker): Future[JsObject] = {
+
+    import deps._
+    
+      uploadAndStoreImageForVirusScanning(config,
+        storeOriginalFile,
+        uploadRequest,
+        deps)
+  }
+
+  private def uploadAndStoreImageForVirusScanning(config: ScanImageUploadOpsCfg,
+                                  storeOriginalFile: UploadRequest => Future[S3Object],
+                                  uploadRequest: UploadRequest,
+                                  deps: QuarantineImageUploadOpsDependencies,
+                              )
+                                 (implicit ec: ExecutionContext, logMarker: LogMarker): Future[JsObject] = {
+    Logger.info("storing quarantine file")
+      val sourceStoreFuture = storeOriginalFile(uploadRequest)
+       val s3Source = for{
+                        s3Source <- sourceStoreFuture
+                      }yield (s3Source)
+      s3Source.map(result => Json.obj("status" -> "uploaded to quarantine bucket")) recover {case e => Json.obj("error" -> e.getMessage)}
+
+  }
 
   def toImageUploadOpsCfg(config: ImageLoaderConfig): ImageUploadOpsCfg = {
     ImageUploadOpsCfg(
@@ -527,7 +564,7 @@ class Uploader(val store: ImageLoaderStore,
               (implicit val ec: ExecutionContext) extends ArgoHelpers {
 
 
-  import Uploader.{fromUploadRequestShared, toMetaMap, toImageUploadOpsCfg}
+  import Uploader.{fromUploadRequestShared, toMetaMap, toImageUploadOpsCfg, fromQuarantineUploadRequestShared, toQuarantineUploadOpsCfg}
 
 
   def fromUploadRequest(uploadRequest: UploadRequest)
@@ -541,10 +578,28 @@ class Uploader(val store: ImageLoaderStore,
     finalImage.map(img => Stopwatch("finalImage"){ImageUpload(uploadRequest, img)})
   }
 
+  def sendToQuarantine(uploadRequest: UploadRequest)
+                        (implicit logMarker: LogMarker): Future[JsObject] =  {
+
+    val sideEffectDependencies = QuarantineImageUploadOpsDependencies(toQuarantineUploadOpsCfg(config), imageOps, storeQuaratineImage)
+     fromQuarantineUploadRequestShared(uploadRequest, sideEffectDependencies)
+  }
+
   private def storeSource(uploadRequest: UploadRequest)
                          (implicit logMarker: LogMarker) = {
     val meta = toMetaMap(uploadRequest)
     store.storeOriginal(
+      uploadRequest.imageId,
+      uploadRequest.tempFile,
+      uploadRequest.mimeType,
+      meta
+    )
+  }
+
+  private def storeQuaratineImage(uploadRequest: UploadRequest)
+                         (implicit logMarker: LogMarker) = {
+    val meta = toMetaMap(uploadRequest)
+    store.sendToQuarantine(
       uploadRequest.imageId,
       uploadRequest.tempFile,
       uploadRequest.mimeType,

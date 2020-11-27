@@ -4,8 +4,8 @@ import com.gu.mediaservice.lib.logging.LogMarker
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers.ImageLoaderController
 import lib._
-import lib.storage.{ImageLoaderStore,SlingScannerStore}
-import model.{ImageUploadOps, OptimisedPngOps, Projector, Uploader,VirusScanner}
+import lib.storage.{ImageLoaderStore}
+import model.{ImageUploadOps, OptimisedPngOps, Projector, Uploader}
 import play.api.ApplicationLoader.Context
 import router.Routes
 import scala.concurrent.ExecutionContext
@@ -16,7 +16,6 @@ class ImageLoaderComponents(context: Context)(implicit ec: ExecutionContext = Ex
   final override val buildInfo = utils.buildinfo.BuildInfo
 
   val loaderStore = new ImageLoaderStore(config)
-  val slingScannerStore = new SlingScannerStore(config)
   val imageOperations = new ImageOperations(context.environment.rootPath.getAbsolutePath)
 
   val notifications = new Notifications(config)
@@ -34,9 +33,8 @@ class ImageLoaderComponents(context: Context)(implicit ec: ExecutionContext = Ex
   usageRightsConfigStore.scheduleUpdates(actorSystem.scheduler)
 
   val imageUploadOps = new ImageUploadOps(metaDataConfigStore, usageRightsConfigStore, loaderStore, config, imageOperations, optimisedPngOps)
-  val virusScanner = new VirusScanner(slingScannerStore, config, imageOperations, notifications)
 
-  val controller = new ImageLoaderController(auth, downloader, loaderStore, notifications, config, uploader, projector, virusScanner, controllerComponents, wsClient)
+  val controller = new ImageLoaderController(auth, downloader, loaderStore, notifications, config, uploader, projector, controllerComponents, wsClient)
 
   override lazy val router = new Routes(httpErrorHandler, controller, management)
 }

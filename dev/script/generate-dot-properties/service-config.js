@@ -172,6 +172,7 @@ function getThrallConfig(config) {
         |auth.keystore.bucket=${config.coreStackProps.KeyBucket}
         |s3.image.bucket=${config.coreStackProps.ImageBucket}
         |s3.thumb.bucket=${config.coreStackProps.ThumbBucket}
+        |s3.quarantine.bucket=${config.coreStackProps.QuarantineBucket}
         |persistence.identifier=picdarUrn
         |es.index.aliases.write=writeAlias
         |es.index.aliases.read=readAlias

@@ -13,7 +13,7 @@ import com.gu.mediaservice.model.UnsupportedMimeTypeException
 import lib._
 import lib.imaging.{NoSuchImageExistsInS3, UserImageLoaderException}
 import lib.storage.ImageLoaderStore
-import model.{Projector, Uploader, VirusScanner}
+import model.{Projector, Uploader}
 import play.api.Logger
 import play.api.libs.json.Json
 import play.api.libs.ws.WSClient
@@ -30,7 +30,6 @@ class ImageLoaderController(auth: Authentication,
                             config: ImageLoaderConfig,
                             uploader: Uploader,
                             projector: Projector,
-                            virusScanner: VirusScanner,
                             override val controllerComponents: ControllerComponents,
                             wSClient: WSClient)
                            (implicit val ec: ExecutionContext)
@@ -77,7 +76,7 @@ class ImageLoaderController(auth: Authentication,
           DateTimeUtils.fromValueOrNow(uploadTime),
           filename.flatMap(_.trim.nonEmptyOpt),
           context.requestId)
-        result <- virusScanner.sendToQuarantine(uploadRequest)
+        result <- uploader.sendToQuarantine(uploadRequest)
       } yield result
       result.onComplete( _ => Try { deleteTempFile(tempFile) } )
 
