@@ -90,7 +90,7 @@ object OptimisedPngOps {
             config: ImageUploadOpsCfg,
             storeOrProject: (UploadRequest, File) => Future[S3Object])
            (implicit ec: ExecutionContext, logMarker: LogMarker): OptimisedPng = {
-          
+
     val result = if (!OptimisedPng.shouldOptimise(uploadRequest.mimeType, fileMetadata)) {
       OptimisedPng(Future(None), isPng24 = false, None)
     } else {
@@ -322,14 +322,14 @@ object Uploader {
                              (implicit ec: ExecutionContext, logMarker: LogMarker): Future[JsObject] = {
 
     import deps._
-    
-      uploadAndStoreImageForVirusScanning(config,
+
+      uploadAndStoreQuarantineImage(config,
         storeOriginalFile,
         uploadRequest,
         deps)
   }
 
-  private def uploadAndStoreImageForVirusScanning(config: ScanImageUploadOpsCfg,
+  private def uploadAndStoreQuarantineImage(config: ScanImageUploadOpsCfg,
                                   storeOriginalFile: UploadRequest => Future[S3Object],
                                   uploadRequest: UploadRequest,
                                   deps: QuarantineImageUploadOpsDependencies,
@@ -374,7 +374,7 @@ object Uploader {
     val uploadedFile = uploadRequest.tempFile
 
     val fileMetadataFuture = toFileMetadata(uploadedFile, uploadRequest.imageId, uploadRequest.mimeType)
-    
+
     Logger.info("Have read file headers")
 
     fileMetadataFuture.flatMap(fileMetadata => {
@@ -425,7 +425,7 @@ object Uploader {
         config,
         storeOrProjectOptimisedPNG)(ec, logMarker)
       Logger.info(s"optimised image ($toOptimiseFile) created")
-        
+
       bracket(thumbFuture)(_.delete) { thumb =>
         // Run the operations in parallel
         val thumbStoreFuture = storeOrProjectThumbFile(uploadRequest, thumb)
@@ -569,12 +569,12 @@ class Uploader(val store: ImageLoaderStore,
 
   def fromUploadRequest(uploadRequest: UploadRequest)
                        (implicit logMarker: LogMarker): Future[ImageUpload] = {
-    
+
     val sideEffectDependencies = ImageUploadOpsDependencies(toImageUploadOpsCfg(config), imageOps,
       storeSource, storeThumbnail, storeOptimisedPng)
 
     val finalImage = fromUploadRequestShared(uploadRequest, sideEffectDependencies)
-    
+
     finalImage.map(img => Stopwatch("finalImage"){ImageUpload(uploadRequest, img)})
   }
 
