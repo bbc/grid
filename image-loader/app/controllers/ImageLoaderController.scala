@@ -61,7 +61,7 @@ class ImageLoaderController(auth: Authentication,
 
     
     // synchronous write to file
-    val tempFile = createFile("requestBody")
+    val tempFile = createTempFile("requestBody")
     Logger.info("body parsed")
     val parsedBody = DigestBodyParser.create(tempFile)
 
@@ -190,12 +190,6 @@ class ImageLoaderController(auth: Authentication,
     val tempFile = File.createTempFile(prefix, "", config.tempDir)
     Logger.info(s"Created temp file ${tempFile.getName} in ${config.tempDir}")
     tempFile
-  }
-
-  def createFile(prefix: String)(implicit logMarker: LogMarker): File = {
-    val file = new File(prefix)
-    Logger.info(s"Created file ${file.getName}")
-    file
   }
 
   def deleteTempFile(tempFile: File)(implicit logMarker: LogMarker): Future[Unit] = Future {
