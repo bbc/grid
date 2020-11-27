@@ -59,12 +59,10 @@ class ImageLoaderController(auth: Authentication,
     )
     Logger.info("loadImage request start")
 
-
     // synchronous write to file
     val tempFile = createTempFile("requestBody")
     Logger.info("body parsed")
     val parsedBody = DigestBodyParser.create(tempFile)
-
 
     auth.async(parsedBody) { req =>
       val result = for {
@@ -76,7 +74,7 @@ class ImageLoaderController(auth: Authentication,
           DateTimeUtils.fromValueOrNow(uploadTime),
           filename.flatMap(_.trim.nonEmptyOpt),
           context.requestId)
-        result <- uploader.storeFile(uploadRequest)
+        result <- if (config.uploadToQuarantineEnabled) uploader.quarantineFile(uploadRequest) else uploader.storeFile(uploadRequest)
       } yield result
       result.onComplete( _ => Try { deleteTempFile(tempFile) } )
 

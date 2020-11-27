@@ -13,17 +13,13 @@ import com.gu.mediaservice.lib.cleanup.{MetadataCleaners, SupplierProcessors}
 import com.gu.mediaservice.lib.config.{MetadataStore, UsageRightsStore}
 import com.gu.mediaservice.lib.formatting._
 import com.gu.mediaservice.lib.imaging.ImageOperations
-import com.gu.mediaservice.lib.logging.{LogMarker, Stopwatch, addLogMarkers}
-import com.gu.mediaservice.lib.logging.MarkerMap
-import com.gu.mediaservice.lib.metadata.{
-  FileMetadataHelper,
-  ImageMetadataConverter
-}
+import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap, Stopwatch}
+import com.gu.mediaservice.lib.metadata.{FileMetadataHelper, ImageMetadataConverter}
 import com.gu.mediaservice.lib.resource.FutureResources._
 import com.gu.mediaservice.model._
-import lib.{DigestedFile, ImageLoaderConfig, Notifications}
 import lib.imaging.{FileMetadataReader, MimeTypeDetection}
 import lib.storage.ImageLoaderStore
+import lib.{DigestedFile, ImageLoaderConfig, Notifications}
 import net.logstash.logback.marker.LogstashMarker
 import org.joda.time.DateTime
 import play.api.Logger
@@ -684,13 +680,7 @@ class Uploader(
     val notifications: Notifications)(implicit val ec: ExecutionContext)
     extends ArgoHelpers {
 
-  import Uploader.{
-    fromUploadRequestShared,
-    toMetaMap,
-    toImageUploadOpsCfg,
-    fromQuarantineUploadRequestShared,
-    toQuarantineUploadOpsCfg
-  }
+  import Uploader._
 
   def fromUploadRequest(uploadRequest: UploadRequest)(
       implicit logMarker: LogMarker): Future[ImageUpload] = {
@@ -791,32 +781,37 @@ class Uploader(
       }
     }
 
+  def quarantineFile(uploadRequest: UploadRequest)(
+    implicit ec: ExecutionContext,
+    logMarker: LogMarker): Future[JsObject] = {
+
+    Logger.info("Quarantining file")
+
+    for {
+      _ <- fromQuarantineUploadRequest(uploadRequest)
+      uri = s"${config.apiUri}/images/${uploadRequest.imageId}"
+    } yield {
+      Json.obj("uri" -> uri)
+    }
+  }
+
   def storeFile(uploadRequest: UploadRequest)(
       implicit ec: ExecutionContext,
       logMarker: LogMarker): Future[JsObject] = {
 
     Logger.info("Storing file")
 
-    if (config.uploadToQuarantineEnabled) {
-      for {
-        _ <- fromQuarantineUploadRequest(uploadRequest)
-        uri = s"${config.apiUri}/images/${uploadRequest.imageId}"
-      } yield {
-        Json.obj("uri" -> uri)
+    for {
+      imageUpload <- fromUploadRequest(uploadRequest)
+      updateMessage = UpdateMessage(subject = "image",
+        image = Some(imageUpload.image))
+      _ <- Future {
+        notifications.publish(updateMessage)
       }
-    } else {
-      for {
-        imageUpload <- fromUploadRequest(uploadRequest)
-        updateMessage = UpdateMessage(subject = "image",
-          image = Some(imageUpload.image))
-        _ <- Future {
-          notifications.publish(updateMessage)
-        }
-        // TODO: centralise where all these URLs are constructed
-        uri = s"${config.apiUri}/images/${uploadRequest.imageId}"
-      } yield {
-        Json.obj("uri" -> uri)
-      }
+      // TODO: centralise where all these URLs are constructed
+      uri = s"${config.apiUri}/images/${uploadRequest.imageId}"
+    } yield {
+      Json.obj("uri" -> uri)
     }
   }
 }
