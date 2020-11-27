@@ -229,7 +229,6 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, implicit val cos
       (__ \ "identifiers").write[Map[String, String]] ~
       (__ \ "uploadInfo").write[UploadInfo] ~
       (__ \ "source").write[Asset] ~
-      (__ \ "originalSource").writeNullable[Asset] ~
       (__ \ "thumbnail").writeNullable[Asset] ~
       (__ \ "optimisedPng").writeNullable[Asset] ~
       (__ \ "fileMetadata").write[FileMetadataEntity]

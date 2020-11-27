@@ -218,10 +218,7 @@ class MediaApi(
         val apiKey = request.user.accessor
         GridLogger.info(s"Download original image: $id from user: ${Authentication.getIdentity(request.user)}", apiKey, id)
         mediaApiMetrics.incrementImageDownload(apiKey, mediaApiMetrics.OriginalDownloadType)
-        val s3Object = image.originalSource match {
-          case Some(originalSource) => s3Client.getObject(config.imageBucket, originalSource.file)
-          case _ => s3Client.getObject(config.imageBucket, image.source.file)
-        }
+        val s3Object = s3Client.getObject(config.imageBucket, image.source.file)
         val file = StreamConverters.fromInputStream(() => s3Object.getObjectContent)
         val entity = HttpEntity.Streamed(file, image.source.size, image.source.mimeType.map(_.name))
 
