@@ -709,13 +709,13 @@ class Uploader(
       Stopwatch("finalImage") { ImageUpload(uploadRequest, img) })
   }
 
-  def sendToQuarantine(uploadRequest: UploadRequest)(
+  def fromQuarantineUploadRequest(uploadRequest: UploadRequest)(
       implicit logMarker: LogMarker): Future[JsObject] = {
 
     val sideEffectDependencies = QuarantineImageUploadOpsDependencies(
       toQuarantineUploadOpsCfg(config),
       imageOps,
-      storeQuaratineImage)
+      storeQuarantineImage)
     fromQuarantineUploadRequestShared(uploadRequest, sideEffectDependencies)
   }
 
@@ -730,7 +730,7 @@ class Uploader(
     )
   }
 
-  private def storeQuaratineImage(uploadRequest: UploadRequest)(
+  private def storeQuarantineImage(uploadRequest: UploadRequest)(
       implicit logMarker: LogMarker) = {
     val meta = toMetaMap(uploadRequest)
     store.sendToQuarantine(
@@ -797,15 +797,26 @@ class Uploader(
 
     Logger.info("Storing file")
 
-    for {
-      imageUpload <- fromUploadRequest(uploadRequest)
-      updateMessage = UpdateMessage(subject = "image",
-                                    image = Some(imageUpload.image))
-      _ <- Future { notifications.publish(updateMessage) }
-      // TODO: centralise where all these URLs are constructed
-      uri = s"${config.apiUri}/images/${uploadRequest.imageId}"
-    } yield {
-      Json.obj("uri" -> uri)
+    if (config.uploadToQuarantineEnabled) {
+      for {
+        _ <- fromQuarantineUploadRequest(uploadRequest)
+        uri = s"${config.apiUri}/images/${uploadRequest.imageId}"
+      } yield {
+        Json.obj("uri" -> uri)
+      }
+    } else {
+      for {
+        imageUpload <- fromUploadRequest(uploadRequest)
+        updateMessage = UpdateMessage(subject = "image",
+          image = Some(imageUpload.image))
+        _ <- Future {
+          notifications.publish(updateMessage)
+        }
+        // TODO: centralise where all these URLs are constructed
+        uri = s"${config.apiUri}/images/${uploadRequest.imageId}"
+      } yield {
+        Json.obj("uri" -> uri)
+      }
     }
   }
 }

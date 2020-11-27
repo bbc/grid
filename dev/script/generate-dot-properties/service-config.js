@@ -77,6 +77,7 @@ function getImageLoaderConfig(config) {
         |security.cors.allowedOrigins=${getCorsAllowedOriginString(config)}
         |metrics.request.enabled=false
         |transcoded.mime.types=image/tiff
+        |upload.quarantine.enabled=false
         |`;
 }
 
