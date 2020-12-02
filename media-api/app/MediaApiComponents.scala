@@ -54,5 +54,13 @@ class MediaApiComponents(context: Context) extends GridComponents(context) {
   val elasticSearchHealthCheck = new ElasticSearchHealthCheck(controllerComponents, elasticSearch)
   val healthcheckController = new ManagementWithPermissions(controllerComponents, mediaApi, buildInfo)
 
+  val metrics = new MediaApiMetrics(config)
+  val virusStatusSqsMessageConsumer = new VirusStatusSqsMessageConsumer(config, metrics)
+
+  virusStatusSqsMessageConsumer.startSchedule()
+  context.lifecycle.addStopHook {
+    () => virusStatusSqsMessageConsumer.actorSystem.terminate()
+  }
+
   override val router = new Routes(httpErrorHandler, mediaApi, suggestionController, aggController, usageController, elasticSearchHealthCheck, healthcheckController)
 }
