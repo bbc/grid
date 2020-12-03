@@ -21,6 +21,7 @@ jobs.controller('UploadJobsCtrl', [
     '$scope',
     '$window',
     'apiPoll',
+    'mediaApi',
     'imageService',
     'labelService',
     'presetLabelService',
@@ -31,19 +32,50 @@ jobs.controller('UploadJobsCtrl', [
             $window,
             apiPoll,
             imageService,
+            mediaApi,
             labelService,
             presetLabelService,
             editsService) {
 
+
+
     var ctrl = this;
     const presetLabels = presetLabelService.getLabels();
 
-    // State machine-esque async transitions
     const eventName = 'Image upload';
+
+
+//    console.log('Contect to WS******************')
+
+//    let sockets3 = new WebSocket("ws://localhost:9001/socket")
+//
+//
+//    sockets3.onopen = (event) => {
+//    console.log("Conected3...")
+//    console.log(event)
+//    sockets3.send("some msg")
+//    }
+//
+//    sockets3.onmessage = (event) => {
+//      console.log("OnMessage Event")
+//      console.log(event.data)
+//    }
 
     ctrl.jobs.forEach(jobItem => {
         jobItem.status = 'uploading';
+        console.log(jobItem)
 
+        console.log("*********document.cookie*************")
+        console.log(document.cookie)
+       if (window.EventSource) {
+         console.log("connecting to SSE..............")
+         var stringSource = new EventSource("https://api.media.example.com/sse");
+         stringSource.addEventListener('message', function(e) {
+            console.log(e.data)
+         });
+        } else {
+         console.log("Sorry. This browser doesn't seem to support Server sent event");
+        }
         jobItem.resourcePromise.then(resource => {
             jobItem.status = 'indexing';
             jobItem.resource = resource;

@@ -11,15 +11,19 @@ class VirusStatusSqsMessageConsumer(config: MediaApiConfig, mediaApiMetrics: Med
 
   override def chooseProcessor(subject: String): Option[JsValue => Future[Any]] =
     PartialFunction.condOpt(subject) {
-      case "SLING_SCANNER_RESULT_NEGATIVE" => processNegativeImage
-      case "SLING_SCANNER_RESULT_POSITIVE" => processPositiveImage
+      case _ => JsValue => Future{}
     }
 
-  def processNegativeImage(message: JsValue) = Future {
-    // emit to UI with negative status
-  }
 
-  def processPositiveImage(message: JsValue) = Future {
-    // emit to UI with positive status
+  def getNotificationMsg(user: Option[String]): JsValue = {
+    val messages = getMessages(waitTime = 20, maxMessages = 1)
+    messages.map{ message =>
+      val msg  = extractSNSMessage(message)
+      println(s"Message: $msg")
+      msg match {
+        case Some(msg) => msg.body
+        case None => Json.obj("uploadedBy" -> "None")
+      }
+    }.filter(m => (m \ "uploadedBy").as[String] == user.get).head
   }
 }
