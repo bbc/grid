@@ -76,7 +76,7 @@ abstract class SqsMessageConsumer(queueUrl: String, config: CommonConfig, metric
    def extractSNSMessage(sqsMessage: SQSMessage): Option[SNSMessage] =
     Json.fromJson[SNSMessage](Json.parse(sqsMessage.getBody)) <| logParseErrors |> (_.asOpt)
 
-  private def deleteMessage(message: SQSMessage): Unit =
+  def deleteMessage(message: SQSMessage): Unit =
     client.deleteMessage(new DeleteMessageRequest(queueUrl, message.getReceiptHandle))
 }
 

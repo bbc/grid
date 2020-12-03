@@ -16,14 +16,18 @@ class VirusStatusSqsMessageConsumer(config: MediaApiConfig, mediaApiMetrics: Med
 
 
   def getNotificationMsg(user: Option[String]): JsValue = {
-    val messages = getMessages(waitTime = 20, maxMessages = 1)
-    messages.map{ message =>
-      val msg  = extractSNSMessage(message)
-      println(s"Message: $msg")
-      msg match {
-        case Some(msg) => msg.body
-        case None => Json.obj("uploadedBy" -> "None")
-      }
-    }.filter(m => (m \ "uploadedBy").as[String] == user.get).head
+    val snsMessage = getMessages(waitTime = 20, maxMessages = 1).head
+    val msg  = extractSNSMessage(snsMessage)
+    val notification = msg match {
+      case Some(msg) => println((msg.body \ "metadata" \ "uploaded_by").as[String]);msg.body;
+      case None => Json.obj("uploadedBy" -> "None")
+    }
+    val uploadedBy = (notification \ "metadata" \ "uploaded_by").as[String]
+    if(uploadedBy == user.get){
+      deleteMessage(snsMessage)
+      notification
+    } else {
+      Json.obj("scan_result" -> "scanning")
+    }
   }
 }

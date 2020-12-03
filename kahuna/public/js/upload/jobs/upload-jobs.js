@@ -21,7 +21,6 @@ jobs.controller('UploadJobsCtrl', [
     '$scope',
     '$window',
     'apiPoll',
-    'mediaApi',
     'imageService',
     'labelService',
     'presetLabelService',
@@ -32,7 +31,6 @@ jobs.controller('UploadJobsCtrl', [
             $window,
             apiPoll,
             imageService,
-            mediaApi,
             labelService,
             presetLabelService,
             editsService) {
@@ -61,21 +59,19 @@ jobs.controller('UploadJobsCtrl', [
 //      console.log(event.data)
 //    }
 
+   if (window.EventSource) {
+     console.log("connecting to SSE..............")
+     var stringSource = new EventSource("https://api.media.example.com/sse");
+     stringSource.addEventListener('message', function(e) {
+        console.log(e.data)
+     });
+    } else {
+     console.log("Sorry. This browser doesn't seem to support Server sent event");
+    }
+
     ctrl.jobs.forEach(jobItem => {
         jobItem.status = 'uploading';
-        console.log(jobItem)
 
-        console.log("*********document.cookie*************")
-        console.log(document.cookie)
-       if (window.EventSource) {
-         console.log("connecting to SSE..............")
-         var stringSource = new EventSource("https://api.media.example.com/sse");
-         stringSource.addEventListener('message', function(e) {
-            console.log(e.data)
-         });
-        } else {
-         console.log("Sorry. This browser doesn't seem to support Server sent event");
-        }
         jobItem.resourcePromise.then(resource => {
             jobItem.status = 'indexing';
             jobItem.resource = resource;
