@@ -1,6 +1,8 @@
 import angular from "angular";
 import { EventSourcePolyfill } from "ng-event-source";
 
+import "./upload-jobs.css"
+
 import template from "./upload-jobs.html";
 import "../../preview/image";
 import "../../components/gr-delete-image/gr-delete-image";
@@ -59,14 +61,12 @@ jobs.controller("UploadJobsCtrl", [
         const data = JSON.parse(msg.data);
         const statusDiv = document.getElementById(data.metadata.file_name);
         if (data.scan_result === "POSITIVE") {
-          statusDiv.classList.add("status--invalid");
-          statusDiv.classList.remove("status--valid");
-          statusDiv.innerHTML = "file is infected with a virus";
+          statusDiv.classList.add("result-scanner-positive");
+          statusDiv.innerHTML = "file is infected with a virus!";
         }
         if (data.scan_result === "NEGATIVE") {
-          statusDiv.classList.remove("status--invalid");
-          statusDiv.classList.add("status--valid");
-          statusDiv.innerHTML = "no threats detected";
+          statusDiv.classList.add("result-scanner-negative");
+          statusDiv.innerHTML = "no threats detected!";
         }
       };
       eventSource.onerror = (e) => {
