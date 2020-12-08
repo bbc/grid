@@ -4,7 +4,7 @@ import com.gu.mediaservice.lib.auth.{Authentication, Tier}
 import com.gu.mediaservice.lib.formatting.{parseDateFromQuery, printDateTime}
 import com.gu.mediaservice.model.usage.UsageStatus
 import com.gu.mediaservice.model.{Image, SyndicationStatus}
-import lib.querysyntax.{Condition, Parser}
+import lib.querysyntax.{Condition, Match, Parser, SingleField, Words}
 import org.joda.time.DateTime
 import play.api.libs.json.Json
 import play.api.mvc.{AnyContent, Request}
@@ -121,8 +121,20 @@ object SearchParams {
 
     def commaSep(key: String): List[String] = request.getQueryString(key).toList.flatMap(commasToList)
 
+    def fileMimeTypeHelper(searchString: String) = searchString match {
+      case s if s.contains("tif") || s.contains("tiff") => "image/tiff"
+      case s if s.contains("jpg") || s.contains("jpeg") => "image/jpeg"
+      case s if s.contains("png") => "image/png"
+      case _ => searchString
+    }
+
+    def modifier(condition: Condition): Condition = condition match {
+      case Match(SingleField(field), Words(searchString)) if field == "source.mimeType" => Match(SingleField(field), Words(fileMimeTypeHelper(searchString)))
+      case nonMatched => nonMatched
+    }
+
     val query = request.getQueryString("q")
-    val structuredQuery = query.map(Parser.run) getOrElse List()
+    val structuredQuery = (query.map(Parser.run) getOrElse List()).map(modifier)
 
     SearchParams(
       query,

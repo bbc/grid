@@ -37,7 +37,8 @@ export const filterFields = [
     'filename',
     'photoshoot',
     'leasedBy',
-    'is'
+    'is',
+    'fileType'
 ].sort();
 // TODO: add date fields
 
