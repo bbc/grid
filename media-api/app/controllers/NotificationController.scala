@@ -18,17 +18,12 @@ class NotificationController(auth: Authentication, consumer: VirusStatusSqsMessa
   implicit val system = ActorSystem("NotificationSystem")
   implicit val materializer = ActorMaterializer()
 
-  def serverSentEvent = auth.async { request =>
-  val user =  request.user match {
-      case user: PandaUser => Some(user.user.email.toLowerCase())
-      case _ => None
-    }
-    Future.successful(Ok.chunked(notificationSource(user) via EventSource.flow).as(ContentTypes.EVENT_STREAM))
+  def serverSentEvent(userEmail: String) = Action {
+    Ok.chunked(notificationSource(userEmail) via EventSource.flow).as(ContentTypes.EVENT_STREAM)
   }
 
-  def notificationSource(user: Option[String]): Source[JsValue, _] = {
+  def notificationSource(user: String): Source[JsValue, _] = {
     val tickSource = Source.tick(0.millis, 100.millis, "TICK")
-    val s = tickSource.map(_ => consumer.getNotificationMsg(user) )
-    s
+    tickSource.map(_ => consumer.getNotificationMsg(user) )
   }
 }

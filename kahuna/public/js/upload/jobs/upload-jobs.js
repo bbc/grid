@@ -166,10 +166,10 @@ jobs.controller("UploadJobsCtrl", [
     });
 
     // this needs to be a function due to the stateful `jobItem`
-    ctrl.jobImages = () => ctrl.jobs.map((jobItem) => jobItem.image);
+    ctrl.jobImages = () => ctrl.jobs.map(jobItem => jobItem.image);
 
     ctrl.removeJob = (job) => {
-      const index = ctrl.jobs.findIndex((j) => j.name === job.name);
+      const index = ctrl.jobs.findIndex(j => j.name === job.name);
 
       if (index > -1) {
         ctrl.jobs.splice(index, 1);
@@ -202,26 +202,24 @@ jobs.controller("UploadJobsCtrl", [
       }
     );
 
-    $scope.$on("$destroy", function () {
+    $scope.$on('$destroy', function () {
       freeImageDeleteListener();
       freeImageDeleteFailListener();
     });
-  },
-]);
+  }]);
 
-jobs.directive("uiUploadJobs", [
-  function () {
+jobs.directive('uiUploadJobs', [ function () {
     return {
-      restrict: "E",
+      restrict: 'E',
       scope: {
         // Annoying that we can't make a uni-directional binding
         // as we don't really want to modify the original
-        jobs: "=",
+        jobs: '='
       },
-      controller: "UploadJobsCtrl",
-      controllerAs: "ctrl",
+      controller: 'UploadJobsCtrl',
+      controllerAs: 'ctrl',
       bindToController: true,
-      template: template,
+      template: template
     };
   },
 ]);

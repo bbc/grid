@@ -41,4 +41,4 @@ GET     /management/imageCounts                       com.gu.mediaservice.lib.ma
 GET     /robots.txt                                   com.gu.mediaservice.lib.management.ManagementWithPermissions.disallowRobots
 
 #SSE
-GET   /sse                       controllers.NotificationController.serverSentEvent
+GET   /sse/:userEmail                       controllers.NotificationController.serverSentEvent(userEmail: String)
