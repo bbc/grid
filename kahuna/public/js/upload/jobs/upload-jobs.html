@@ -16,7 +16,7 @@
                         <div class="bottom-bar__actions"></div>
                     </div>
                 </div>
-                <div class="job-status status"
+                <div id="{{job.name}}" class="job-status status"
                      ng-class="{
                          'status--invalid': job.status === 'upload error',
                          'status--valid':   job.status === 'uploaded'
