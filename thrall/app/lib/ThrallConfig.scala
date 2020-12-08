@@ -33,7 +33,7 @@ class ThrallConfig(override val configuration: Configuration) extends CommonConf
   lazy val queueUrl: String = properties("sqs.queue.url")
 
   lazy val imageBucket: String = properties("s3.image.bucket")
-
+  lazy val quarantineBucket: String = properties("s3.quarantine.bucket")
   lazy val writeAlias: String = properties.getOrElse("es.index.aliases.write", configuration.get[String]("es.index.aliases.write"))
 
   lazy val thumbnailBucket: String = properties("s3.thumb.bucket")

@@ -145,6 +145,7 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
       meta
     )
   }
+  
 
   private def projectThumbnailFileAsS3Model(uploadRequest: UploadRequest, thumbFile: File)(implicit ec: ExecutionContext) = Future {
     val key = ImageIngestOperations.fileKeyFromId(uploadRequest.imageId)

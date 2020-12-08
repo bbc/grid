@@ -47,6 +47,7 @@ class ImageLoaderController(auth: Authentication,
   def index: Action[AnyContent] = auth { indexResponse }
 
   def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String]): Action[DigestedFile] =  {
+
     implicit val context: RequestLoggingContext = RequestLoggingContext(
       initialMarkers = Map(
         "requestType" -> "load-image",
@@ -73,9 +74,8 @@ class ImageLoaderController(auth: Authentication,
           DateTimeUtils.fromValueOrNow(uploadTime),
           filename.flatMap(_.trim.nonEmptyOpt),
           context.requestId)
-        result <- uploader.storeFile(uploadRequest)
+        result <- if (config.uploadToQuarantineEnabled) uploader.quarantineFile(uploadRequest) else uploader.storeFile(uploadRequest)
       } yield result
-
       result.onComplete( _ => Try { deleteTempFile(tempFile) } )
 
       result map { r =>
@@ -86,12 +86,6 @@ class ImageLoaderController(auth: Authentication,
         case e =>
           Logger.error("loadImage request ended with a failure", e)
           (e match {
-            case e: UnsupportedMimeTypeException =>
-              FailureResponse.unsupportedMimeType(e, config.supportedMimeTypes)
-            case e: ImageProcessingException =>
-              FailureResponse.notAnImage(e, config.supportedMimeTypes).as(ArgoMediaType)
-            case e: java.io.IOException =>
-              FailureResponse.badImage(e).as(ArgoMediaType)
             case e =>
               Logger.error("Failed upload", e)
               InternalServerError(Json.obj("error" -> e.getMessage)).as(ArgoMediaType)

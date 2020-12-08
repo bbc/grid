@@ -69,6 +69,7 @@ function getImageLoaderConfig(config) {
         |aws.region=${config.AWS_DEFAULT_REGION}
         |s3.image.bucket=${config.coreStackProps.ImageBucket}
         |s3.thumb.bucket=${config.coreStackProps.ThumbBucket}
+        |s3.quarantine.bucket=${config.coreStackProps.QuarantineBucket}
         |auth.keystore.bucket=${config.coreStackProps.KeyBucket}
         |thrall.kinesis.stream.name=${config.coreStackProps.ThrallMessageStream}
         |aws.local.endpoint=https://localstack.media.${config.DOMAIN}
@@ -76,6 +77,7 @@ function getImageLoaderConfig(config) {
         |security.cors.allowedOrigins=${getCorsAllowedOriginString(config)}
         |metrics.request.enabled=false
         |transcoded.mime.types=image/tiff
+        |upload.quarantine.enabled=false
         |`;
 }
 
@@ -171,6 +173,7 @@ function getThrallConfig(config) {
         |auth.keystore.bucket=${config.coreStackProps.KeyBucket}
         |s3.image.bucket=${config.coreStackProps.ImageBucket}
         |s3.thumb.bucket=${config.coreStackProps.ThumbBucket}
+        |s3.quarantine.bucket=${config.coreStackProps.QuarantineBucket}
         |persistence.identifier=picdarUrn
         |es.index.aliases.write=writeAlias
         |es.index.aliases.read=readAlias
@@ -195,7 +198,7 @@ function getUsageConfig(config) {
         |capi.apiKey=${config.guardian.capi.live.key}
         |dynamo.tablename.usageRecordTable=UsageRecordTable
         |composer.baseUrl=composer.${config.DOMAIN}
-        |thrall.kinesis.stream.name=${config.coreStackProps.ThrallLowPriorityMessageStream}
+        |thrall.kinesis.stream.name=${config.coreStackProps.ThrallMessageStream}
         |aws.local.endpoint=https://localstack.media.${config.DOMAIN}
         |crier.live.arn=${config.guardian.crier.live.roleArn}
         |crier.preview.arn=${config.guardian.crier.preview.roleArn}

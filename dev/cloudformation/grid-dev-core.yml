@@ -53,6 +53,9 @@ Resources:
   CollectionsBucket:
     Type: AWS::S3::Bucket
 
+  QuarantineBucket:
+    Type: AWS::S3::Bucket
+
   UsageMailBucket:
     Type: AWS::S3::Bucket
     Properties:

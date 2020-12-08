@@ -12,9 +12,16 @@ class ImageLoaderConfig(override val configuration: Configuration) extends Commo
 
   val imageBucket: String = properties("s3.image.bucket")
 
+  val quarantineBucket: String = properties("s3.quarantine.bucket")
+
   val thumbnailBucket: String = properties("s3.thumb.bucket")
 
   val configBucket: String = properties("s3.config.bucket")
+
+  val uploadToQuarantineEnabled: Boolean = properties.getOrElse("upload.quarantine.enabled", "false").toLowerCase match {
+    case "true" => true
+    case _ => false
+  }
 
   val tempDir: File = new File(properties.getOrElse("upload.tmp.dir", "/tmp"))
 
