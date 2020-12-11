@@ -1,7 +1,8 @@
 package com.gu.mediaservice.lib.cleanup
 
-import com.gu.mediaservice.lib.config.SupplierMatch
+import com.gu.mediaservice.lib.config.{CommonConfig, SupplierMatch}
 import com.gu.mediaservice.model.Image
+
 
 /**
   * An image processor has a single apply method that takes an `Image` and returns an `Image`. This can be used
@@ -9,13 +10,17 @@ import com.gu.mediaservice.model.Image
   * suppliers and also to clean and conform metadata.
   */
 trait ImageProcessor {
+
   def apply(image: Image): Image
   def description: String = getClass.getCanonicalName
 
+  /**************************
+    * Remove the below methods for the codebase merge
+    **************************/
   def getMatcher(parserName: String, matches: List[SupplierMatch]): Option[SupplierMatch] =
     matches.find(m => m.name == parserName)
 
-  def matchesCreditOrSource(image: Image, parserName: String, supplierMatches: List[SupplierMatch])=
+  def matchesCreditOrSource(image: Image, parserName: String, supplierMatches: List[SupplierMatch])= {
     getMatcher(parserName, supplierMatches) match {
       case Some(m) => (image.metadata.credit, image.metadata.source) match {
         case (Some(credit), _) if m.creditMatches.map(_.toLowerCase).exists(credit.toLowerCase.matches) => true
@@ -24,13 +29,17 @@ trait ImageProcessor {
       }
       case _ => false
     }
+    /****************************************/
+  }
 }
+
 
 trait ComposedImageProcessor extends ImageProcessor {
   def processors: Seq[ImageProcessor]
 }
 
 object ImageProcessor {
+
   val identity: ImageProcessor = new ImageProcessor {
     override def apply(image: Image): Image = image
     override def description: String = "identity"

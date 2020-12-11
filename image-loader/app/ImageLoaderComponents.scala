@@ -1,3 +1,4 @@
+import akka.actor.ActorSystem
 import com.gu.mediaservice.lib.config.{MetadataStore, UsageRightsStore}
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.play.GridComponents
@@ -26,13 +27,12 @@ class ImageLoaderComponents(context: Context)(implicit ec: ExecutionContext = Ex
 
   val optimisedPngOps = new OptimisedPngOps(loaderStore, config)
 
-  val metaDataConfigStore = MetadataStore(config.configBucket, config)
-  metaDataConfigStore.scheduleUpdates(actorSystem.scheduler)
+  val bbcSpecificComponents = BBCSpecificComponentsLoad.getComponents(config)
+  bbcSpecificComponents.metaDataConfigStore.scheduleUpdates(actorSystem.scheduler)
+  val metaDataConfigStore = bbcSpecificComponents.metaDataConfigStore
+  val usageRightsConfigStore = bbcSpecificComponents.usageRightsStore
 
-  val usageRightsConfigStore = UsageRightsStore(config.configBucket, config)
-  usageRightsConfigStore.scheduleUpdates(actorSystem.scheduler)
-
-  val imageUploadOps = new ImageUploadOps(metaDataConfigStore, usageRightsConfigStore, loaderStore, config, imageOperations, optimisedPngOps)
+  val imageUploadOps = new ImageUploadOps(loaderStore, config, imageOperations, optimisedPngOps, bbcSpecificComponents.imageProcessor)
 
   val controller = new ImageLoaderController(auth, downloader, loaderStore, notifications, config, uploader, projector, controllerComponents, wsClient)
 

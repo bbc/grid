@@ -38,6 +38,10 @@ class MetadataStore(bucket: String, config: CommonConfig)(implicit ec: Execution
     }
 
   def get: MetadataConfig = store.get()(metadataMapKey)
+
+  def tryGet: Option[MetadataConfig] = {
+    store.get().get(metadataMapKey)
+  }
 }
 
 object MetadataStore {

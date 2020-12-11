@@ -181,21 +181,14 @@ case object ImageUpload {
   }
 }
 
-class ImageUploadOps(metadataStore: MetadataStore,
-                     usageRightsStore: UsageRightsStore,
-                     loaderStore: ImageLoaderStore,
+class ImageUploadOps(loaderStore: ImageLoaderStore,
                      config: ImageLoaderConfig,
                      imageOps: ImageOperations,
-                     optimisedPngOps: OptimisedPngOps)(
+                     optimisedPngOps: OptimisedPngOps,
+                     imageProcessor: ImageProcessor)(
     implicit val ec: ExecutionContext,
     val logMaker: LogMarker = MarkerMap()) {
 
-  import Uploader.initStores
-
-  initStores(metadataStore, usageRightsStore)
-
-  private def getMetaDataStore(): MetadataStore = metadataStore
-  private def getUsageRightsDataStore(): UsageRightsStore = usageRightsStore
 
   def fromUploadRequest(uploadRequest: UploadRequest): Future[ImageUpload] = {
     Logger.info("Starting image ops")(uploadRequest.toLogMarker)
@@ -265,7 +258,7 @@ class ImageUploadOps(metadataStore: MetadataStore,
         case _ =>
           Future.apply(uploadedFile)
       }
-      val processor = config.imageProcessor
+      val processor = imageProcessor
       toOptimiseFileFuture.flatMap(toOptimiseFile => {
         Logger.info("optimised image created")(uploadRequest.toLogMarker)
 
@@ -291,9 +284,7 @@ class ImageUploadOps(metadataStore: MetadataStore,
               colourModel <- colourModelFuture
               fullFileMetadata = fileMetadata.copy(colourModel = colourModel)
 
-              metaDataConfig = metadataStore.get
-              metadataCleaners = new MetadataCleaners(
-                metaDataConfig.allPhotographers)
+
               metadata = ImageMetadataConverter.fromFileMetadata(
                 fullFileMetadata)
           //    cleanMetadata = metadataCleaners.clean(metadata)
@@ -306,7 +297,6 @@ class ImageUploadOps(metadataStore: MetadataStore,
               else
                 None
 
-              usageRightsConfig = usageRightsStore.get
 
               baseImage = ImageUpload.createImage(uploadRequest,
                                                   sourceAsset,
@@ -527,8 +517,6 @@ object Uploader {
             FileMetadataReader.dimensions(thumb, uploadRequest.mimeType)
 
           val finalImage = toFinalImage(
-            stores.metadataStore,
-            stores.usageRightsStore,
             sourceStoreFuture,
             thumbStoreFuture,
             sourceDimensionsFuture,
@@ -561,8 +549,7 @@ object Uploader {
     }
   }
 
-  private def toFinalImage(metadataStore: MetadataStore,
-                           usageRightsStore: UsageRightsStore,
+  private def toFinalImage(
                            sourceStoreFuture: Future[S3Object],
                            thumbStoreFuture: Future[S3Object],
                            sourceDimensionsFuture: Future[Option[Dimensions]],
@@ -585,8 +572,6 @@ object Uploader {
       colourModel <- colourModelFuture
       fullFileMetadata = fileMetadata.copy(colourModel = colourModel)
 
-      metaDataConfig = metadataStore.get
-      metadataCleaners = new MetadataCleaners(metaDataConfig.allPhotographers)
       metadata = ImageMetadataConverter.fromFileMetadata(fullFileMetadata)
      // cleanMetadata = metadataCleaners.clean(metadata)
 
@@ -605,7 +590,6 @@ object Uploader {
                                           fullFileMetadata,
         metadata)
 
-      usageRightsConfig = usageRightsStore.get
 
 
     } yield {
