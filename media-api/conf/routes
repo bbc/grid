@@ -40,5 +40,5 @@ GET     /management/imageCounts                       com.gu.mediaservice.lib.ma
 # Shoo robots away
 GET     /robots.txt                                   com.gu.mediaservice.lib.management.ManagementWithPermissions.disallowRobots
 
-#SSE
-GET   /sse/:userEmail                       controllers.NotificationController.serverSentEvent(userEmail: String)
+#Scanner status
+GET     /scanner/status                               controllers.NotificationController.getScannerStatus

@@ -1,7 +1,6 @@
 import angular from "angular";
-import { EventSourcePolyfill } from "ng-event-source";
 
-import "./upload-jobs.css"
+import "./upload-jobs.css";
 
 import template from "./upload-jobs.html";
 import "../../preview/image";
@@ -11,6 +10,7 @@ import "../../edits/service";
 import "../../services/label";
 import "../../services/preset-label";
 import "../../services/preset-label";
+
 import { mediaApi } from "../../services/api/media-api";
 
 export var jobs = angular.module("kahuna.upload.jobs", [
@@ -47,31 +47,37 @@ jobs.controller("UploadJobsCtrl", [
     const presetLabels = presetLabelService.getLabels();
 
     const eventName = "Image upload";
-    const mediaApiUri = document.querySelector('link[rel="media-api-uri"').href;
 
-    mediaApi.getSession().then((session) => {
-      $scope.userEmail = session.user.email;
-      connectSSE($scope.userEmail);
-    });
+    let jobsCount = ctrl.jobs.length;
+    let waitTime = 3000;
 
-    const connectSSE = (userEmail) => {
-      let sseUri = `${mediaApiUri}sse/${userEmail}`;
-      let eventSource = new EventSourcePolyfill(sseUri, { headers: {} });
-      eventSource.onmessage = (msg) => {
-        const data = JSON.parse(msg.data);
-        const statusDiv = document.getElementById(data.metadata.file_name);
-        if (data.scan_result === "POSITIVE") {
-          statusDiv.classList.add("result-scanner-positive");
-          statusDiv.innerHTML = "file is infected with a virus!";
-        }
-        if (data.scan_result === "NEGATIVE") {
-          statusDiv.classList.add("result-scanner-negative");
-          statusDiv.innerHTML = "no threats detected!";
-        }
-      };
-      eventSource.onerror = (e) => {
-        console.log(e);
-      };
+    const mediaApiResource = mediaApi.createResource("/scanner/status");
+
+    let getScannerStatusInterval;
+
+    const getScannerStatus = async () => {
+      if (jobsCount > 0) {
+        mediaApiResource
+          .get()
+          .then((status) => {
+            if (!status.PENDING) {
+              const statusDiv = document.getElementById(
+                status.metadata.file_name
+              );
+              if (status.scan_result === "POSITIVE") {
+                statusDiv.classList.add("result-scanner-positive");
+                statusDiv.innerHTML = "file is infected with a virus!";
+              } else if (status.scan_result === "NEGATIVE") {
+                statusDiv.classList.add("result-scanner-negative");
+                statusDiv.innerHTML = "no threats detected!";
+              }
+              jobsCount--;
+            }
+          })
+          .catch((error) => {
+            console.log(error.status);
+          });
+      } else clearInterval(getScannerStatusInterval);
     };
 
     ctrl.jobs.forEach((jobItem) => {
@@ -166,10 +172,10 @@ jobs.controller("UploadJobsCtrl", [
     });
 
     // this needs to be a function due to the stateful `jobItem`
-    ctrl.jobImages = () => ctrl.jobs.map(jobItem => jobItem.image);
+    ctrl.jobImages = () => ctrl.jobs.map((jobItem) => jobItem.image);
 
     ctrl.removeJob = (job) => {
-      const index = ctrl.jobs.findIndex(j => j.name === job.name);
+      const index = ctrl.jobs.findIndex((j) => j.name === job.name);
 
       if (index > -1) {
         ctrl.jobs.splice(index, 1);
@@ -202,24 +208,28 @@ jobs.controller("UploadJobsCtrl", [
       }
     );
 
-    $scope.$on('$destroy', function () {
+    $scope.$on("$destroy", function () {
       freeImageDeleteListener();
       freeImageDeleteFailListener();
     });
-  }]);
 
-jobs.directive('uiUploadJobs', [ function () {
+    getScannerStatusInterval = setInterval(getScannerStatus, waitTime);
+  },
+]);
+
+jobs.directive("uiUploadJobs", [
+  function () {
     return {
-      restrict: 'E',
+      restrict: "E",
       scope: {
         // Annoying that we can't make a uni-directional binding
         // as we don't really want to modify the original
-        jobs: '='
+        jobs: "=",
       },
-      controller: 'UploadJobsCtrl',
-      controllerAs: 'ctrl',
+      controller: "UploadJobsCtrl",
+      controllerAs: "ctrl",
       bindToController: true,
-      template: template
+      template: template,
     };
   },
 ]);
