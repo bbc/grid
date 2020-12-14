@@ -1,0 +1,21 @@
+.result-scanner {
+  position: absolute;
+  width: 246px;
+  text-align: center;
+  margin-top: 15px;
+  z-index: 1;
+  color: #00adee;
+}
+.result-scanner-negative {
+    color: #09B73C;
+
+    -webkit-transition: opacity 5s ease-in-out;
+    -moz-transition: opacity 5s ease-in-out;
+    -ms-transition: opacity 5s ease-in-out;
+    -o-transition: opacity 5s ease-in-out;
+     opacity: 0;
+}
+
+.result-scanner-positive {
+   color: red;
+}

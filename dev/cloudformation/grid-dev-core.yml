@@ -137,6 +137,16 @@ Resources:
         Protocol: sqs
   IndexedImageMetadataQueue:
     Type: AWS::SQS::Queue
+
+  VirustScannerTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      Subscription:
+        - Endpoint: !GetAtt 'VirusScannerStatusQueue.Arn'
+          Protocol: sqs
+  VirusScannerStatusQueue:
+    Type: AWS::SQS::Queue
+
   UsageRecordTable:
     Type: AWS::DynamoDB::Table
     Properties:

@@ -137,6 +137,7 @@ function getMediaApiConfig(config) {
         |security.cors.allowedOrigins=${getCorsAllowedOriginString(config)}
         |metrics.request.enabled=false
         |image.record.download=false
+        |scanner.sqs.queue.url=${config.coreStackProps.VirusScannerStatusQueue.replace("http://localhost:4576", `https://localstack.media.${config.DOMAIN}`)}
         |`;
 }
 

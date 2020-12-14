@@ -1,178 +1,235 @@
-import angular from 'angular';
-import template from './upload-jobs.html';
-import '../../preview/image';
-import '../../components/gr-delete-image/gr-delete-image';
-import '../../image/service';
-import '../../edits/service';
-import '../../services/label';
-import '../../services/preset-label';
+import angular from "angular";
 
-export var jobs = angular.module('kahuna.upload.jobs', [
-    'kahuna.preview.image',
-    'gr.image.service',
-    'kahuna.services.label',
-    'kahuna.services.presetLabel',
-    'kahuna.edits.service'
+import "./upload-jobs.css";
+
+import template from "./upload-jobs.html";
+import "../../preview/image";
+import "../../components/gr-delete-image/gr-delete-image";
+import "../../image/service";
+import "../../edits/service";
+import "../../services/label";
+import "../../services/preset-label";
+import "../../services/preset-label";
+
+import { mediaApi } from "../../services/api/media-api";
+
+export var jobs = angular.module("kahuna.upload.jobs", [
+  "kahuna.preview.image",
+  "gr.image.service",
+  "kahuna.services.label",
+  "kahuna.services.presetLabel",
+  "kahuna.edits.service",
 ]);
 
+jobs.controller("UploadJobsCtrl", [
+  "$rootScope",
+  "$scope",
+  "$window",
+  "apiPoll",
+  "imageService",
+  "labelService",
+  "presetLabelService",
+  "editsService",
+  "mediaApi",
 
-jobs.controller('UploadJobsCtrl', [
-    '$rootScope',
-    '$scope',
-    '$window',
-    'apiPoll',
-    'imageService',
-    'labelService',
-    'presetLabelService',
-    'editsService',
-
-    function($rootScope,
-            $scope,
-            $window,
-            apiPoll,
-            imageService,
-            labelService,
-            presetLabelService,
-            editsService) {
-
+  function (
+    $rootScope,
+    $scope,
+    $window,
+    apiPoll,
+    imageService,
+    labelService,
+    presetLabelService,
+    editsService,
+    mediaApi
+  ) {
     var ctrl = this;
     const presetLabels = presetLabelService.getLabels();
 
-    // State machine-esque async transitions
-    const eventName = 'Image upload';
+    const eventName = "Image upload";
 
-    ctrl.jobs.forEach(jobItem => {
-        jobItem.status = 'uploading';
+    let jobsCount = ctrl.jobs.length;
+    let waitTime = 3000;
 
-        jobItem.resourcePromise.then(resource => {
-            jobItem.status = 'indexing';
-            jobItem.resource = resource;
+    const mediaApiResource = mediaApi.createResource("/scanner/status");
 
-            // TODO: grouped polling for all resources we're interested in?
-            const findImage = () => resource.get();
-            const imageResource = apiPoll(findImage);
+    let getScannerStatusInterval;
 
-            imageResource.then(image => {
-                jobItem.status = 'uploaded';
-                jobItem.image = image;
-                jobItem.thumbnail = image.data.thumbnail;
+    const getScannerStatus = async () => {
+      if (jobsCount > 0) {
+        mediaApiResource
+          .get()
+          .then((status) => {
+            if (!status.PENDING) {
+              const statusDiv = document.getElementById(
+                status.metadata.file_name
+              );
+              if (status.scan_result === "POSITIVE") {
+                statusDiv.classList.add("result-scanner-positive");
+                statusDiv.innerHTML = "file is infected with a virus!";
+              } else if (status.scan_result === "NEGATIVE") {
+                statusDiv.classList.add("result-scanner-negative");
+                statusDiv.innerHTML = "no threats detected!";
+              }
+              jobsCount--;
+            }
+          })
+          .catch((error) => {
+            console.log(error.status);
+          });
+      } else clearInterval(getScannerStatusInterval);
+    };
 
-                imageService(image).states.canDelete.then(deletable => {
-                    jobItem.canBeDeleted = deletable;
-                });
+    ctrl.jobs.forEach((jobItem) => {
+      jobItem.status = "scanning";
 
-                // TODO: we shouldn't have to do this ;_;
-                // If the image is updated (e.g. label added,
-                // archived, etc), refresh the copy we hold
-                $rootScope.$on('image-updated', (e, updatedImage) => {
-                    if (updatedImage.data.id === image.data.id) {
-                        jobItem.image = updatedImage;
-                    }
-                });
+      jobItem.resourcePromise.then(
+        (resource) => {
+          jobItem.status = "indexing";
+          jobItem.resource = resource;
 
-                // we use the filename of the image if the description is missing
-                if (!jobItem.image.data.metadata.description) {
-                    const newDescription = jobItem.name
-                        .substr(0, jobItem.name.lastIndexOf('.'))
-                        .replace(/_/g, ' ');
+          // TODO: grouped polling for all resources we're interested in?
+          const findImage = () => resource.get();
+          const imageResource = apiPoll(findImage);
 
-                    editsService.updateMetadataField(jobItem.image, 'description', newDescription);
+          imageResource.then(
+            (image) => {
+              jobItem.status = "uploaded";
+              jobItem.image = image;
+              jobItem.thumbnail = image.data.thumbnail;
+
+              imageService(image).states.canDelete.then((deletable) => {
+                jobItem.canBeDeleted = deletable;
+              });
+
+              // TODO: we shouldn't have to do this ;_;
+              // If the image is updated (e.g. label added,
+              // archived, etc), refresh the copy we hold
+              $rootScope.$on("image-updated", (e, updatedImage) => {
+                if (updatedImage.data.id === image.data.id) {
+                  jobItem.image = updatedImage;
                 }
+              });
 
-                if (presetLabels.length > 0) {
-                    labelService.add(image, presetLabels);
-                }
+              // we use the filename of the image if the description is missing
+              if (!jobItem.image.data.metadata.description) {
+                const newDescription = jobItem.name
+                  .substr(0, jobItem.name.lastIndexOf("."))
+                  .replace(/_/g, " ");
 
-                $rootScope.$emit(
-                  'track:event',
-                  eventName,
-                  null,
-                  'Success',
-                  null,
-                  { 'Labels' : presetLabels.length}
+                editsService.updateMetadataField(
+                  jobItem.image,
+                  "description",
+                  newDescription
                 );
-            }, error => {
-                jobItem.status = 'upload error';
-                jobItem.error = error.message;
+              }
 
-                $rootScope.$emit(
-                  'track:event',
-                  eventName,
-                  null,
-                  'Failure',
-                  null,
-                  { 'Failed on': 'index'}
-                );
-            });
-        }, error => {
-            const reason = error.body && error.body.errorKey;
+              if (presetLabels.length > 0) {
+                labelService.add(image, presetLabels);
+              }
 
-            const message = reason === 'unsupported-type' ?
-                'The Grid only supports JPG, PNG and TIFF images.' +
-                ' Please convert the image and try again.' :
-                error.body && error.body.errorMessage || 'unknown';
+              $rootScope.$emit(
+                "track:event",
+                eventName,
+                null,
+                "Success",
+                null,
+                { Labels: presetLabels.length }
+              );
+            },
+            (error) => {
+              jobItem.status = "upload error";
+              jobItem.error = error.message;
 
-            jobItem.status = 'upload error';
-            jobItem.error = message;
+              $rootScope.$emit(
+                "track:event",
+                eventName,
+                null,
+                "Failure",
+                null,
+                { "Failed on": "index" }
+              );
+            }
+          );
+        },
+        (error) => {
+          const reason = error.body && error.body.errorKey;
 
-            $rootScope.$emit(
-              'track:event',
-              eventName,
-              null,
-              'Failure',
-              null,
-              { 'Failed on': 'upload'}
-            );
-        });
+          const message =
+            reason === "unsupported-type"
+              ? "The Grid only supports JPG, PNG and TIFF images." +
+                " Please convert the image and try again."
+              : (error.body && error.body.errorMessage) || "unknown";
+
+          jobItem.status = "upload error";
+          jobItem.error = message;
+
+          $rootScope.$emit("track:event", eventName, null, "Failure", null, {
+            "Failed on": "upload",
+          });
+        }
+      );
     });
 
     // this needs to be a function due to the stateful `jobItem`
-    ctrl.jobImages = () => ctrl.jobs.map(jobItem => jobItem.image);
+    ctrl.jobImages = () => ctrl.jobs.map((jobItem) => jobItem.image);
 
     ctrl.removeJob = (job) => {
-        const index = ctrl.jobs.findIndex(j => j.name === job.name);
+      const index = ctrl.jobs.findIndex((j) => j.name === job.name);
 
-        if (index > -1) {
+      if (index > -1) {
+        ctrl.jobs.splice(index, 1);
+      }
+    };
+
+    const freeImageDeleteListener = $rootScope.$on(
+      "images-deleted",
+      (e, images) => {
+        images.forEach((image) => {
+          var index = ctrl.jobs.findIndex(
+            (i) => i.image.data.id === image.data.id
+          );
+
+          if (index > -1) {
             ctrl.jobs.splice(index, 1);
-        }
-    };
-
-    const freeImageDeleteListener = $rootScope.$on('images-deleted', (e, images) => {
-        images.forEach(image => {
-            var index = ctrl.jobs.findIndex(i => i.image.data.id === image.data.id);
-
-            if (index > -1) {
-                ctrl.jobs.splice(index, 1);
-            }
+          }
         });
-    });
+      }
+    );
 
-    const freeImageDeleteFailListener = $rootScope.$on('image-delete-failure', (err, image) => {
+    const freeImageDeleteFailListener = $rootScope.$on(
+      "image-delete-failure",
+      (err, image) => {
         if (err.body && err.body.errorMessage) {
-            $window.alert(err.body.errorMessage);
+          $window.alert(err.body.errorMessage);
         } else {
-            $window.alert(`Failed to delete image ${image.data.id}`);
+          $window.alert(`Failed to delete image ${image.data.id}`);
         }
+      }
+    );
+
+    $scope.$on("$destroy", function () {
+      freeImageDeleteListener();
+      freeImageDeleteFailListener();
     });
 
-    $scope.$on('$destroy', function() {
-        freeImageDeleteListener();
-        freeImageDeleteFailListener();
-    });
-}]);
+    getScannerStatusInterval = setInterval(getScannerStatus, waitTime);
+  },
+]);
 
-
-jobs.directive('uiUploadJobs', [function() {
+jobs.directive("uiUploadJobs", [
+  function () {
     return {
-        restrict: 'E',
-        scope: {
-            // Annoying that we can't make a uni-directional binding
-            // as we don't really want to modify the original
-            jobs: '='
-        },
-        controller: 'UploadJobsCtrl',
-        controllerAs: 'ctrl',
-        bindToController: true,
-        template: template
+      restrict: "E",
+      scope: {
+        // Annoying that we can't make a uni-directional binding
+        // as we don't really want to modify the original
+        jobs: "=",
+      },
+      controller: "UploadJobsCtrl",
+      controllerAs: "ctrl",
+      bindToController: true,
+      template: template,
     };
-}]);
+  },
+]);
