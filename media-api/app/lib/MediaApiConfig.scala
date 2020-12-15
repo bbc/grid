@@ -39,7 +39,7 @@ class MediaApiConfig(override val configuration: Configuration) extends CommonCo
   lazy val imageBucket: String = properties("s3.image.bucket")
   lazy val thumbBucket: String = properties("s3.thumb.bucket")
 
-  val scannerSqsQueueUrl = properties("scanner.sqs.queue.url")
+  lazy val scannerSqsQueueUrl = properties("scanner.sqs.queue.url")
 
   lazy val cloudFrontPrivateKeyLocation: String = "/etc/gu/ssl/private/cloudfront.pem"
 
