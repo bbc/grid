@@ -49,6 +49,8 @@ jobs.controller("UploadJobsCtrl", [
     const eventName = "Image upload";
 
     let jobsCount = ctrl.jobs.length;
+    let retryAttempt = jobsCount * 4;
+    ctrl.scan_enabled = false
     let waitTime = 3000;
 
     const mediaApiResource = mediaApi.createResource("/scanner/status");
@@ -56,32 +58,37 @@ jobs.controller("UploadJobsCtrl", [
     let getScannerStatusInterval;
 
     const getScannerStatus = async () => {
-      if (jobsCount > 0) {
+      if (jobsCount > 0 && retryAttempt > 0) {
         mediaApiResource
           .get()
           .then((status) => {
-            if (!status.PENDING) {
-              const statusDiv = document.getElementById(
-                status.metadata.file_name
-              );
-              if (status.scan_result === "POSITIVE") {
-                statusDiv.classList.add("result-scanner-positive");
-                statusDiv.innerHTML = "file is infected with a virus!";
-              } else if (status.scan_result === "NEGATIVE") {
-                statusDiv.classList.add("result-scanner-negative");
-                statusDiv.innerHTML = "no threats detected!";
+            if(!status.SCAN_ENABLED) clearInterval(getScannerStatusInterval)
+            else {
+              ctrl.scan_enabled = true
+              if (!status.PENDING) {
+                const statusDiv = document.getElementById(status.metadata.file_name);
+                if (statusDiv && status.scan_result === "POSITIVE") {
+                  statusDiv.classList.add("result-scanner-positive");
+                  statusDiv.innerHTML = "file is infected with a virus!";
+                } else if (statusDiv && status.scan_result === "NEGATIVE") {
+                  statusDiv.classList.add("result-scanner-negative");
+                  statusDiv.innerHTML = "no threats detected!";
+                }
+                jobsCount--;
               }
-              jobsCount--;
             }
           })
           .catch((error) => {
             console.log(error.status);
           });
-      } else clearInterval(getScannerStatusInterval);
+      } else {
+          clearInterval(getScannerStatusInterval);
+          ctrl.scan_enabled = false;
+       }
+      retryAttempt--;
     };
 
     ctrl.jobs.forEach((jobItem) => {
-      jobItem.status = "scanning";
 
       jobItem.resourcePromise.then(
         (resource) => {

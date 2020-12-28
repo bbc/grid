@@ -3,10 +3,11 @@ package controllers
 import play.api.mvc._
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.auth.Authentication.PandaUser
-import lib.VirusStatusSqsMessageConsumer
+import lib.{MediaApiConfig, VirusStatusSqsMessageConsumer}
+
 import scala.concurrent.{ExecutionContext, Future}
 
-class NotificationController(auth: Authentication, consumer: VirusStatusSqsMessageConsumer, override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext) extends  BaseController {
+class NotificationController(auth: Authentication, consumer: VirusStatusSqsMessageConsumer, config: MediaApiConfig, override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext) extends  BaseController {
 
 
   def getScannerStatus = auth.async { request =>
@@ -15,6 +16,6 @@ class NotificationController(auth: Authentication, consumer: VirusStatusSqsMessa
       case user: PandaUser => Some(user.user.email.toLowerCase())
       case _ => None
     }
-    Future(Ok(consumer.getNotificationMsg(user.getOrElse(""))))
+    Future(Ok(consumer.getNotificationMsg(user.getOrElse(""), config.scanImagesEnabled)))
   }
 }

@@ -15,18 +15,18 @@ class VirusStatusSqsMessageConsumer(config: MediaApiConfig, mediaApiMetrics: Med
     }
 
 
-  def getNotificationMsg(user: String): JsValue = {
-    getMessages(waitTime = 20, maxMessages = 1) match {
+  def getNotificationMsg(user: String, scanEnabled: Boolean): JsValue = {
+    getMessages(waitTime = 3, maxMessages = 1) match {
       case message::Nil => {
         extractSNSMessage(message) match {
           case Some(msg) if ( msg.body \ "metadata" \ "uploaded_by").as[String] == user => {
             deleteMessage(message)
-            msg.body
+            msg.body.as[JsObject] ++ Json.obj("SCAN_ENABLED" -> scanEnabled)
           }
-          case _ => Json.obj("PENDING" -> true)
+          case _ => Json.obj("PENDING" -> true, "SCAN_ENABLED" -> scanEnabled)
         }
       }
-      case Nil =>  Json.obj("PENDING" -> true)
+      case Nil =>  Json.obj("PENDING" -> true, "SCAN_ENABLED" -> scanEnabled)
     }
   }
 }
