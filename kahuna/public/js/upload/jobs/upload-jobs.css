@@ -8,7 +8,9 @@
 }
 .result-scanner-negative {
     color: #09B73C;
+}
 
+.hide-result-scanner{
     -webkit-transition: opacity 5s ease-in-out;
     -moz-transition: opacity 5s ease-in-out;
     -ms-transition: opacity 5s ease-in-out;

@@ -47,8 +47,7 @@ jobs.controller("UploadJobsCtrl", [
     const presetLabels = presetLabelService.getLabels();
 
     const eventName = "Image upload";
-
-    let jobsCount = ctrl.jobs.length;
+    let jobsCount = ctrl.jobs.length
     let retryAttempt = jobsCount * 4;
     ctrl.scan_enabled = false
     let waitTime = 3000;
@@ -73,6 +72,7 @@ jobs.controller("UploadJobsCtrl", [
                 } else if (statusDiv && status.scan_result === "NEGATIVE") {
                   statusDiv.classList.add("result-scanner-negative");
                   statusDiv.innerHTML = "no threats detected!";
+                  statusDiv.classList.add("hide-result-scanner");
                 }
                 jobsCount--;
               }
@@ -83,13 +83,11 @@ jobs.controller("UploadJobsCtrl", [
           });
       } else {
           clearInterval(getScannerStatusInterval);
-          ctrl.scan_enabled = false;
        }
       retryAttempt--;
     };
 
     ctrl.jobs.forEach((jobItem) => {
-
       jobItem.resourcePromise.then(
         (resource) => {
           jobItem.status = "indexing";
@@ -101,10 +99,14 @@ jobs.controller("UploadJobsCtrl", [
 
           imageResource.then(
             (image) => {
+              const statusDiv = document.getElementById(jobItem.name);
+              statusDiv.classList.add("result-scanner-negative");
+              statusDiv.innerHTML = "no threats detected!";
+              statusDiv.classList.add("hide-result-scanner");
               jobItem.status = "uploaded";
               jobItem.image = image;
               jobItem.thumbnail = image.data.thumbnail;
-
+              jobsCount--;
               imageService(image).states.canDelete.then((deletable) => {
                 jobItem.canBeDeleted = deletable;
               });
