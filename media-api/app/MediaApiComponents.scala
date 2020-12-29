@@ -57,7 +57,7 @@ class MediaApiComponents(context: Context) extends GridComponents(context) {
 
   val metrics = new MediaApiMetrics(config)
   val virusStatusSqsMessageConsumer = new VirusStatusSqsMessageConsumer(config, metrics)
-  val notificationController = new NotificationController(auth, virusStatusSqsMessageConsumer, controllerComponents)
+  val notificationController = new NotificationController(auth, virusStatusSqsMessageConsumer, config, controllerComponents)
 
   context.lifecycle.addStopHook {
     () => virusStatusSqsMessageConsumer.actorSystem.terminate()

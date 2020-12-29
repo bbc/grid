@@ -41,6 +41,11 @@ class MediaApiConfig(override val configuration: Configuration) extends CommonCo
 
   lazy val scannerSqsQueueUrl = properties("scanner.sqs.queue.url")
 
+  lazy val scanImagesEnabled: Boolean = properties.getOrElse("scan.images.enabled", "false").toLowerCase match {
+    case "true" => true
+    case _ => false
+  }
+
   lazy val cloudFrontPrivateKeyLocation: String = "/etc/gu/ssl/private/cloudfront.pem"
 
   lazy val cloudFrontDomainImageBucket: Option[String] = properties.get("cloudfront.domain.imagebucket")
