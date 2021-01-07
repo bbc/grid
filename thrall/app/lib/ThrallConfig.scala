@@ -34,6 +34,7 @@ class ThrallConfig(resources: GridConfigResources) extends CommonConfig(resource
   val writeAlias: String = string("es.index.aliases.write")
 
   val thumbnailBucket: String = string("s3.thumb.bucket")
+  val quarantineBucket: String = string("s3.quarantine.bucket")
 
   val elasticsearch6Url: String =  string("es6.url")
   val elasticsearch6Cluster: String = string("es6.cluster")

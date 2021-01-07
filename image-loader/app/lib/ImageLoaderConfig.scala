@@ -10,6 +10,11 @@ class ImageLoaderConfig(resources: GridConfigResources) extends CommonConfig(res
   val imageBucket: String = string("s3.image.bucket")
 
   val thumbnailBucket: String = string("s3.thumb.bucket")
+  val quarantineBucket: String = string("s3.quarantine.bucket")
+  val uploadToQuarantineEnabled: Boolean = stringDefault("upload.quarantine.enabled", "false").toLowerCase match {
+    case "true" => true
+    case _ => false
+  }
 
   val tempDir: File = new File(stringDefault("upload.tmp.dir", "/tmp"))
 

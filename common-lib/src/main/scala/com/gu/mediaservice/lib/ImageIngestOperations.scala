@@ -15,7 +15,7 @@ object ImageIngestOperations {
   def optimisedPngKeyFromId(id: String): String = "optimised/" + fileKeyFromId(id: String)
 }
 
-class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config: CommonConfig, isVersionedS3: Boolean = false)
+class ImageIngestOperations(quarantineBucket: String, imageBucket: String, thumbnailBucket: String, config: CommonConfig, isVersionedS3: Boolean = false)
   extends S3ImageStorage(config) {
 
   import ImageIngestOperations.{fileKeyFromId, optimisedPngKeyFromId}
@@ -38,6 +38,10 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config
   private def storeOptimisedImage(storableImage: StorableOptimisedImage)
                        (implicit logMarker: LogMarker): Future[S3Object] =
     storeImage(imageBucket, optimisedPngKeyFromId(storableImage.id), storableImage.file, Some(storableImage.mimeType))
+  
+  def sendToQuarantine(id: String, file: File, mimeType: Option[MimeType], meta: Map[String, String] = Map.empty)
+                       (implicit logMarker: LogMarker): Future[S3Object] =
+    storeImage(quarantineBucket,fileKeyFromId(id), file, mimeType, meta)
 
   def deleteOriginal(id: String): Future[Unit] = if(isVersionedS3) deleteVersionedImage(imageBucket, fileKeyFromId(id)) else deleteImage(imageBucket, fileKeyFromId(id))
   def deleteThumbnail(id: String): Future[Unit] = deleteImage(thumbnailBucket, fileKeyFromId(id))
