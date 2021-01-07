@@ -13,7 +13,7 @@ import com.gu.mediaservice.model.UnsupportedMimeTypeException
 import lib._
 import lib.imaging.{NoSuchImageExistsInS3, UserImageLoaderException}
 import lib.storage.ImageLoaderStore
-import model.{Projector, Uploader}
+import model.{Projector, Uploader, QuarantineUploader}
 import play.api.libs.json.Json
 import play.api.libs.ws.WSClient
 import play.api.mvc._
@@ -28,6 +28,7 @@ class ImageLoaderController(auth: Authentication,
                             notifications: Notifications,
                             config: ImageLoaderConfig,
                             uploader: Uploader,
+                            quarantineUploader: QuarantineUploader,
                             projector: Projector,
                             override val controllerComponents: ControllerComponents,
                             wSClient: WSClient)
@@ -45,7 +46,8 @@ class ImageLoaderController(auth: Authentication,
 
   def index: Action[AnyContent] = auth { indexResponse }
 
-  def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String]): Action[DigestedFile] = {
+  def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String]): Action[DigestedFile] =  {
+
     implicit val context: RequestLoggingContext = RequestLoggingContext(
       initialMarkers = Map(
         "requestType" -> "load-image",
@@ -72,9 +74,8 @@ class ImageLoaderController(auth: Authentication,
           DateTimeUtils.fromValueOrNow(uploadTime),
           filename.flatMap(_.trim.nonEmptyOpt),
           context.requestId)
-        result <- uploader.storeFile(uploadRequest)
+        result <- if (config.uploadToQuarantineEnabled) quarantineUploader.quarantineFile(uploadRequest) else uploader.storeFile(uploadRequest)
       } yield result
-
       result.onComplete( _ => Try { deleteTempFile(tempFile) } )
 
       result map { r =>
@@ -88,8 +89,8 @@ class ImageLoaderController(auth: Authentication,
             case e: UnsupportedMimeTypeException => FailureResponse.unsupportedMimeType(e, config.supportedMimeTypes)
             case e: ImageProcessingException => FailureResponse.notAnImage(e, config.supportedMimeTypes).as(ArgoMediaType)
             case e: java.io.IOException => FailureResponse.badImage(e).as(ArgoMediaType)
-            case e =>
-              logger.error("Failed upload", e)
+            case _ => 
+              logger.error("Failed upload", e) 
               InternalServerError(Json.obj("error" -> e.getMessage)).as(ArgoMediaType)
           }).as(ArgoMediaType)
       }

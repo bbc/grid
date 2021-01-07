@@ -56,8 +56,7 @@ case object ImageUpload {
       List()
     )
   }
-}
-
+}  
 case class ImageUploadOpsCfg(
   tempDir: File,
   thumbWidth: Int,
@@ -265,9 +264,6 @@ class Uploader(val store: ImageLoaderStore,
                val imageOps: ImageOperations,
                val notifications: Notifications)
               (implicit val ec: ExecutionContext) extends ArgoHelpers {
-
-
-
 
   def fromUploadRequest(uploadRequest: UploadRequest)
                        (implicit logMarker: LogMarker): Future[ImageUpload] = {
