@@ -1,6 +1,6 @@
 <ul>
     <li ng-repeat="job in ctrl.jobs | orderBy: 'name'"  class="upload-result">
-
+        <span id="{{job.name}}" class="result-scanner result-editor__save-status">Scanning</span>
         <div ng-if="!job.image"
              class="job-uploading">
 

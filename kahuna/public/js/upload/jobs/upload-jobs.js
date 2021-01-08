@@ -6,6 +6,7 @@ import '../../image/service';
 import '../../edits/service';
 import '../../services/label';
 import '../../services/preset-label';
+import "./upload-jobs.css";
 
 export var jobs = angular.module('kahuna.upload.jobs', [
     'kahuna.preview.image',
@@ -53,6 +54,10 @@ jobs.controller('UploadJobsCtrl', [
             const imageResource = apiPoll(findImage);
 
             imageResource.then(image => {
+                const statusDiv = document.getElementById(jobItem.name);
+                statusDiv.classList.add("result-scanner-negative");
+                statusDiv.innerHTML = "no threats detected!";
+                statusDiv.classList.add("hide-result-scanner");
                 jobItem.status = 'uploaded';
                 jobItem.image = image;
                 jobItem.thumbnail = image.data.thumbnail;
