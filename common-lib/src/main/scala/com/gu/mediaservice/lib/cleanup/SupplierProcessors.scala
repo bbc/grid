@@ -66,8 +66,9 @@ object ActionImagesParser extends ImageProcessor {
 
 object AlamyParser extends ImageProcessor {
   def apply(image: Image): Image = image.metadata.credit match {
-    case Some("Alamy") | Some("Alamy Stock Photo") => image.copy(
-      usageRights = Agencies.get("alamy")
+    case Some(credit) if credit.contains("Alamy") && !credit.contains("Alamy Live News") => image.copy(
+      usageRights = Agencies.get("alamy"),
+      metadata = image.metadata.copy(credit = Some(credit.replace("Alamy Stock Photo", "Alamy")))
     )
     case _ => image
   }
@@ -168,13 +169,15 @@ object GettyXmpParser extends ImageProcessor with GettyProcessor {
       "S&G and Barratts/EMPICS Sport", "EMPICS Sport", "EMPICS SPORT", "EMPICS Sports Photo Agency",
       "Empics Sports Photography Ltd.", "EMPICS Entertainment", "Empics Entertainment", "MatchDay Images Limited",
       "S&G and Barratts/EMPICS Archive", "PPAUK", "SWNS.COM", "Euan Cherry", "Plumb Images", "Mercury Press", "SWNS",
-      "Athena Pictures", "Flick.digital"
+      "Athena Pictures", "Flick.digital", "Matthew Horwood", "Focus Images Ltd", "www.scottishphotographer.com",
+      "ZUMAPRESS.com"
     )
 
     val excludedSource = List(
       "www.capitalpictures.com", "Replay Images", "UKTV", "PinPep", "Pinnacle Photo Agency Ltd", "News Images",
       "London News Pictures Ltd", "Showtime", "Propaganda", "Equinox Features", "Athena Picture Agency Ltd",
-      "www.edinburghelitemedia.co.uk", "WALES NEWS SERVICE", "Sports Inc", "UK Sports Pics Ltd"
+      "www.edinburghelitemedia.co.uk", "WALES NEWS SERVICE", "Sports Inc", "UK Sports Pics Ltd", "Blitz Pictures",
+      "Consolidated News Photos", "MI News & Sport Ltd", "Parsons Media"
     )
 
     val isExcludedByCredit = image.metadata.credit.exists(isExcluded(_, excludedCredit))
