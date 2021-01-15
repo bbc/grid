@@ -22,3 +22,4 @@ final case class Date(date: DateTime) extends Value
 final case class DateRange(startDate: DateTime, endDate: DateTime) extends Value
 final case class HasValue(string: String) extends Value
 final case class IsValue(string: String) extends Value
+final case class HasValueWith(has: String, value: String) extends Value

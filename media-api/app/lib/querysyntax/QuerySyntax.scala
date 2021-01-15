@@ -28,6 +28,7 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
   }
 
   def Filter = rule {
+    HasWithValueMatch ~> Match |
     HasMatch ~> Match |
     IsMatch ~> Match |
     ScopedMatch ~> Match | HashMatch | CollectionRule |
@@ -40,6 +41,11 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
   def HasMatchField = rule { capture(HasFieldName) ~> (_ => HasField) }
   def HasFieldName = rule { "has" }
   def HasMatchValue = rule { String ~> HasValue }
+
+  def HasWithValueMatch = rule { HasWithMatchField ~ ':' ~ HasWithValueContent}
+  def HasWithValueContent = rule { ValidFieldNameString ~ '=' ~ String ~> HasValueWith}
+  def HasWithMatchField = rule { capture(HasWithFieldName) ~> (_ => HasField) }
+  def HasWithFieldName = rule { "hasWith" }
 
   def IsMatch = rule { IsMatchField ~ ':' ~ IsMatchValue }
   def IsMatchField = rule { capture(IsFieldName) ~> (_ => IsField) }
@@ -146,6 +152,7 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
 
   def String = rule { capture(Chars) }
 
+  def ValidFieldNameString = rule { capture(ValidFieldName) }
   def DateMatch = rule {
     MatchDateField ~ ':' ~ MatchDateValue ~> ((field, date) => Match(field, Date(date)))
   }
@@ -225,7 +232,7 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
 
   def Whitespace = rule { oneOrMore(' ') }
   def Chars = rule { oneOrMore(visibleChars) }
-
+  def ValidFieldName = rule { oneOrMore(validFieldName) }
 
   // Note: this is a somewhat arbitrarily list of common Unicode ranges that we
   // expect people to want to use (e.g. Latin1 accented characters, curly quotes, etc).
@@ -238,6 +245,7 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
   val extraVisibleCharacters = latin1SupplementSubset ++ latin1ExtendedA ++ latin1ExtendedB ++ generalPunctuation
 
   val visibleChars = CharPredicate.Visible ++ extraVisibleCharacters
+  val validFieldName = visibleChars -- '='
 
 }
 
