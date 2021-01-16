@@ -43,7 +43,7 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
   def HasMatchValue = rule { String ~> HasValue }
 
   def HasWithValueMatch = rule { HasWithMatchField ~ ':' ~ HasWithValueContent}
-  def HasWithValueContent = rule { ValidFieldNameString ~ '=' ~ String ~> HasValueWith}
+  def HasWithValueContent = rule { ValidFieldNameString ~ '=' ~ (QuotedString | String) ~> HasValueWith}
   def HasWithMatchField = rule { capture(HasWithFieldName) ~> (_ => HasField) }
   def HasWithFieldName = rule { "hasWith" }
 
@@ -245,7 +245,8 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
   val extraVisibleCharacters = latin1SupplementSubset ++ latin1ExtendedA ++ latin1ExtendedB ++ generalPunctuation
 
   val visibleChars = CharPredicate.Visible ++ extraVisibleCharacters
-  val validFieldName = visibleChars -- '='
+  val validFieldName = visibleChars -- '=' ++ ' '
+
 
 }
 
