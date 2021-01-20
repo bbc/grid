@@ -227,11 +227,11 @@ setupApplicationConfiguration() {
 
   guardianProviderClassName="com.gu.mediaservice.lib.guardian.auth.PandaAuthenticationProvider"
 
-  bbcProviderClassName="com.gu.mediaservice.lib.bbc.auth.BBCAuthenticationProvider"
+  bbcProviderClassName="bbc.lib.auth.BBCAuthenticationProvider"
 
-  sed -i "s/$guardianProviderClassName/$bbcProviderClassName/g" "$target"
+  sed -i -- "s/$guardianProviderClassName/$bbcProviderClassName/g" "$target"
 
-  sed -i "s/# panda.bucketName = <s3-bucket-with-config>/panda.bucketName = \"$panDomainBucket\"/g" "$target"
+  sed -i -- "s/# panda.bucketName = <s3-bucket-with-config>/panda.bucketName = \"$panDomainBucket\"/g" "$target"
 }
 
 setupPhotographersConfiguration() {
