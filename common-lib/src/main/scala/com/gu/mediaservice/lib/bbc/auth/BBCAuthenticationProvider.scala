@@ -2,8 +2,7 @@ package com.gu.mediaservice.lib.bbc.auth
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
-import com.gu.mediaservice.lib.auth.Authentication
-import com.gu.mediaservice.lib.auth.Authentication.{GridUser, Principal}
+import com.gu.mediaservice.lib.auth.Authentication.{Principal, UserPrincipal}
 import com.gu.mediaservice.lib.auth.provider.AuthenticationProvider.RedirectUri
 import com.gu.mediaservice.lib.auth.provider._
 import com.gu.mediaservice.lib.aws.S3Ops
@@ -11,8 +10,8 @@ import com.gu.mediaservice.lib.bbc.components.BBCValidEmailsStore
 import com.gu.pandomainauth.PanDomainAuthSettingsRefresher
 import com.gu.pandomainauth.action.AuthActions
 import com.gu.pandomainauth.model.{AuthenticatedUser, User, Authenticated => PandaAuthenticated, Expired => PandaExpired, GracePeriod => PandaGracePeriod, InvalidCookie => PandaInvalidCookie, NotAuthenticated => PandaNotAuthenticated, NotAuthorized => PandaNotAuthorised}
-import com.gu.pandomainauth.service.OAuthException
-import com.typesafe.scalalogging.StrictLogging
+import com.gu.pandomainauth.service.{Google2FAGroupChecker, OAuthException}
+import com.typesafe.scalalogging.{Logger, StrictLogging}
 import play.api.Configuration
 import play.api.http.HeaderNames
 import play.api.libs.typedmap.{TypedEntry, TypedKey, TypedMap}
@@ -42,7 +41,7 @@ class BBCAuthenticationProvider(resources: AuthenticationProviderResources, prov
 
   validEmailsStore.scheduleUpdates(resources.actorSystem.scheduler)
 
-  private val usePermissionsValidation = resources.commonConfig.stringOpt("panda.usePermissionsValidation").getOrElse("false").toBoolean
+  private val usePermissionsValidation = resources.commonConfig.stringOpt("panda.usePermissionsValidation").contains("true")
 
 
   val loginLinks = List(
@@ -63,7 +62,7 @@ class BBCAuthenticationProvider(resources: AuthenticationProviderResources, prov
       case PandaNotAuthenticated => NotAuthenticated
       case PandaInvalidCookie(e) => Invalid("error checking user's auth, clear cookie and re-auth", Some(e))
       case PandaExpired(authedUser) => Expired(gridUserFrom(authedUser.user, request))
-      case PandaGracePeriod(authedUser) => GracePeriod(gridUserFrom(authedUser.user, request))
+      case PandaGracePeriod(authedUser) => Authenticated(gridUserFrom(authedUser.user, request))
       case PandaNotAuthorised(authedUser) => NotAuthorised(s"${authedUser.user.email} not authorised to use application")
       case PandaAuthenticated(authedUser) => Authenticated(gridUserFrom(authedUser.user, request))
     }
@@ -78,8 +77,7 @@ class BBCAuthenticationProvider(resources: AuthenticationProviderResources, prov
   override def sendForAuthentication: Option[RequestHeader => Future[Result]] = Some({ requestHeader: RequestHeader =>
     val maybePrincipal = authenticateRequest(requestHeader) match {
       case Expired(principal) => Some(principal)
-      case GracePeriod(principal) => Some(principal)
-      case Authenticated(principal: GridUser) => Some(principal)
+      case Authenticated(principal: UserPrincipal) => Some(principal)
       case _ => None
     }
     val email = maybePrincipal.map(_.email)
@@ -92,7 +90,7 @@ class BBCAuthenticationProvider(resources: AuthenticationProviderResources, prov
     * used to set a cookie or similar to ensure that a subsequent call to authenticateRequest will succeed. If
     * authentication failed then this should return an appropriate 4xx result.
     */
-  override def processAuthentication: Option[(RequestHeader, Option[RedirectUri]) => Future[Result]] =
+  override def sendForAuthenticationCallback: Option[(RequestHeader, Option[RedirectUri]) => Future[Result]] =
     Some({ (requestHeader: RequestHeader, maybeUri: Option[RedirectUri]) =>
       // We use the `Try` here as the `GoogleAuthException` are thrown before we
       // get to the asynchronicity of the `Future` it returns.
@@ -122,7 +120,7 @@ class BBCAuthenticationProvider(resources: AuthenticationProviderResources, prov
     *
     * @return
     */
-  override def flushToken: Option[RequestHeader => Result] = Some(processLogout(_))
+  override def flushToken: Option[(RequestHeader, Result) => Result] = Some((rh, _) => processLogout(rh))
 
   val PandaCookieKey: TypedKey[Cookie] = TypedKey[Cookie]("PandaCookie")
 
@@ -142,10 +140,10 @@ class BBCAuthenticationProvider(resources: AuthenticationProviderResources, prov
     }
   }
 
-  private def gridUserFrom(pandaUser: User, request: RequestHeader): GridUser = {
+  private def gridUserFrom(pandaUser: User, request: RequestHeader): UserPrincipal = {
     val maybePandaCookie: Option[TypedEntry[Cookie]] = request.cookies.get(panDomainSettings.settings.cookieSettings.cookieName).map(TypedEntry[Cookie](PandaCookieKey, _))
     val attributes = TypedMap.empty + (maybePandaCookie.toSeq:_*)
-    GridUser(
+    UserPrincipal(
       firstName = pandaUser.firstName,
       lastName = pandaUser.lastName,
       email = pandaUser.email,
@@ -163,9 +161,21 @@ class BBCAuthenticationProvider(resources: AuthenticationProviderResources, prov
     )
   }
 
-  private val userValidationEmailDomain = resources.commonConfig.stringOpt("panda.userDomain").getOrElse("guardian.co.uk")
+  private val userValidationEmailDomain = resources.commonConfig.stringOpt("panda.userDomain").getOrElse("bbc.co.uk")
 
-  final override def validateUser(authedUser: AuthenticatedUser): Boolean = {
+  final override def validateUser(authedUser: AuthenticatedUser): Boolean =
+    BBCAuthenticationProvider.validateUser(authedUser, validEmailsStore, multifactorChecker, usePermissionsValidation, userValidationEmailDomain, logger)
+}
+
+object BBCAuthenticationProvider {
+  def validateUser(
+                    authedUser: AuthenticatedUser,
+                    validEmailsStore: BBCValidEmailsStore,
+                    multifactorChecker: Option[Google2FAGroupChecker],
+                    usePermissionsValidation: Boolean,
+                    userValidationEmailDomain: String,
+                    logger: Logger
+                  ): Boolean = {
     val validEmails = validEmailsStore.getValidEmails
     val isValidEmail = validEmails match {
       case Some(emails) => emails.contains(authedUser.user.email.toLowerCase)
@@ -182,5 +192,4 @@ class BBCAuthenticationProvider(resources: AuthenticationProviderResources, prov
       s"${if(usePermissionsValidation) "permissions" else "white list"} validation")
     isValid
   }
-
 }
