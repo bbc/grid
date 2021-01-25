@@ -28,7 +28,7 @@ val commonSettings = Seq(
 )
 
 //Common projects to all organizations
-lazy val commonProjects: Seq[sbt.ProjectReference] = Seq(commonLib, restLib, auth, collections, cropper, imageLoader, leases, thrall, kahuna, metadataEditor, usage, mediaApi, adminToolsLambda, adminToolsScripts, adminToolsDev)
+lazy val commonProjects: Seq[sbt.ProjectReference] = Seq(commonLib, auth, collections, cropper, imageLoader, leases, thrall, kahuna, metadataEditor, usage, mediaApi, adminToolsLambda, adminToolsScripts, adminToolsDev)
 
 lazy val root = project("grid", path = Some("."))
   .aggregate((maybeBBCLib.toList ++ commonProjects):_*)
@@ -75,6 +75,11 @@ val bbcBuildProcess: Boolean = System.getenv().asScala.get("BUILD_ORG").contains
 lazy val bbcProject = project("bbc").dependsOn(restLib)
 
 val maybeBBCLib: Option[sbt.ProjectReference] = if(bbcBuildProcess) Some(bbcProject) else None
+
+//BBC specific project, it only gets compiled when bbcBuildProcess is true
+lazy val bbcProject = project("bbc").dependsOn(commonLib)
+
+lazy val maybeBBCLib: Option[sbt.ProjectReference] = if(bbcBuildProcess) Some(bbcProject) else None
 
 lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
@@ -297,7 +302,7 @@ val buildInfo = Seq(
 )
 
 def playProject(projectName: String, port: Int, path: Option[String] = None): Project = {
-  val commonProject = project(projectName, path)
+  lazy val commonProject = project(projectName, path)
     .enablePlugins(PlayScala, JDebPackaging, SystemdPlugin, BuildInfoPlugin)
     .dependsOn(restLib)
     .settings(commonSettings ++ buildInfo ++ Seq(
@@ -325,5 +330,5 @@ def playProject(projectName: String, port: Int, path: Option[String] = None): Pr
       )
     ))
   //Add the BBC library dependency if defined
-  maybeBBCLib.fold(commonProject){commonProject.dependsOn(_)}
+  maybeBBCLib.fold(commonProject){bbcLib => commonProject.dependsOn(bbcLib) }
 }
