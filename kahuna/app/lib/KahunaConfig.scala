@@ -5,8 +5,8 @@ import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources}
 class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resources.configuration) {
   val rootUri: String = services.kahunaBaseUri
   val mediaApiUri: String = services.apiBaseUri
-  val authUri: String = services.authBaseUri
-
+  val authUri: String = stringOpt("app.loginURI").getOrElse(services.authBaseUri)
+  def reauthUri(returnUri: String): String = stringOpt("app.loginURI").getOrElse(s"$authUri}/login?redirectUri=$returnUri")
   val sentryDsn: Option[String] = stringOpt("sentry.dsn").filterNot(_.isEmpty)
 
   val thumbOrigin: String = string("origin.thumb")
