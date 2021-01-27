@@ -28,9 +28,12 @@ class AuthController(auth: Authentication, providers: AuthenticationProviders, v
       Link("session",       s"${config.rootUri}/session")
     )
     respond(indexData, indexLinks)
+
   }
 
-  def index = auth { indexResponse }
+  def index = auth {
+    Redirect(config.services.kahunaBaseUri)
+  }
 
   def session = auth { request =>
     val showPaid = authorisation.hasPermissionTo(ShowPaid)(request.user)
