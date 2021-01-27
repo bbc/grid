@@ -57,6 +57,9 @@ class BBCAuthenticationProvider(resources: AuthenticationProviderResources, prov
     * @return An authentication status expressing whether the
     */
   override def authenticateRequest(request: RequestHeader): AuthenticationStatus = {
+    logger.info("authenticateRequest: ")
+    logger.info("Headers: " + request.headers.toMap)
+    logger.info("Cookies: " + request.cookies.toList.map(cookie => cookie.name + cookie.value))
     val pandaStatus = extractAuth(request)
     val providerStatus = pandaStatus match {
       case PandaNotAuthenticated => NotAuthenticated
