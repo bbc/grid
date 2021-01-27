@@ -135,8 +135,8 @@ kahuna.run(['$log', '$rootScope', 'mediaApi', function($log, $rootScope, mediaAp
                     const authLink = new URL(reauthLink.getAttribute('href'));
                     const authParams = new URLSearchParams(authLink.search);
 
-                    authParams.set("redirectUri", window.location.href);
-                    authLink.search = authParams.toString();
+                    //authParams.set("redirectUri", window.location.href);
+                    //authLink.search = authParams.toString();
 
                     // Full page redirect to the login URI
                     window.location.href = authLink.toString();
