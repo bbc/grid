@@ -1,5 +1,7 @@
 package auth
 
+import java.net.URI
+
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, UserPrincipal}
@@ -7,9 +9,9 @@ import com.gu.mediaservice.lib.auth.Permissions.{ShowPaid, UploadImages}
 import com.gu.mediaservice.lib.auth.provider.AuthenticationProviders
 import com.gu.mediaservice.lib.auth.{Authentication, Authorisation, Internal}
 import play.api.libs.json.Json
-import play.api.mvc.{BaseController, ControllerComponents, Result}
+import play.api.mvc.{BaseController, ControllerComponents, Cookie, Result}
 
-import java.net.URI
+import scala.concurrent.duration.{Duration, DurationInt, MINUTES}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
@@ -31,8 +33,11 @@ class AuthController(auth: Authentication, providers: AuthenticationProviders, v
 
   }
 
-  def index = auth {
-    Redirect(config.services.kahunaBaseUri)
+  def index = auth { implicit req =>
+    import play.mvc.Http
+    val tokenEmail = req.headers.get("bbc-pp-oidc-id-token-email")
+    val cookie = Cookie("naiveAuth", tokenEmail.getOrElse("john.doe@bbc.co.uk"), None, "/", Some(".dev-gutools.co.uk"))
+    Redirect(config.services.kahunaBaseUri).withCookies(cookie)
   }
 
   def session = auth { request =>
