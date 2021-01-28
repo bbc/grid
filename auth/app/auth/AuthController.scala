@@ -35,7 +35,7 @@ class AuthController(auth: Authentication, providers: AuthenticationProviders, v
   def index = auth { implicit req =>
     import play.mvc.Http
     val tokenEmail = req.headers.get("bbc-pp-oidc-id-token-email")
-    val cookie = Cookie("naiveAuth", tokenEmail.getOrElse("john.doe@bbc.co.uk"), None, "/", Some(".dev-gutools.co.uk"))
+    val cookie = Cookie("naiveAuth", tokenEmail.getOrElse("john.doe@bbc.co.uk"), None, "/", Some(".images.int.tools.bbc.co.uk"))
     Redirect(config.services.kahunaBaseUri).withCookies(cookie)
   }
 
