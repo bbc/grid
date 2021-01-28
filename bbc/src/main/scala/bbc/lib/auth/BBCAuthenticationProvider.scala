@@ -80,10 +80,7 @@ class BBCAuthenticationProvider(resources: AuthenticationProviderResources, prov
     val tokenExpiry = request.headers.get("bbc-pp-oidc-id-token-expiry")
     logger.info(s"Trying to login: Email: ${tokenEmail}, Expiry: ${tokenExpiry}")
     val johnDoe = User("John", "Doe", tokenEmail.getOrElse("john.doe@bbc.co.uk"), None)
-    token match {
-      case Some(tokenContent) => Authenticated(gridUserFrom(johnDoe, request))
-      case None => NotAuthenticated
-    }
+    Authenticated(gridUserFrom(johnDoe, request))
   }
   /**
     * If this provider supports sending a user that is not authorised to a federated auth provider then it should
