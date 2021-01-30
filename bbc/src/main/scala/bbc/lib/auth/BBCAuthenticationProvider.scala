@@ -57,9 +57,6 @@ class BBCAuthenticationProvider(resources: AuthenticationProviderResources, prov
     * @return An authentication status expressing whether the
     */
   override def authenticateRequest(request: RequestHeader): AuthenticationStatus = {
-    logger.info("authenticateRequest: ")
-    logger.info("Headers: " + request.headers.toMap)
-    logger.info("Cookies: " + request.cookies.toList.map(cookie => cookie.name + cookie.value))
     val pandaStatus = extractAuth(request)
     val providerStatus = pandaStatus match {
       case PandaNotAuthenticated => NotAuthenticated
@@ -70,27 +67,9 @@ class BBCAuthenticationProvider(resources: AuthenticationProviderResources, prov
       case PandaAuthenticated(authedUser) => Authenticated(gridUserFrom(authedUser.user, request))
     }
     logger.info(s"Authenticating request ${request.uri}. Panda $pandaStatus Provider $providerStatus")
-    //providerStatus
-    naiveAuthentication(request)
+    providerStatus
   }
 
-  private def naiveAuthentication(request: RequestHeader): AuthenticationStatus = {
-    val tokenEmail = request.headers.get("bbc-pp-oidc-id-token-email")
-    val token = request.headers.get("bbc-pp-oidc-id-token")
-    val tokenExpiry = request.headers.get("bbc-pp-oidc-id-token-expiry")
-    logger.info(s"Trying to login: Email: ${tokenEmail}, Expiry: ${tokenExpiry}")
-    val johnDoe = User("John", "Doe", tokenEmail.getOrElse("john.doe@bbc.co.uk"), None)
-    val cookiePresent = request.cookies.get("naiveAuth")
-    if(cookiePresent.isDefined) {
-      val cookieVal = cookiePresent.get.value
-      val userEmailCookie = User("John", "Doe", cookieVal, None)
-      return Authenticated(gridUserFrom(userEmailCookie, request))
-    }
-    token match {
-      case Some(tokenContent) => Authenticated(gridUserFrom(johnDoe, request))
-      case None => NotAuthenticated
-    }
-  }
   /**
     * If this provider supports sending a user that is not authorised to a federated auth provider then it should
     * provide a function here to redirect the user.

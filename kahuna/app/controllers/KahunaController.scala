@@ -29,7 +29,7 @@ class KahunaController(
     Ok(views.html.main(
       config.mediaApiUri,
       config.authUri,
-      config.reauthUri(returnUri),
+      s"${config.authUri}/login?redirectUri=$returnUri",
       config.sentryDsn,
       config.sessionId,
       config.googleTrackingId,
