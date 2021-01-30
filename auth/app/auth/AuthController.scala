@@ -1,8 +1,6 @@
 package auth
 
 import java.net.URI
-import java.nio.charset.StandardCharsets
-import java.util.Base64
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
@@ -36,10 +34,9 @@ class AuthController(auth: Authentication, providers: AuthenticationProviders, v
   }
 
   def index = auth { implicit req =>
-    val tokenEmail = req.headers.get("bbc-pp-oidc-id-token-email").getOrElse("john.doe@bbc.co.uk")
-    val base64mail = Base64.getEncoder.encodeToString(tokenEmail.getBytes(StandardCharsets.UTF_8))
-    val maxAge = 60*20
-    val cookie = Cookie("gridauth", base64mail, Some(maxAge), "/", Some(".images.int.tools.bbc.co.uk"))
+    import play.mvc.Http
+    val tokenEmail = req.headers.get("bbc-pp-oidc-id-token-email")
+    val cookie = Cookie("naiveAuth", tokenEmail.getOrElse("john.doe@bbc.co.uk"), None, "/", Some(".images.int.tools.bbc.co.uk"))
     Redirect(config.services.kahunaBaseUri).withCookies(cookie)
   }
 
