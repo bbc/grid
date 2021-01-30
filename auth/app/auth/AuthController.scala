@@ -28,12 +28,9 @@ class AuthController(auth: Authentication, providers: AuthenticationProviders, v
       Link("session",       s"${config.rootUri}/session")
     )
     respond(indexData, indexLinks)
-
   }
 
-  def index = auth {
-    Redirect(config.services.kahunaBaseUri)
-  }
+  def index = auth { indexResponse }
 
   def session = auth { request =>
     val showPaid = authorisation.hasPermissionTo(ShowPaid)(request.user)
@@ -98,10 +95,6 @@ class AuthController(auth: Authentication, providers: AuthenticationProviders, v
   }
 
   def oauthCallback = Action.async { implicit request =>
-    logger.info("OAUTHCALLBACK REQUEST")
-    logger.info("COOKIES: " + request.cookies)
-    logger.info("BODY: " + request.body.asText)
-    logger.info("QueryString: " + request.rawQueryString)
     providers.userProvider.sendForAuthenticationCallback match {
       case Some(callback) =>
         val maybeRedirectUri = request.session.get(REDIRECT_SESSION_KEY)
