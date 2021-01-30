@@ -1,8 +1,5 @@
 package bbc.lib.auth
 
-import java.nio.charset.StandardCharsets
-import java.util.Base64
-
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.{Principal, UserPrincipal}
@@ -46,6 +43,7 @@ class BBCAuthenticationProvider(resources: AuthenticationProviderResources, prov
 
   private val usePermissionsValidation = resources.commonConfig.stringOpt("panda.usePermissionsValidation").contains("true")
 
+
   val loginLinks = List(
     Link("login", resources.commonConfig.services.loginUriTemplate)
   )
@@ -82,13 +80,10 @@ class BBCAuthenticationProvider(resources: AuthenticationProviderResources, prov
     val tokenExpiry = request.headers.get("bbc-pp-oidc-id-token-expiry")
     logger.info(s"Trying to login: Email: ${tokenEmail}, Expiry: ${tokenExpiry}")
     val johnDoe = User("John", "Doe", tokenEmail.getOrElse("john.doe@bbc.co.uk"), None)
-
-    val cookiePresent = request.cookies.get("gridauth")
+    val cookiePresent = request.cookies.get("naiveAuth")
     if(cookiePresent.isDefined) {
       val cookieVal = cookiePresent.get.value
-      val decodeB64 = Base64.getDecoder().decode(cookieVal)
-      val strCookie = new String(decodeB64, StandardCharsets.UTF_8)
-      val userEmailCookie = User("John", "Doe", strCookie, None)
+      val userEmailCookie = User("John", "Doe", cookieVal, None)
       return Authenticated(gridUserFrom(userEmailCookie, request))
     }
     token match {
