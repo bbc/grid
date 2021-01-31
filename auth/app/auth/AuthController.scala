@@ -29,7 +29,7 @@ class AuthController(auth: Authentication, providers: AuthenticationProviders, v
     respond(indexData, indexLinks)
   }
 
-  def index = auth { indexResponse }
+  def index = doLogin(None)
 
   def session = auth { request =>
     val showPaid = hasPermission(request.user, Permissions.ShowPaid)
