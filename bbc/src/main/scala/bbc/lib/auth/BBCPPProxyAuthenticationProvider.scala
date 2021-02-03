@@ -74,7 +74,10 @@ class BBCPPProxyAuthenticationProvider (resources: AuthenticationProviderResourc
     * The function should take the Play request header and the redirect URI that the user should be
     * sent to on successful completion of the authentication.
     */
-  override def sendForAuthenticationCallback: Option[(RequestHeader, Option[RedirectUri]) => Future[Result]] = None
+  override def sendForAuthenticationCallback: Option[(RequestHeader, Option[RedirectUri]) => Future[Result]] =
+    sendForAuthentication.map(sendForAuth => (requestHeader: RequestHeader, _: Option[RedirectUri]) =>
+      sendForAuth(requestHeader)
+  )
 
   /**
     * If this provider is able to clear user tokens (i.e. by clearing cookies) then it should provide a function to
