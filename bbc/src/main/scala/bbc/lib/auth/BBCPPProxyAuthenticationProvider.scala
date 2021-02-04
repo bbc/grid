@@ -61,7 +61,7 @@ class BBCPPProxyAuthenticationProvider (resources: AuthenticationProviderResourc
     */
   override def sendForAuthentication: Option[RequestHeader => Future[Result]] = Some({requestHeader: RequestHeader =>
     authenticateRequest(requestHeader) match {
-      case Authenticated(_) => Future(redirectToHome(requestHeader))
+      case Authenticated(_) => Future(redirectToSource(requestHeader))
       case _ => Future(redirectToPP())
       }
     })
@@ -109,8 +109,8 @@ class BBCPPProxyAuthenticationProvider (resources: AuthenticationProviderResourc
     Redirect(ppRedirectURI)
   }
 
-  private def redirectToHome(request: RequestHeader) = {
-    val redirect = Redirect(kahunaBaseURI)
+  private def redirectToSource(request: RequestHeader) = {
+    val redirect = request.getQueryString("redirectUri").map(redirectURL => Redirect(redirectURL)).getOrElse(Redirect(kahunaBaseURI))
     if(extraCookieEnabled) {
       redirect.withCookies(generateGridCookie(request))
     } else {
