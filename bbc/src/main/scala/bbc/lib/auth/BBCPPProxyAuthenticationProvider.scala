@@ -14,7 +14,7 @@ import play.api.Configuration
 import play.api.http.HeaderNames
 import play.api.libs.typedmap.{TypedEntry, TypedKey, TypedMap}
 import play.api.libs.ws.{DefaultWSCookie, WSClient, WSRequest}
-import play.api.mvc.{ControllerComponents, Cookie, RequestHeader, Result}
+import play.api.mvc.{ControllerComponents, Cookie, DiscardingCookie, RequestHeader, Result}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -26,6 +26,7 @@ class BBCPPProxyAuthenticationProvider (resources: AuthenticationProviderResourc
 
   implicit val ec: ExecutionContext = resources.controllerComponents.executionContext
   private val ppRedirectURI = providerConfiguration.getOptional[String]("app.loginURI").getOrElse(s"${resources.commonConfig.services.authBaseUri}/login")
+  private val ppRedirectLogoutURI = providerConfiguration.getOptional[String]("app.logoutURI").getOrElse(s"${resources.commonConfig.services.authBaseUri}/logout")
   private val emailHeaderKey = providerConfiguration.getOptional[String]("pp.header.email").getOrElse("bbc-pp-oidc-id-token-email")
   private val idTokenHeaderKey = providerConfiguration.getOptional[String]("pp.header.idtoken").getOrElse("bbc-pp-oidc-id-token")
   private val expiryHeaderKey = providerConfiguration.getOptional[String]("pp.header.expiry").getOrElse("bbc-pp-oidc-id-token-expiry")
@@ -63,8 +64,8 @@ class BBCPPProxyAuthenticationProvider (resources: AuthenticationProviderResourc
     authenticateRequest(requestHeader) match {
       case Authenticated(_) => Future(redirectToSource(requestHeader))
       case _ => Future(redirectToPP())
-      }
-    })
+    }
+  })
 
   /**
     * If this provider supports sending a user that is not authorised to a federated auth provider then it should
@@ -77,14 +78,16 @@ class BBCPPProxyAuthenticationProvider (resources: AuthenticationProviderResourc
   override def sendForAuthenticationCallback: Option[(RequestHeader, Option[RedirectUri]) => Future[Result]] =
     sendForAuthentication.map(sendForAuth => (requestHeader: RequestHeader, _: Option[RedirectUri]) =>
       sendForAuth(requestHeader)
-  )
+    )
 
   /**
     * If this provider is able to clear user tokens (i.e. by clearing cookies) then it should provide a function to
     * do that here which will be used to log users out and also if the token is invalid.
     * This function takes the request header and a result to modify and returns the modified result.
     */
-  override def flushToken: Option[(RequestHeader, Result) => Result] = None
+  override def flushToken: Option[(RequestHeader, Result) => Result] = Some({(header, result) =>
+    Redirect(ppRedirectLogoutURI).discardingCookies(DiscardingCookie(extraCookieHeaderKey))
+  })
 
   /**
     * A function that allows downstream API calls to be made using the credentials of the current principal.
