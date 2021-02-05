@@ -86,7 +86,7 @@ class BBCPPProxyAuthenticationProvider (resources: AuthenticationProviderResourc
     * This function takes the request header and a result to modify and returns the modified result.
     */
   override def flushToken: Option[(RequestHeader, Result) => Result] = Some({(header, result) =>
-    Redirect(ppRedirectLogoutURI).discardingCookies(DiscardingCookie(extraCookieHeaderKey))
+    Redirect(ppRedirectLogoutURI).discardingCookies(DiscardingCookie(extraCookieHeaderKey, "/", Some(extraCookieDomain)))
   })
 
   /**
