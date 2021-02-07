@@ -3,6 +3,7 @@ package bbc.lib.auth
 import java.nio.charset.StandardCharsets
 import java.util.Base64
 
+import bbc.lib.auth.BBCPPProxyAuthenticationProvider.CKNSSessionIsFromLogin
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.auth.Authentication.UserPrincipal
@@ -12,11 +13,14 @@ import com.typesafe.scalalogging.StrictLogging
 import io.jsonwebtoken.impl.crypto.JwtSignatureValidator
 import play.api.Configuration
 import play.api.http.HeaderNames
+import play.api.libs.json.{JsValue, Json}
 import play.api.libs.typedmap.{TypedEntry, TypedKey, TypedMap}
 import play.api.libs.ws.{DefaultWSCookie, WSClient, WSRequest}
 import play.api.mvc.{ControllerComponents, Cookie, DiscardingCookie, RequestHeader, Result}
+import play.utils.{InvalidUriEncodingException, UriEncoding}
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Try
 
 
 
@@ -25,16 +29,18 @@ class BBCPPProxyAuthenticationProvider (resources: AuthenticationProviderResourc
   extends UserAuthenticationProvider with StrictLogging with ArgoHelpers with HeaderNames {
 
   implicit val ec: ExecutionContext = resources.controllerComponents.executionContext
+  private val defaultMaxAge = 60*60*4
   private val ppRedirectURI = providerConfiguration.getOptional[String]("app.loginURI").getOrElse(s"${resources.commonConfig.services.authBaseUri}/login")
   private val ppRedirectLogoutURI = providerConfiguration.getOptional[String]("app.logoutURI").getOrElse(s"${resources.commonConfig.services.authBaseUri}/logout")
   private val emailHeaderKey = providerConfiguration.getOptional[String]("pp.header.email").getOrElse("bbc-pp-oidc-id-token-email")
   private val idTokenHeaderKey = providerConfiguration.getOptional[String]("pp.header.idtoken").getOrElse("bbc-pp-oidc-id-token")
   private val expiryHeaderKey = providerConfiguration.getOptional[String]("pp.header.expiry").getOrElse("bbc-pp-oidc-id-token-expiry")
   private val ppProxyCookie = providerConfiguration.getOptional[String]("pp.cookie").getOrElse("ckns_pp_id")
+  private val ppProxySessionCookie = providerConfiguration.getOptional[String]("pp.session_cookie").getOrElse("ckns_pp_session")
   private val extraCookieHeaderKey = providerConfiguration.getOptional[String]("pp.extracookie.name").getOrElse("pp-grid-auth")
   private val extraCookieEnabled = providerConfiguration.getOptional[Boolean]("pp.extracookie.enabled").getOrElse(true)
   private val extraCookieDomain = providerConfiguration.getOptional[String]("pp.extracookie.domain").getOrElse(".images.int.tools.bbc.co.uk")
-  private val defaultMaxAge = 60*20
+  private val defaultMaxAge = providerConfiguration.getOptional[Int]("pp.extracookie.maxage").getOrElse(defaultMaxAge)
   private val kahunaBaseURI: String = resources.commonConfig.services.kahunaBaseUri
 
   val ppCookieKey: TypedKey[Cookie] = TypedKey[Cookie](ppProxyCookie)
@@ -75,10 +81,15 @@ class BBCPPProxyAuthenticationProvider (resources: AuthenticationProviderResourc
     * The function should take the Play request header and the redirect URI that the user should be
     * sent to on successful completion of the authentication.
     */
-  override def sendForAuthenticationCallback: Option[(RequestHeader, Option[RedirectUri]) => Future[Result]] =
-    sendForAuthentication.map(sendForAuth => (requestHeader: RequestHeader, _: Option[RedirectUri]) =>
-      sendForAuth(requestHeader)
-    )
+  override def sendForAuthenticationCallback: Option[(RequestHeader, Option[RedirectUri]) => Future[Result]] = {
+    sendForAuthentication.map(sendForAuth => (requestHeader: RequestHeader, _: Option[RedirectUri]) => {
+      val ppSessionCookie = requestHeader.cookies.get(ppProxySessionCookie)
+      val isCKNSSessionFromLogin = ppSessionCookie.exists(cookie => CKNSSessionIsFromLogin(cookie.value))
+      if(isCKNSSessionFromLogin) {
+        sendForAuth(requestHeader)
+      } else Future(Redirect(kahunaBaseURI))
+    })
+  }
 
   /**
     * If this provider is able to clear user tokens (i.e. by clearing cookies) then it should provide a function to
@@ -189,5 +200,24 @@ class BBCPPProxyAuthenticationProvider (resources: AuthenticationProviderResourc
 }
 
 object BBCPPProxyAuthenticationProvider {
+  private val loginUri = "/login"
+  private def decodePath(path: String): Option[String] = {
+    Try(UriEncoding.decodePath(path, StandardCharsets.US_ASCII)).toOption
+  }
 
+  private def jsonParse(json: String): Option[JsValue] = {
+    Try(Json.parse(json)).toOption
+  }
+
+  def getCKNSSessionOriginalURL(cookieContents: String): Option[String] = {
+    for {
+      decoded <- decodePath(cookieContents)
+      json <- jsonParse(decoded)
+      originalUrl <- (json \ "original_url").asOpt[String]
+    } yield originalUrl
+  }
+
+  def CKNSSessionIsFromLogin(cookieContents: String): Boolean = {
+    getCKNSSessionOriginalURL(cookieContents).exists(_.startsWith(loginUri))
+  }
 }
