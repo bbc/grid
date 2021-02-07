@@ -40,7 +40,7 @@ class BBCPPProxyAuthenticationProvider (resources: AuthenticationProviderResourc
   private val extraCookieHeaderKey = providerConfiguration.getOptional[String]("pp.extracookie.name").getOrElse("pp-grid-auth")
   private val extraCookieEnabled = providerConfiguration.getOptional[Boolean]("pp.extracookie.enabled").getOrElse(true)
   private val extraCookieDomain = providerConfiguration.getOptional[String]("pp.extracookie.domain").getOrElse(".images.int.tools.bbc.co.uk")
-  private val defaultMaxAge = providerConfiguration.getOptional[Int]("pp.extracookie.maxage").getOrElse(defaultMaxAge)
+  private val maxAge = providerConfiguration.getOptional[Int]("pp.extracookie.maxage").getOrElse(defaultMaxAge)
   private val kahunaBaseURI: String = resources.commonConfig.services.kahunaBaseUri
 
   val ppCookieKey: TypedKey[Cookie] = TypedKey[Cookie](ppProxyCookie)
@@ -189,7 +189,7 @@ class BBCPPProxyAuthenticationProvider (resources: AuthenticationProviderResourc
     val email = request.headers.get(emailHeaderKey).getOrElse("john.doe@bbc.co.uk")
     val base64mail = Base64.getEncoder.encodeToString(email.getBytes(StandardCharsets.UTF_8))
 
-    Cookie(extraCookieHeaderKey, base64mail, Some(defaultMaxAge), "/", Some(extraCookieDomain))
+    Cookie(extraCookieHeaderKey, base64mail, Some(maxAge), "/", Some(extraCookieDomain))
   }
 
   case class BBCBasicUserInfo(firstName: String, lastName: String, email: String)
