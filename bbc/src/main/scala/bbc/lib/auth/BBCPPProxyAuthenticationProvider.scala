@@ -35,15 +35,16 @@ class BBCPPProxyAuthenticationProvider (resources: AuthenticationProviderResourc
   private val emailHeaderKey = providerConfiguration.getOptional[String]("pp.header.email").getOrElse("bbc-pp-oidc-id-token-email")
   private val idTokenHeaderKey = providerConfiguration.getOptional[String]("pp.header.idtoken").getOrElse("bbc-pp-oidc-id-token")
   private val expiryHeaderKey = providerConfiguration.getOptional[String]("pp.header.expiry").getOrElse("bbc-pp-oidc-id-token-expiry")
-  private val ppProxyCookie = providerConfiguration.getOptional[String]("pp.cookie").getOrElse("ckns_pp_id")
+  private val ppProxyCookieName = providerConfiguration.getOptional[String]("pp.cookie").getOrElse("ckns_pp_id")
   private val ppProxySessionCookie = providerConfiguration.getOptional[String]("pp.session_cookie").getOrElse("ckns_pp_session")
-  private val extraCookieHeaderKey = providerConfiguration.getOptional[String]("pp.extracookie.name").getOrElse("pp-grid-auth")
+  private val extraCookieName = providerConfiguration.getOptional[String]("pp.extracookie.name").getOrElse("pp-grid-auth")
   private val extraCookieEnabled = providerConfiguration.getOptional[Boolean]("pp.extracookie.enabled").getOrElse(true)
   private val extraCookieDomain = providerConfiguration.getOptional[String]("pp.extracookie.domain").getOrElse(".images.int.tools.bbc.co.uk")
   private val maxAge = providerConfiguration.getOptional[Int]("pp.extracookie.maxage").getOrElse(defaultMaxAge)
   private val kahunaBaseURI: String = resources.commonConfig.services.kahunaBaseUri
 
-  val ppCookieKey: TypedKey[Cookie] = TypedKey[Cookie](ppProxyCookie)
+  val ppProxyCookieKey: TypedKey[Cookie] = TypedKey[Cookie](ppProxyCookieName)
+  val extraCookieKey: TypedKey[Cookie] = TypedKey[Cookie](extraCookieName)
   /**
     * Establish the authentication status of the given request header. This can return an authenticated user or a number
     * of reasons why a user is not authenticated.
@@ -97,7 +98,7 @@ class BBCPPProxyAuthenticationProvider (resources: AuthenticationProviderResourc
     * This function takes the request header and a result to modify and returns the modified result.
     */
   override def flushToken: Option[(RequestHeader, Result) => Result] = Some({(header, result) =>
-    Redirect(ppRedirectLogoutURI).discardingCookies(DiscardingCookie(extraCookieHeaderKey, "/", Some(extraCookieDomain)))
+    Redirect(ppRedirectLogoutURI).discardingCookies(DiscardingCookie(extraCookieName, "/", Some(extraCookieDomain)))
   })
 
   /**
@@ -110,10 +111,10 @@ class BBCPPProxyAuthenticationProvider (resources: AuthenticationProviderResourc
     *         why it wasn't possible to create a function.
     */
   override def onBehalfOf(request: Authentication.Principal): Either[String, WSRequest => WSRequest] = {
-    val cookieName = ppProxyCookie
-    request.attributes.get(ppCookieKey) match {
+    val cookieName = if (extraCookieEnabled) extraCookieName else ppProxyCookieName
+    request.attributes.get(extraCookieKey) match {
       case Some(cookie) => Right { wsRequest: WSRequest =>
-        wsRequest.addCookies(DefaultWSCookie(cookieName, cookie.value))
+        wsRequest.addCookies(DefaultWSCookie(cookie.name, cookie.value))
       }
       case None => Left(s"Cookie $cookieName is missing in principal.")
     }
@@ -133,8 +134,9 @@ class BBCPPProxyAuthenticationProvider (resources: AuthenticationProviderResourc
   }
 
   private def gridUserFrom(request: RequestHeader, bbcUser: BBCBasicUserInfo): UserPrincipal = {
-    val maybePPProxyCookie: Option[TypedEntry[Cookie]] = request.cookies.get(ppProxyCookie).map(TypedEntry[Cookie](ppCookieKey, _))
-    val attributes = TypedMap.empty + (maybePPProxyCookie.toSeq:_*)
+    val maybePPProxyCookie: Option[TypedEntry[Cookie]] = request.cookies.get(ppProxyCookieName).map(TypedEntry[Cookie](ppProxyCookieKey, _))
+    val maybeExtraCookie: Option[TypedEntry[Cookie]] = request.cookies.get(extraCookieName).map(TypedEntry[Cookie](extraCookieKey, _))
+    val attributes = TypedMap.empty + (maybePPProxyCookie.toSeq ++ maybeExtraCookie.toSeq :_*)
     UserPrincipal(
       firstName = bbcUser.firstName,
       lastName = bbcUser.lastName,
@@ -154,8 +156,8 @@ class BBCPPProxyAuthenticationProvider (resources: AuthenticationProviderResourc
 
   private def checkRequestValidity(request: RequestHeader): PPSessionStatus = {
     val ppHeader = request.headers.get(idTokenHeaderKey)
-    val ppCookie = request.cookies.get(ppProxyCookie)
-    val extraCookie = request.cookies.get(extraCookieHeaderKey)
+    val ppCookie = request.cookies.get(ppProxyCookieName)
+    val extraCookie = request.cookies.get(extraCookieName)
 
     if(ppHeader.isDefined) {
       return checkCookieValidity(ppHeader.get)
@@ -175,7 +177,7 @@ class BBCPPProxyAuthenticationProvider (resources: AuthenticationProviderResourc
     if(email.isDefined) {
       return Some(BBCBasicUserInfo("John", "Doe", email.get))
     } else if(extraCookieEnabled) {
-      val extraCookie =  request.cookies.get(extraCookieHeaderKey)
+      val extraCookie =  request.cookies.get(extraCookieName)
       if(extraCookie.isDefined) {
         val decodeB64 = Base64.getDecoder().decode(extraCookie.get.value)
         val strCookie = new String(decodeB64, StandardCharsets.UTF_8)
@@ -189,7 +191,7 @@ class BBCPPProxyAuthenticationProvider (resources: AuthenticationProviderResourc
     val email = request.headers.get(emailHeaderKey).getOrElse("john.doe@bbc.co.uk")
     val base64mail = Base64.getEncoder.encodeToString(email.getBytes(StandardCharsets.UTF_8))
 
-    Cookie(extraCookieHeaderKey, base64mail, Some(maxAge), "/", Some(extraCookieDomain))
+    Cookie(extraCookieName, base64mail, Some(maxAge), "/", Some(extraCookieDomain))
   }
 
   case class BBCBasicUserInfo(firstName: String, lastName: String, email: String)
