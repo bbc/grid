@@ -38,7 +38,7 @@ authentication.providers {
     config {
       # all of the things relating to pan domain auth (these are currently sensibly defaulted in code)
       # panda.system = media-service
-      panda.bucketName = "grid-dev-auth-pandomainbucket-80578040"
+      # panda.bucketName = <s3-bucket-with-config>
       # panda.settingsFileKey = <s3-key-with-config>
     }
   }
