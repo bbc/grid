@@ -1,6 +1,8 @@
 package bbc.lib.auth
 
+import bbc.lib.auth.BBCPPProxyAuthenticationProvider.jsonParse
 import bbc.lib.auth.Crypto.{PrivateKey, PublicKey}
+import play.api.libs.json.{JsObject, Reads}
 
 import java.nio.charset.StandardCharsets
 import scala.util.Success
@@ -16,16 +18,28 @@ import io.jsonwebtoken.{JwtParser, Jwts}
 import io.jsonwebtoken.impl.crypto.JwtSignatureValidator
 import play.api.Configuration
 import play.api.http.HeaderNames
-import play.api.libs.json.{JsValue, Json}
+import play.api.libs.json._
 import play.api.libs.typedmap.{TypedEntry, TypedKey, TypedMap}
 import play.api.libs.ws.{DefaultWSCookie, WSClient, WSRequest}
 import play.api.mvc.{ControllerComponents, Cookie, DiscardingCookie, RequestHeader, Result}
 import play.utils.{InvalidUriEncodingException, UriEncoding}
+import play.api.libs.functional.syntax._
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 import org.apache.commons.codec.binary.Base64
+
+sealed case class UserGroup(name: String, id: String)
+object UserGroup {
+  implicit val userGroupReads: Reads[UserGroup] = (
+    (JsPath \ "name").read[String] and
+      (JsPath \ "id").read[String]
+    )(UserGroup.apply _)
+}
+
+object BBCImages extends UserGroup("BBC%20Images", "690e9d9d-3de8-4542-87c7-b643801c0575")
+object BBCImagesArchivist extends UserGroup("BBC_Images_Archivist", "5c37e500-946a-4c5b-a38a-12498f176ead")
 
 
 
@@ -39,6 +53,7 @@ class BBCPPProxyAuthenticationProvider (resources: AuthenticationProviderResourc
   private val emailHeaderKey = providerConfiguration.getOptional[String]("pp.header.email").getOrElse("bbc-pp-oidc-id-token-email")
   private val idTokenHeaderKey = providerConfiguration.getOptional[String]("pp.header.idtoken").getOrElse("bbc-pp-oidc-id-token")
   private val expiryHeaderKey = providerConfiguration.getOptional[String]("pp.header.expiry").getOrElse("bbc-pp-oidc-id-token-expiry")
+  private val userGroupsHeaderKey = providerConfiguration.getOptional[String]("pp.header.usergroups").getOrElse("bbc-pp-user-groups")
   private val ppProxyCookieName = providerConfiguration.getOptional[String]("pp.cookie").getOrElse("ckns_pp_id")
   private val ppProxySessionCookie = providerConfiguration.getOptional[String]("pp.session_cookie").getOrElse("ckns_pp_session")
   private val extraCookieName = providerConfiguration.getOptional[String]("pp.extracookie.name").getOrElse("pp-grid-auth")
@@ -50,6 +65,7 @@ class BBCPPProxyAuthenticationProvider (resources: AuthenticationProviderResourc
 
   private val ppProxyCookieKey: TypedKey[Cookie] = TypedKey[Cookie](ppProxyCookieName)
   private val extraCookieKey: TypedKey[Cookie] = TypedKey[Cookie](extraCookieName)
+  private val userGroupKey: TypedKey[List[UserGroup]] = TypedKey[List[UserGroup]]("userGroups")
 
   /**
     * Establish the authentication status of the given request header. This can return an authenticated user or a number
@@ -131,7 +147,8 @@ class BBCPPProxyAuthenticationProvider (resources: AuthenticationProviderResourc
   private def gridUserFrom(request: RequestHeader, bbcUser: BBCBasicUserInfo): UserPrincipal = {
     val maybePPProxyCookie: Option[TypedEntry[Cookie]] = request.cookies.get(ppProxyCookieName).map(TypedEntry[Cookie](ppProxyCookieKey, _))
     val maybeExtraCookie: Option[TypedEntry[Cookie]] = request.cookies.get(extraCookieName).map(TypedEntry[Cookie](extraCookieKey, _))
-    val attributes = TypedMap.empty + (maybePPProxyCookie.toSeq ++ maybeExtraCookie.toSeq :_*)
+    val userGroups: TypedEntry[List[UserGroup]] = TypedEntry[List[UserGroup]](userGroupKey, bbcUser.userGroups)
+    val attributes = TypedMap.empty + (maybePPProxyCookie.toSeq ++ maybeExtraCookie.toSeq :_*) + userGroups
     UserPrincipal(
       firstName = bbcUser.firstName,
       lastName = bbcUser.lastName,
@@ -142,19 +159,28 @@ class BBCPPProxyAuthenticationProvider (resources: AuthenticationProviderResourc
 
   private def getBBCUser(request: RequestHeader): Option[BBCBasicUserInfo] = for {
     extraCookie <- request.cookies.get(extraCookieName)
-    decodedExtraCookieData <- BBCPPProxyAuthenticationProvider.parseCookieData(extraCookie.value, publicKey)
-  } yield BBCBasicUserInfo("John", "Doe", decodedExtraCookieData)
+    decodedExtraCookieData <- BBCPPProxyAuthenticationProvider.decodeCookieData(extraCookie.value, publicKey)
+    jsonString <- jsonParse(decodedExtraCookieData)
+    jsObj <- jsonString.asOpt[JsObject]
+    email <- (jsObj \ "email").asOpt[String]
+    userGroups <- (jsObj \ "userGroups").asOpt[List[UserGroup]]
+  } yield {
+    BBCBasicUserInfo("John", "Doe", email, userGroups)
+  }
 
   private def generateGridCookie(request: RequestHeader): Cookie = {
-    val email = request.headers.get(emailHeaderKey).getOrElse("john.doe@bbc.co.uk")
-    val encodedData = Base64.encodeBase64String(email.getBytes(StandardCharsets.UTF_8))
-    val signature = Crypto.signData(email.getBytes("UTF-8"), privateKey)
+    val email = request.headers.get(emailHeaderKey)
+    val userGroups = request.headers.get(userGroupsHeaderKey)
+    logger.info("userGroups get: ", userGroups)
+    val data = Json.obj("email" -> email, "userGroups" -> userGroups).toString
+    val encodedData = Base64.encodeBase64String(data.getBytes(StandardCharsets.UTF_8))
+    val signature = Crypto.signData(data.getBytes("UTF-8"), privateKey)
     val encodedSignature = Base64.encodeBase64String(signature)
 
     Cookie(extraCookieName, s"$encodedData.$encodedSignature", Some(maxAge), "/", Some(extraCookieDomain))
   }
 
-  case class BBCBasicUserInfo(firstName: String, lastName: String, email: String)
+  case class BBCBasicUserInfo(firstName: String, lastName: String, email: String, userGroups: List[UserGroup])
 
   sealed trait PPSessionStatus
   case object Invalid extends PPSessionStatus
@@ -168,7 +194,7 @@ object BBCPPProxyAuthenticationProvider {
     Try(UriEncoding.decodePath(path, StandardCharsets.US_ASCII)).toOption
   }
 
-  def parseCookieData(cookieString: String, publicKey: PublicKey): Option[String] = cookieString match {
+  def decodeCookieData(cookieString: String, publicKey: PublicKey): Option[String] = cookieString match {
     case CookieRegEx(data, sig) =>
       val decodedData = Base64.decodeBase64(data.getBytes("UTF-8"))
       val decodedSignature = Base64.decodeBase64(sig.getBytes("UTF-8"))
