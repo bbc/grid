@@ -6,7 +6,7 @@ import _root_.play.api.mvc.{BaseController, ControllerComponents}
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.Principal
-import com.gu.mediaservice.lib.auth.Permissions.{DeleteCrops, PrincipalPredicate}
+import com.gu.mediaservice.lib.auth.Permissions.{DeleteCrops, PrincipalFilter}
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.auth.provider.AuthorisationProvider
 import com.gu.mediaservice.lib.aws.UpdateMessage
@@ -78,7 +78,7 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
     }
   }
 
-  private val canDeleteCrops: PrincipalPredicate = authorisation.principalPredicate(DeleteCrops)
+  private val canDeleteCrops: PrincipalFilter = authorisation.hasPermissionTo(DeleteCrops)
 
   def getCrops(id: String) = auth.async { httpRequest =>
 

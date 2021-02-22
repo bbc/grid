@@ -24,8 +24,10 @@ case class PermissionContext1[T](permission: Permission[T], parameter: T) extend
 
 object Permissions {
   /** A predicate that takes a principal and returns a boolean reflecting whether the principal has permission or not */
-  type PrincipalPredicate = Principal => Boolean
-  type ParameterPredicate[T] = T => Boolean
+  type PrincipalFilter = Principal => Boolean
+  /** A predicate that takes a parameter value and returns a boolean reflecting on whether a principal can see this
+    * record or not */
+  type VisibilityFilter[T] = T => Boolean
 
   case object EditMetadata extends SimplePermission
   case object DeleteImage extends SimplePermission

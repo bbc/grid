@@ -97,7 +97,7 @@ class MediaApi(
         if (user.email.toLowerCase == image.uploadedBy.toLowerCase) {
           true
         } else {
-          authorisation.principalPredicate(permission)(principal)
+          authorisation.hasPermissionTo(permission)(principal)
         }
       case service: MachinePrincipal if service.accessor.tier == Internal => true
     }
@@ -110,7 +110,7 @@ class MediaApi(
     isUploaderOrHasPermission(principal, image, DeleteImage)
 
   def canUserDeleteCropsOrUsages(principal: Principal): Boolean =
-    authorisation.principalPredicate(DeleteCrops)(principal)
+    authorisation.hasPermissionTo(DeleteCrops)(principal)
 
   private def isAvailableForSyndication(image: Image): Boolean = image.syndicationRights.exists(_.isAvailableForSyndication)
 

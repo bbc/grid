@@ -48,7 +48,7 @@ class PermissionsAuthorisationProvider(configuration: Configuration, resources: 
     }
   }
 
-  override def principalPredicate[T](permission: SimplePermission): PrincipalPredicate = {
+  override def hasPermissionTo[T](permission: SimplePermission): PrincipalFilter = {
     val definition = permission match {
       case EditMetadata => Permissions.EditMetadata
       case DeleteImage => Permissions.DeleteImage
@@ -59,12 +59,12 @@ class PermissionsAuthorisationProvider(configuration: Configuration, resources: 
   }
 
   // there are none of these right now so simply always return true
-  override def principalPredicate[T](permission: PermissionWithParameter[T],
-                                     parameter: T): PrincipalPredicate =
+  override def hasPermissionTo[T](permission: PermissionWithParameter[T],
+                                  parameter: T): PrincipalFilter =
     { _: Principal => true }
 
   // there are none of these right now so simply always return true
-  override def filterPredicate[T](permission: PermissionWithParameter[T],
-                                  principal: Principal): ParameterPredicate[T] =
+  override def visibilityFilterFor[T](permission: PermissionWithParameter[T],
+                                      principal: Principal): VisibilityFilter[T] =
     { _: T => true }
 }

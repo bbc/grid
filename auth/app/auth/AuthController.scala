@@ -33,7 +33,7 @@ class AuthController(auth: Authentication, providers: AuthenticationProviders, v
   def index = auth { indexResponse }
 
   def session = auth { request =>
-    val showPaid = authorisation.principalPredicate(ShowPaid)(request.user)
+    val showPaid = authorisation.hasPermissionTo(ShowPaid)(request.user)
     request.user match {
       case UserPrincipal(firstName, lastName, email, _) =>
 
