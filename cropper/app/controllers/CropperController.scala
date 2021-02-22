@@ -145,10 +145,8 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
 
     case class HttpClientResponse(status: Int, statusText: String, json: JsValue)
 
-    // TODO we should proxy authentication from the original request rather than have a dedicated cropper API key
     val baseRequest = ws.url(uri)
       .withQueryStringParameters("include" -> "fileMetadata")
-      .withHttpHeaders(Authentication.originalServiceHeaderName -> "cropper")
 
     val request = onBehalfOfPrincipal(baseRequest)
 
