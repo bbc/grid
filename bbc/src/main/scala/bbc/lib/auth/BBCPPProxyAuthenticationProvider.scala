@@ -169,10 +169,10 @@ class BBCPPProxyAuthenticationProvider (resources: AuthenticationProviderResourc
   }
 
   private def generateGridCookie(request: RequestHeader): Cookie = {
-    val email = request.headers.get(emailHeaderKey)
-    val userGroups = request.headers.get(userGroupsHeaderKey)
+    val email = request.headers.get(emailHeaderKey).getOrElse("johndoe@bbc.co.uk")
+    val userGroups = request.headers.get(userGroupsHeaderKey).get
     logger.info("userGroups get: ", userGroups)
-    val data = Json.obj("email" -> email, "userGroups" -> userGroups).toString
+    val data = s"""{"email": "$email", "userGroups": $userGroups}"""
     val encodedData = Base64.encodeBase64String(data.getBytes(StandardCharsets.UTF_8))
     val signature = Crypto.signData(data.getBytes("UTF-8"), privateKey)
     val encodedSignature = Base64.encodeBase64String(signature)
