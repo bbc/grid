@@ -1,4 +1,4 @@
-package bbc.lib.auth
+/*package bbc.lib.auth
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
@@ -194,3 +194,4 @@ object BBCAuthenticationProvider {
     isValid
   }
 }
+*/
