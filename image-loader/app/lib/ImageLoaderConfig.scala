@@ -6,10 +6,14 @@ import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources, ImageP
 import com.gu.mediaservice.model._
 import com.typesafe.scalalogging.StrictLogging
 
+import scala.concurrent.duration.FiniteDuration
+
 class ImageLoaderConfig(resources: GridConfigResources) extends CommonConfig(resources.configuration) with StrictLogging {
   val imageBucket: String = string("s3.image.bucket")
 
   val thumbnailBucket: String = string("s3.thumb.bucket")
+  val quarantineBucket: Option[String] = stringOpt("s3.quarantine.bucket")
+  val uploadToQuarantineEnabled: Boolean = boolean("upload.quarantine.enabled")
 
   val tempDir: File = new File(stringDefault("upload.tmp.dir", "/tmp"))
 
@@ -22,6 +26,9 @@ class ImageLoaderConfig(resources: GridConfigResources) extends CommonConfig(res
 
   val transcodedMimeTypes: List[MimeType] = getStringSet("transcoded.mime.types").toList.map(MimeType(_))
   val supportedMimeTypes: List[MimeType] = List(Jpeg, Png) ::: transcodedMimeTypes
+
+  val uploadStatusTable: String = string("dynamo.table.upload.status")
+  val uploadStatusExpiry: FiniteDuration = configuration.get[FiniteDuration]("uploadStatus.recordExpiry")
 
   /**
     * Load in the chain of image processors from config. This can be a list of
