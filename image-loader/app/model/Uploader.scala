@@ -262,7 +262,8 @@ object Uploader extends GridLogging {
 class Uploader(val store: ImageLoaderStore,
                val config: ImageLoaderConfig,
                val imageOps: ImageOperations,
-               val notifications: Notifications)
+               val notifications: Notifications,
+               imageProcessor: ImageProcessor)
               (implicit val ec: ExecutionContext) extends ArgoHelpers {
 
 
@@ -272,7 +273,7 @@ class Uploader(val store: ImageLoaderStore,
                        (implicit logMarker: LogMarker): Future[ImageUpload] = {
     val sideEffectDependencies = ImageUploadOpsDependencies(toImageUploadOpsCfg(config), imageOps,
       storeSource, storeThumbnail, storeOptimisedImage)
-    val finalImage = fromUploadRequestShared(uploadRequest, sideEffectDependencies, config.imageProcessor)
+    val finalImage = fromUploadRequestShared(uploadRequest, sideEffectDependencies, imageProcessor)
     finalImage.map(img => Stopwatch("finalImage"){ImageUpload(uploadRequest, img)})
   }
 
