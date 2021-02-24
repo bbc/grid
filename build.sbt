@@ -27,7 +27,7 @@ val commonSettings = Seq(
 )
 
 //Common projects to all organizations
-lazy val commonProjects: Seq[sbt.ProjectReference] = Seq(commonLib, auth, collections, cropper, imageLoader, leases, thrall, kahuna, metadataEditor, usage, mediaApi, adminToolsLambda, adminToolsScripts, adminToolsDev)
+lazy val commonProjects: Seq[sbt.ProjectReference] = Seq(commonLib, restLib, auth, collections, cropper, imageLoader, leases, thrall, kahuna, metadataEditor, usage, mediaApi, adminToolsLambda, adminToolsScripts, adminToolsDev)
 
 lazy val root = project("grid", path = Some("."))
   .aggregate(commonLib, restLib, auth, collections, cropper, imageLoader, leases, thrall, kahuna, metadataEditor, usage, mediaApi, adminToolsLambda, adminToolsScripts, adminToolsDev)
@@ -70,16 +70,6 @@ val okHttpVersion = "3.12.1"
 
 val bbcBuildProcess: Boolean = System.getenv().asScala.get("BUILD_ORG").contains("bbc")
 
-val bbcCommonLibSettings: SettingsDefinition = if (bbcBuildProcess) {
-  Seq(
-    libraryDependencies ++= Seq("com.gu" %% "pan-domain-auth-play_2-6" % "0.9.2-SNAPSHOT")
-  )
-} else {
-  Seq(
-    libraryDependencies ++= Seq("com.gu" %% "pan-domain-auth-play_2-6" % "0.8.2")
-  )
-}
-
 //BBC specific project, it only gets compiled when bbcBuildProcess is true
 lazy val bbcProject = project("bbc").dependsOn(restLib)
 
@@ -89,6 +79,7 @@ lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
     // also exists in plugins.sbt, TODO deduplicate this
     "com.gu" %% "editorial-permissions-client" % "2.0",
+    "com.gu" %% "pan-domain-auth-play_2-6" % "0.8.2",
     "com.amazonaws" % "aws-java-sdk-iam" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-s3" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-ec2" % awsSdkVersion,
@@ -122,7 +113,7 @@ lazy val commonLib = project("common-lib").settings(
     "com.squareup.okhttp3" % "okhttp" % okHttpVersion
   ),
   dependencyOverrides += "org.apache.thrift" % "libthrift" % "0.9.1"
-).settings(bbcCommonLibSettings)
+)
 
 lazy val restLib = project("rest-lib").settings(
   libraryDependencies ++= Seq(
