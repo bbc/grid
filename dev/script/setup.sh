@@ -284,6 +284,23 @@ checkForJavaHome() {
   fi
 }
 
+setupApplicationConfiguration() {
+  if [[ $LOCAL_AUTH != true || $BUILD_ORG != "bbc" ]]; then
+    return
+  fi
+
+  echo "setting up valid application.conf for bbc"
+
+  target="$ROOT_DIR/common-lib/src/main/resources/application.conf"
+
+  guardianProviderClassName="com.gu.mediaservice.lib.guardian.auth.PandaAuthenticationProvider"
+
+  bbcProviderClassName="bbc.lib.auth.BBCLocalAuthenticationProvider"
+
+  sed -i -- "s/$guardianProviderClassName/$bbcProviderClassName/g" "$target"
+
+}
+
 main() {
   checkForJavaHome
   clean
@@ -298,6 +315,7 @@ main() {
 
   setupPhotographersConfiguration
   setupUsageRightsConfiguration
+  setupApplicationConfiguration
   setupDevNginx
   generateConfig
   uploadApiKey
