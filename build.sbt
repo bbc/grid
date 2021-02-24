@@ -30,7 +30,7 @@ val commonSettings = Seq(
 lazy val commonProjects: Seq[sbt.ProjectReference] = Seq(commonLib, auth, collections, cropper, imageLoader, leases, thrall, kahuna, metadataEditor, usage, mediaApi, adminToolsLambda, adminToolsScripts, adminToolsDev)
 
 lazy val root = project("grid", path = Some("."))
-  .aggregate((maybeBBCLib.toList ++ commonProjects):_*)
+  .aggregate(commonLib, restLib, auth, collections, cropper, imageLoader, leases, thrall, kahuna, metadataEditor, usage, mediaApi, adminToolsLambda, adminToolsScripts, adminToolsDev)
   .enablePlugins(RiffRaffArtifact)
   .settings(
     riffRaffManifestProjectName := s"media-service::grid::all",
