@@ -1,12 +1,12 @@
 package bbc.lib.auth
 
-import bbc.lib.auth.BBCPPProxyAuthenticationProvider.jsonParse
 import bbc.lib.auth.Crypto.{PrivateKey, PublicKey}
+import org.joda.time.format.ISODateTimeFormat
 import play.api.libs.json.{JsObject, Reads}
 
 import java.nio.charset.StandardCharsets
 import scala.util.Success
-import bbc.lib.auth.BBCPPProxyAuthenticationProvider.CKNSSessionIsFromLogin
+import bbc.lib.auth.BBCPPProxyAuthenticationProvider._
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.auth.Authentication.UserPrincipal
@@ -26,12 +26,13 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 import org.apache.commons.codec.binary.Base64
+import org.joda.time.DateTime
 
 class BBCPPProxyAuthenticationProvider (resources: AuthenticationProviderResources, providerConfiguration: Configuration)
   extends UserAuthenticationProvider with StrictLogging with ArgoHelpers with HeaderNames {
 
   implicit val ec: ExecutionContext = resources.controllerComponents.executionContext
-  private val defaultMaxAge = 60*60*4
+  private val defaultMaxAge = 60*60
   private val ppRedirectURI = providerConfiguration.getOptional[String]("app.loginURI").getOrElse(s"${resources.commonConfig.services.authBaseUri}/login")
   private val ppRedirectLogoutURI = providerConfiguration.getOptional[String]("app.logoutURI").getOrElse(s"${resources.commonConfig.services.authBaseUri}/logout")
   private val emailHeaderKey = providerConfiguration.getOptional[String]("pp.header.email").getOrElse("bbc-pp-oidc-id-token-email")
@@ -142,11 +143,15 @@ class BBCPPProxyAuthenticationProvider (resources: AuthenticationProviderResourc
 
   private def getBBCUser(request: RequestHeader): Option[BBCBasicUserInfo] = for {
     extraCookie <- request.cookies.get(extraCookieName)
-    decodedExtraCookieData <- BBCPPProxyAuthenticationProvider.decodeCookieData(extraCookie.value, publicKey)
+    decodedExtraCookieData <- decodeCookieData(extraCookie.value, publicKey)
     jsonString <- jsonParse(decodedExtraCookieData)
     jsObj <- jsonString.asOpt[JsObject]
     email <- (jsObj \ "email").asOpt[String]
     userGroups <- (jsObj \ "userGroups").asOpt[List[UserGroup]]
+    expires <- (jsObj \ "expires").asOpt[String]
+    fmt = ISODateTimeFormat.dateTime()
+    expirationDateTime <- Try(fmt.parseDateTime(expires)).toOption
+    if expirationDateTime.isAfterNow
   } yield {
     BBCBasicUserInfo("John", "Doe", email, userGroups)
   }
@@ -154,7 +159,8 @@ class BBCPPProxyAuthenticationProvider (resources: AuthenticationProviderResourc
   private def generateGridCookie(request: RequestHeader): Cookie = {
     val email = request.headers.get(emailHeaderKey).getOrElse("johndoe@bbc.co.uk")
     val userGroups = request.headers.get(userGroupsHeaderKey).get
-    val data = s"""{"email": "$email", "userGroups": $userGroups}"""
+    val expires = DateTime.now().plusSeconds(maxAge).toString
+    val data = s"""{"email": "$email", "userGroups": $userGroups, "expires": "$expires"}"""
     val encodedData = Base64.encodeBase64String(data.getBytes(StandardCharsets.UTF_8))
     val signature = Crypto.signData(data.getBytes("UTF-8"), privateKey)
     val encodedSignature = Base64.encodeBase64String(signature)
