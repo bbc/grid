@@ -40,28 +40,28 @@ module.controller('grImageMetadataCtrl', [
     ctrl.metadata = ctrl.image.data.metadata;
     ctrl.identifiers = ctrl.image.data.identifiers;
 
-    mediaApi.fileMetadata(ctrl.image).then(resource => {
-      return resource.data;
-    }).then(fileMetadata => {
-      const groupedConfigsByDirectory = window._clientConfig.fileMetadataConfig.reduce((r, a) => {
-        r[a.directory] = [...r[a.directory] || [], a];
-        return r;
-      }, {});
+     mediaApi.fileMetadata(ctrl.image).then(resource => {
+       return resource.data;
+     }).then(fileMetadata => {
+       const groupedConfigsByDirectory = window._clientConfig.fileMetadataConfig.reduce((r, a) => {
+         r[a.directory] = [...r[a.directory] || [], a];
+         return r;
+       }, {});
 
-      let object = {};
+       let object = {};
 
-      Object.keys(groupedConfigsByDirectory).forEach(directory => {
-        groupedConfigsByDirectory[directory]
-          .filter(config => config.visible)
-          .filter(fileMetadataConfig => fileMetadata[directory][fileMetadataConfig.tag] !== undefined)
-          .map(fileMetadataConfig => {
-            let key = fileMetadataConfig.alias ? fileMetadataConfig.alias : fileMetadataConfig.tag;
-            object[key] = fileMetadata[directory][fileMetadataConfig.tag];
-          });
-      });
+       Object.keys(groupedConfigsByDirectory).forEach(directory => {
+         groupedConfigsByDirectory[directory]
+           .filter(config => config.visible)
+           .filter(fileMetadataConfig => fileMetadata[directory][fileMetadataConfig.tag] !== undefined)
+           .map(fileMetadataConfig => {
+             let key = fileMetadataConfig.alias ? fileMetadataConfig.alias : fileMetadataConfig.tag;
+             object[key] = fileMetadata[directory][fileMetadataConfig.tag];
+           });
+       });
 
-      ctrl.fileMetadata = object;
-    });
+       ctrl.fileMetadata = object;
+     });
 
     ctrl.isUsefulMetadata = isUsefulMetadata;
 
