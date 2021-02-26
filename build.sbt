@@ -76,11 +76,6 @@ lazy val bbcProject = project("bbc").dependsOn(restLib)
 
 val maybeBBCLib: Option[sbt.ProjectReference] = if(bbcBuildProcess) Some(bbcProject) else None
 
-//BBC specific project, it only gets compiled when bbcBuildProcess is true
-lazy val bbcProject = project("bbc").dependsOn(commonLib)
-
-lazy val maybeBBCLib: Option[sbt.ProjectReference] = if(bbcBuildProcess) Some(bbcProject) else None
-
 lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
     // also exists in plugins.sbt, TODO deduplicate this
@@ -301,7 +296,7 @@ val buildInfo = Seq(
 )
 
 def playProject(projectName: String, port: Int, path: Option[String] = None): Project = {
-  lazy val commonProject = project(projectName, path)
+  val commonProject = project(projectName, path)
     .enablePlugins(PlayScala, JDebPackaging, SystemdPlugin, BuildInfoPlugin)
     .dependsOn(restLib)
     .settings(commonSettings ++ buildInfo ++ Seq(
@@ -329,5 +324,5 @@ def playProject(projectName: String, port: Int, path: Option[String] = None): Pr
       )
     ))
   //Add the BBC library dependency if defined
-  maybeBBCLib.fold(commonProject){bbcLib => commonProject.dependsOn(bbcLib) }
+  maybeBBCLib.fold(commonProject){commonProject.dependsOn(_)}
 }
