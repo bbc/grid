@@ -1,7 +1,5 @@
 package lib
 
-import java.net.URI
-
 import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.auth.{Internal, Tier}
 import com.gu.mediaservice.lib.collections.CollectionsManager
@@ -16,6 +14,8 @@ import play.api.libs.functional.syntax._
 import play.api.libs.json._
 import play.utils.UriEncoding
 
+import java.net.URI
+import scala.collection.mutable
 import scala.util.{Failure, Try}
 
 class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: UsageQuota)
@@ -95,7 +95,8 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
       .flatMap(_.transform(addInvalidReasons(invalidReasons)))
       .flatMap(_.transform(addUsageCost(source)))
       .flatMap(_.transform(addPersistedState(isPersisted, persistenceReasons)))
-      .flatMap(_.transform(addSyndicationStatus(image))).get
+      .flatMap(_.transform(addSyndicationStatus(image)))
+      .flatMap(_.transform(addAliases(source, image))).get
 
     val links: List[Link] = tier match {
       case Internal => imageLinks(id, imageUrl, pngUrl, withWritePermission, valid)
@@ -221,13 +222,35 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
   def addInvalidReasons(reasons: Map[String, String]): Reads[JsObject] =
     __.json.update(__.read[JsObject]).map(_ ++ Json.obj("invalidReasons" -> Json.toJson(reasons)))
 
+  def addAliases(source: JsValue, image: Image): Reads[JsObject] = {
+    val aliases = new mutable.LinkedHashMap[String, JsValue]
+    val fieldAliasConfigs = config.fieldAliasConfigs
+
+    if (fieldAliasConfigs.nonEmpty) {
+      val fileMetadata: JsValue = source \ "fileMetadata" \ "data" getOrElse Json.toJson(image.fileMetadata)
+
+      fieldAliasConfigs.foreach { config =>
+        val parts = config.elasticsearchPath.split('.').toList
+        val lookupResult = parts match {
+          case "fileMetadata" :: directory :: key :: Nil => fileMetadata \ directory \ key
+          case other => throw new IllegalArgumentException(s"Sorry key $other not supported")
+        }
+
+        lookupResult.toOption.map { aliases(config.label) = _ }
+      }
+    }
+
+    __.json.update(__.read[JsObject]).map(_ ++ Json.obj(
+      "aliases" -> aliases
+    ))
+  }
+
   def makeImgopsUri(uri: URI): String =
     config.imgopsUri + List(uri.getPath, uri.getRawQuery).mkString("?") + "{&w,h,q}"
 
   def makeOptimisedPngImageopsUri(uri: URI): String = {
     config.imgopsUri + List(uri.getPath, uri.getRawQuery).mkString("?") + "{&w, h, q}"
   }
-
 
   import play.api.libs.json.JodaWrites._
 
