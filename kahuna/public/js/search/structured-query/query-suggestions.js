@@ -84,11 +84,9 @@ querySuggestions.factory('querySuggestions', ['mediaApi', 'editsApi', function(m
         return (values) => values.filter(val => val.toLowerCase().startsWith(lowerPrefix));
     }
 
-    const getSearchableMetadata = window._clientConfig.fileMetadataConfig;
-    getSearchableMetadata.forEach(function (item) {
-          if(item.displaySearchHint == true)
-          filterFields.push(JSON.stringify(item.elasticsearchPath));
-    });
+        const getSearchableMetadata = window._clientConfig.fileMetadataConfig.
+                                        filter(res => res.displaySearchHint == true).
+                                        flatMap(res => filterFields.push(res.alias));
 
     function listSuppliers() {
         return editsApi.getUsageRightsCategories().
