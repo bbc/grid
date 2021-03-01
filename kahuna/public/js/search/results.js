@@ -90,7 +90,7 @@ results.controller('SearchResultsCtrl', [
              isReloadingPreviousSearch) {
 
         const ctrl = this;
-
+      
         // Panel control
         ctrl.metadataPanel    = panels.metadataPanel;
         ctrl.collectionsPanel = panels.collectionsPanel;

@@ -79,6 +79,13 @@ const isSearch = [
 
 querySuggestions.factory('querySuggestions', ['mediaApi', 'editsApi', function(mediaApi, editsApi) {
 
+    window._clientConfig.fieldAliases.
+      forEach(entry => {
+        if (entry.displaySearchHint === true){
+            filterFields.push(entry.alias);
+        }
+      });
+
     function prefixFilter(prefix) {
         const lowerPrefix = prefix.toLowerCase();
         return (values) => values.filter(val => val.toLowerCase().startsWith(lowerPrefix));
