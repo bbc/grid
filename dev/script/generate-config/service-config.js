@@ -86,7 +86,6 @@ function getKahunaConfig(config) {
         |security.cors.allowedOrigins="${getCorsAllowedOriginString(config)}"
         |security.frameAncestors="https://*.${config.DOMAIN}"
         |metrics.request.enabled=false
-        |fieldAliases=[]
         |`;
 }
 
