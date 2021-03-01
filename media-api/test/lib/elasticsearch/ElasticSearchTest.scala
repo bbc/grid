@@ -1,51 +1,18 @@
 package lib.elasticsearch
 
 import com.gu.mediaservice.lib.auth.{Internal, ReadOnly, Syndication}
-import com.gu.mediaservice.lib.config.GridConfigResources
-import com.gu.mediaservice.lib.elasticsearch.ElasticSearchConfig
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.DenySyndicationLease
 import com.gu.mediaservice.model.usage.PublishedUsageStatus
 import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
 import lib.querysyntax._
-import lib.{MediaApiConfig, MediaApiMetrics}
 import org.joda.time.DateTime
-import play.api.Configuration
 import play.api.libs.json.{JsString, Json}
 
 import scala.concurrent.Await
-import scala.concurrent.duration._
 
 class ElasticSearchTest extends ElasticSearchTestBase {
-
-  private val mediaApiConfig = new MediaApiConfig(GridConfigResources(
-    Configuration.from(Map(
-      "es6.shards" -> 0,
-      "es6.replicas" -> 0
-    ) ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap),
-    null
-  ))
-
-  private val mediaApiMetrics = new MediaApiMetrics(mediaApiConfig)
-  val elasticConfig = ElasticSearchConfig(alias = "readalias", url = es6TestUrl,
-    cluster = "media-service-test", shards = 1, replicas = 0)
-
-  private val ES = new ElasticSearch(mediaApiConfig, mediaApiMetrics, elasticConfig, () => List.empty)
-  val client = ES.client
-
-  override def beforeAll {
-    super.beforeAll()
-
-    ES.ensureAliasAssigned()
-    purgeTestImages(ES)
-
-    Await.ready(saveImages(images), 1.minute)
-    // allow the cluster to distribute documents... eventual consistency!
-    eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(totalImages(ES) shouldBe expectedNumberOfImages)
-  }
-
-  override def afterAll = purgeTestImages(ES)
 
   describe("Native elastic search sanity checks") {
 
