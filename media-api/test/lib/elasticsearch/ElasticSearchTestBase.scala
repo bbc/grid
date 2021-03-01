@@ -1,32 +1,70 @@
 package lib.elasticsearch
 
-import java.util.UUID
-
+import com.gu.mediaservice.lib.auth.Authentication.Principal
+import com.gu.mediaservice.lib.elasticsearch.ElasticSearchExecutions
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.model._
+import com.sksamuel.elastic4s.ElasticDsl.{DeleteByQueryHandler, IndexHandler, deleteByQuery, indexInto, matchAllQuery}
 import com.whisk.docker.impl.spotify.DockerKitSpotify
 import com.whisk.docker.scalatest.DockerTestKit
-import com.whisk.docker.{DockerContainer, DockerKit}
+import com.whisk.docker.{DockerContainer, DockerKit, DockerReadyChecker}
 import org.joda.time.DateTime
 import org.scalatest.concurrent.PatienceConfiguration.{Interval, Timeout}
-import org.scalatest.concurrent.ScalaFutures
+import org.scalatest.concurrent.{Eventually, ScalaFutures}
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.time.{Milliseconds, Seconds, Span}
 import org.scalatest.{BeforeAndAfterAll, FunSpec, Matchers}
-import play.api.libs.json.JsString
+import play.api.libs.json.{JsString, Json}
+import play.api.mvc.AnyContent
+import play.api.mvc.Security.AuthenticatedRequest
 
+import java.util.UUID
 import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
 import scala.util.Properties
 
-trait ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers with ScalaFutures with Fixtures with DockerKit with DockerTestKit with DockerKitSpotify with ConditionFixtures {
+trait ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers with ScalaFutures
+  with Fixtures with DockerKit with DockerTestKit with DockerKitSpotify with ConditionFixtures
+  with Eventually with ElasticSearchExecutions with MockitoSugar {
+  implicit val request = mock[AuthenticatedRequest[AnyContent, Principal]]
 
+  protected val index = "images"
+  protected val NOT_USED_IN_TEST = "not used in test"
+  protected val MOCK_CONFIG_KEYS = Seq(
+    "auth.keystore.bucket",
+    "persistence.identifier",
+    "thrall.kinesis.stream.name",
+    "thrall.kinesis.lowPriorityStream.name",
+    "domain.root",
+    "s3.config.bucket",
+    "s3.usagemail.bucket",
+    "quota.store.key",
+    "es.index.aliases.read",
+    "es6.url",
+    "es6.cluster",
+    "s3.image.bucket",
+    "s3.thumb.bucket",
+    "grid.stage",
+    "grid.appName"
+  )
 
   val interval = Interval(Span(100, Milliseconds))
   val timeout = Timeout(Span(10, Seconds))
 
+  protected val expectedNumberOfImages = images.size
+  protected val oneHundredMilliseconds = Duration(100, MILLISECONDS)
+  protected val fiveSeconds = Duration(5, SECONDS)
+
   val useEsDocker = Properties.envOrElse("USE_DOCKER_FOR_TESTS", "true").toBoolean
   val es6TestUrl = Properties.envOrElse("ES6_TEST_URL", "http://localhost:9200")
 
-  def esContainer: Option[DockerContainer]
+  def esContainer = if (useEsDocker) Some(DockerContainer("docker.elastic.co/elasticsearch/elasticsearch:7.5.2")
+    .withPorts(9200 -> Some(9200))
+    .withEnv("cluster.name=media-service", "xpack.security.enabled=false", "discovery.type=single-node", "network.host=0.0.0.0")
+    .withReadyChecker(
+      DockerReadyChecker.HttpResponseCode(9200, "/", Some("0.0.0.0")).within(10.minutes).looped(40, 1250.millis)
+    )
+  ) else None
 
   final override def dockerContainers: List[DockerContainer] =
     esContainer.toList ++ super.dockerContainers
@@ -119,9 +157,20 @@ trait ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers
       rightsAcquired = true,
       Some(DateTime.parse("2018-07-03T00:00:00")),
       None,
-      fileMetadata = Some(FileMetadata(xmp = Map(
+      fileMetadata = Some(FileMetadata(
+        iptc = Map(
+          "Caption/Abstract" -> "the description",
+          "Caption Writer/Editor" -> "the editor"
+        ),
+        exif = Map(
+          "Copyright" -> "the copyright",
+          "Artist" -> "the artist"
+        ),
+        xmp = Map(
         "foo" -> JsString("bar"),
-        "toolong" -> JsString(stringLongerThan(100000))
+        "toolong" -> JsString(stringLongerThan(100000)),
+        "org:ProgrammeMaker" -> JsString("xmp programme maker"),
+        "aux:Lens" -> JsString("xmp aux lens")
       )))
     ),
 
@@ -192,4 +241,23 @@ trait ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers
     //      )
     //    )
   )
+
+  protected def saveImages(images: Seq[Image]) = {
+    implicit val logMarker: LogMarker = MarkerMap()
+
+    Future.sequence(images.map { i =>
+      executeAndLog(indexInto(index) id i.id source Json.stringify(Json.toJson(i)), s"Indexing test image")
+    })
+  }
+
+  protected def totalImages(es: ElasticSearch): Long = Await.result(es.totalImages(), oneHundredMilliseconds)
+
+  protected def purgeTestImages(es: ElasticSearch) = {
+    implicit val logMarker: LogMarker = MarkerMap()
+
+    def deleteImages = executeAndLog(deleteByQuery(index, matchAllQuery()), s"Deleting images")
+
+    Await.result(deleteImages, fiveSeconds)
+    eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(totalImages(es) shouldBe 0)
+  }
 }
