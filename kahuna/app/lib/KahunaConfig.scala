@@ -1,6 +1,6 @@
 package lib
 
-import com.gu.mediaservice.lib.config.{CommonConfig, FieldAliasConfig, GridConfigResources}
+import com.gu.mediaservice.lib.config.{CommonConfig, FieldAlias, GridConfigResources}
 
 class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resources.configuration) {
   val rootUri: String = services.kahunaBaseUri

@@ -6,7 +6,7 @@ import lib.KahunaConfig
 import play.api.mvc.{BaseController, ControllerComponents}
 import play.api.libs.json._
 import scala.concurrent.ExecutionContext
-import com.gu.mediaservice.lib.config.FieldAliasConfig._
+import com.gu.mediaservice.lib.config.FieldAlias._
 
 class KahunaController(auth: Authentication, config: KahunaConfig, override val controllerComponents: ControllerComponents)
                       (implicit val ec: ExecutionContext) extends BaseController with ArgoHelpers {
