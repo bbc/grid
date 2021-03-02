@@ -8,7 +8,7 @@ import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.{LeasesByMedia, MediaLease}
 import com.gu.mediaservice.model.usage._
 import com.softwaremill.quicklens._
-import lib.ImageResponse.addAliases
+import lib.ImageResponse.extractAliasFieldValues
 import lib.elasticsearch.SourceWrapper
 import lib.usagerights.CostCalculator
 import org.joda.time.DateTime
@@ -87,6 +87,8 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
     val persistenceReasons = imagePersistenceReasons(image)
     val isPersisted = persistenceReasons.nonEmpty
 
+    val aliases = extractAliasFieldValues(config, imageWrapper)
+
     val data = source.transform(addSecureSourceUrl(imageUrl))
       .flatMap(_.transform(wrapUserMetadata(id)))
       .flatMap(_.transform(addSecureThumbUrl(thumbUrl)))
@@ -100,7 +102,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
       .flatMap(_.transform(addUsageCost(source)))
       .flatMap(_.transform(addPersistedState(isPersisted, persistenceReasons)))
       .flatMap(_.transform(addSyndicationStatus(image)))
-      .flatMap(_.transform(addAliases(config, imageWrapper))).get
+      .flatMap(_.transform(addAliases(aliases))).get
 
     val links: List[Link] = tier match {
       case Internal => imageLinks(id, imageUrl, pngUrl, withWritePermission, valid)
@@ -226,6 +228,11 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
   def addInvalidReasons(reasons: Map[String, String]): Reads[JsObject] =
     __.json.update(__.read[JsObject]).map(_ ++ Json.obj("invalidReasons" -> Json.toJson(reasons)))
 
+  def addAliases(aliases: Seq[(String, JsValue)]): Reads[JsObject] =
+    __.json.update(__.read[JsObject]).map(_ ++ Json.obj(
+      "aliases" -> JsObject(aliases)
+    ))
+
   def makeImgopsUri(uri: URI): String =
     config.imgopsUri + List(uri.getPath, uri.getRawQuery).mkString("?") + "{&w,h,q}"
 
@@ -325,7 +332,7 @@ object ImageResponse {
 
   private def hasUsages(image: Image) = image.usages.nonEmpty
 
-  def addAliases(config: MediaApiConfig, source: SourceWrapper[Image]): Reads[JsObject] = {
+  def extractAliasFieldValues(config: MediaApiConfig, source: SourceWrapper[Image]): Seq[(String, JsValue)] = {
     @tailrec
     def nestedLookup(jsLookup: JsLookupResult, pathComponents: List[String]): JsLookupResult = {
       pathComponents match {
@@ -334,17 +341,13 @@ object ImageResponse {
       }
     }
 
-    val aliases: Seq[(String, JsValue)] = config.fieldAliasConfigs.flatMap { config =>
+    config.fieldAliasConfigs.flatMap { config =>
       val parts = config.elasticsearchPath.split('.').toList.filter(_.nonEmpty)
       val lookupResult = nestedLookup(JsDefined(source.source), parts)
       lookupResult.toOption.map {
         config.alias -> _
       }
     }
-
-    __.json.update(__.read[JsObject]).map(_ ++ Json.obj(
-      "aliases" -> JsObject(aliases)
-    ))
   }
 }
 

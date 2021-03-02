@@ -2,7 +2,7 @@ package lib
 
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.usage.{PendingUsageStatus, PrintUsage, Usage}
-import lib.elasticsearch.ElasticSearchTestBase
+import lib.elasticsearch.{ElasticSearchTestBase, SourceWrapper}
 import org.joda.time.DateTime.now
 import org.scalatest.Inside.inside
 import org.scalatest.{FunSpec, Matchers}
@@ -53,84 +53,50 @@ class ImageResponseTest extends FunSpec with Matchers with ElasticSearchTestBase
     canImgBeDeleted(imgWithOnlyExports) shouldEqual false
   }
 
-  it("should add aliases field to image json") {
-    val imageId = "test-image-8"
+  it("should extract set of configured alias fields from sourcewrapper if fields exist in image") {
+    val image = createImage(
+      id = "test-image-with-filemetadata",
+      agency,
+      fileMetadata = Some(FileMetadata(
+        iptc = Map(
+          "Caption/Abstract" -> "the description",
+          "Caption Writer/Editor" -> "the editor"
+        ),
+        exif = Map(
+          "Copyright" -> "the copyright",
+          "Artist" -> "the artist"
+        ),
+        xmp = Map(
+          "foo" -> JsString("bar"),
+          "toolong" -> JsString(stringLongerThan(100000)),
+          "org:ProgrammeMaker" -> JsString("xmp programme maker"),
+          "aux:Lens" -> JsString("xmp aux lens")
+        )))
+    )
+    val json = Json.toJson(image)
+    val sourceWrapper = SourceWrapper[Image](json, image)
 
-    whenReady(ES.getImageWithSourceById(imageId)) { r =>
-      r.get.instance.id shouldEqual(imageId)
+    val extractedFields = ImageResponse.extractAliasFieldValues(mediaApiConfig, sourceWrapper)
 
-      val json = Json.toJson(r.get.instance)
-      val transformed = json.transform(ImageResponse.addAliases(mediaApiConfig, r.get)).get
+    extractedFields.nonEmpty shouldEqual true
+    extractedFields should have length 3
 
-      inside(transformed) {
-        case jso: JsObject =>
-          jso.fields.map(_._1) shouldBe Seq(
-            "id",
-            "uploadTime",
-            "uploadedBy",
-            "identifiers",
-            "uploadInfo",
-            "source",
-            "thumbnail",
-            "fileMetadata",
-            "metadata",
-            "originalMetadata",
-            "usageRights",
-            "originalUsageRights",
-            "exports",
-            "usages",
-            "leases",
-            "collections",
-            "syndicationRights",
-            "aliases"
-          )
-
-          jso.transform(
-            (__ \ 'aliases).json.pick
-          ).get shouldEqual Json.obj(
-            "orgProgrammeMaker" -> JsString("xmp programme maker"),
-            "auxLens" -> JsString("xmp aux lens"),
-            "captionWriter" -> JsString("the editor")
-          )
-      }
-    }
+    extractedFields.contains("orgProgrammeMaker" -> JsString("xmp programme maker")) shouldEqual true
+    extractedFields.contains("auxLens" -> JsString("xmp aux lens")) shouldEqual true
+    extractedFields.contains("captionWriter" -> JsString("the editor")) shouldEqual true
   }
 
-  it("should add empty aliases field to image json") {
-    val imageId: String = "getty-image-1"
+  it("should return empty set of extract configured alias fields from sourcewrapper if fields do not exist in image") {
+    val image = createImage(
+      id = "test-image-with-no-filemetadata",
+      agency,
+      fileMetadata = Some(FileMetadata())
+    )
+    val json = Json.toJson(image)
+    val sourceWrapper = SourceWrapper[Image](json, image)
 
-    whenReady(ES.getImageWithSourceById(imageId)) { r =>
-      r.get.instance.id shouldEqual(imageId)
+    val extractedFields = ImageResponse.extractAliasFieldValues(mediaApiConfig, sourceWrapper)
 
-      val json = Json.toJson(r.get.instance)
-      val transformed = json.transform(ImageResponse.addAliases(mediaApiConfig, r.get)).get
-
-      inside(transformed) {
-        case jso: JsObject =>
-          jso.fields.map(_._1) shouldBe Seq(
-            "id",
-            "uploadTime",
-            "uploadedBy",
-            "identifiers",
-            "uploadInfo",
-            "source",
-            "thumbnail",
-            "fileMetadata",
-            "metadata",
-            "originalMetadata",
-            "usageRights",
-            "originalUsageRights",
-            "exports",
-            "usages",
-            "leases",
-            "collections",
-            "aliases"
-          )
-
-          jso.transform(
-            (__ \ 'aliases).json.pick
-          ).get shouldEqual Json.obj()
-      }
-    }
+    extractedFields.isEmpty shouldEqual true
   }
 }

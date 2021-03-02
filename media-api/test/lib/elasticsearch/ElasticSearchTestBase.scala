@@ -68,7 +68,7 @@ trait ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with BeforeAn
     Configuration.from(Map(
       "es6.shards" -> 0,
       "es6.replicas" -> 0,
-      "fieldAliases" -> List(
+      "field.aliases" -> List(
         Map(
           "elasticsearchPath" -> "fileMetadata.xmp.org:ProgrammeMaker",
           "alias" -> "orgProgrammeMaker",
