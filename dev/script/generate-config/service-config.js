@@ -66,7 +66,6 @@ function getImageLoaderConfig(config) {
         |metrics.request.enabled=false
         |transcoded.mime.types="image/tiff"
         |upload.quarantine.enabled=false
-        |dynamo.table.upload.status="${config.coreStackProps.UploadStatusTable}"
         |`;
 }
 
