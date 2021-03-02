@@ -26,8 +26,24 @@ mediaApi.factory('mediaApi',
         	if(i % 2 != 0) stringQuery += array[i]+" ";
         	else stringQuery += JSON.stringify(array[i])+":";
       }
-
       return stringQuery;
+    }
+
+    function splitQuery(query){
+      const splitArray  = query.split(/([a-zA-Z]+):/) ;
+      splitArray.shift();
+      if(splitArray.length % 2 == 0){
+        for(var i = 0; i < splitArray.length - 1; i++){
+          const field = splitArray[i].trim();
+          const value = splitArray[i+1].trim();
+          const getSearchableMetadata = window._clientConfig.fileMetadataConfig.
+                                        filter(res => res.displaySearchHint == true).
+                                        filter(f => f.alias == field);
+            if(getSearchableMetadata.length == 1)
+            splitArray[i] = getSearchableMetadata[0].elasticsearchPath
+          }
+      }
+      return splitArray;
     }
 
     function search(query = '', {ids, since, until, archived, valid, free,
@@ -36,22 +52,9 @@ mediaApi.factory('mediaApi',
                                  modifiedSince, modifiedUntil, hasRightsAcquired, hasCrops,
                                  syndicationStatus} = {}) {
 
-        const splitQuery  = query.split(/([a-zA-Z]+):/);
-        splitQuery.shift();
-        if(splitQuery.length % 2 == 0){
-        for(var i = 0; i < splitQuery.length - 1; i++){
-                const field = splitQuery[i].trim();
-                const value = splitQuery[i+1].trim();
-                const getSearchableMetadata = window._clientConfig.fileMetadataConfig.
-                                              filter(res => res.displaySearchHint == true).
-                                              filter(f => f.alias == field);
-                if(getSearchableMetadata.length == 1)
-                splitQuery[i] = getSearchableMetadata[0].elasticsearchPath
-          }
-        }
-
+        const newQuery = (splitQuery(query).length == 0)? query : reconstructQuery(splitQuery(query));
         return root.follow('search', {
-            q:          reconstructQuery(splitQuery),
+            q:          newQuery,
             since:      since,
             free:       free,
             payType:    payType,
