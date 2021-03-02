@@ -1,18 +1,73 @@
 package lib.elasticsearch
 
+import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth.{Internal, ReadOnly, Syndication}
+import com.gu.mediaservice.lib.config.{GridConfigLoader, GridConfigResources}
+import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchConfig, ElasticSearchExecutions}
+import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.DenySyndicationLease
 import com.gu.mediaservice.model.usage.PublishedUsageStatus
-import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
+import com.sksamuel.elastic4s.ElasticDsl
+import com.sksamuel.elastic4s.http._
+import com.whisk.docker.{DockerContainer, DockerReadyChecker}
 import lib.querysyntax._
+import lib.{MediaApiConfig, MediaApiMetrics}
 import org.joda.time.DateTime
+import org.scalatest.concurrent.Eventually
+import org.scalatest.mockito.MockitoSugar
+import play.api.{Configuration, Mode}
 import play.api.libs.json.{JsString, Json}
+import play.api.mvc.AnyContent
+import play.api.mvc.Security.AuthenticatedRequest
 
-import scala.concurrent.Await
+import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
 
-class ElasticSearchTest extends ElasticSearchTestBase {
+class ElasticSearchTest extends ElasticSearchTestBase with Eventually with ElasticSearchExecutions with MockitoSugar {
+
+  implicit val request = mock[AuthenticatedRequest[AnyContent, Principal]]
+
+  private val index = "images"
+
+  private val mediaApiConfig = new MediaApiConfig(GridConfigResources(
+    Configuration.from(USED_CONFIGS_IN_TEST ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap),
+    null
+  ))
+
+  private val mediaApiMetrics = new MediaApiMetrics(mediaApiConfig)
+  val elasticConfig = ElasticSearchConfig(alias = "readalias", url = es6TestUrl,
+    cluster = "media-service-test", shards = 1, replicas = 0)
+
+  private val ES = new ElasticSearch(mediaApiConfig, mediaApiMetrics, elasticConfig, () => List.empty)
+  val client = ES.client
+
+  def esContainer = if (useEsDocker) Some(DockerContainer("docker.elastic.co/elasticsearch/elasticsearch:7.5.2")
+    .withPorts(9200 -> Some(9200))
+    .withEnv("cluster.name=media-service", "xpack.security.enabled=false", "discovery.type=single-node", "network.host=0.0.0.0")
+    .withReadyChecker(
+      DockerReadyChecker.HttpResponseCode(9200, "/", Some("0.0.0.0")).within(10.minutes).looped(40, 1250.millis)
+    )
+  ) else None
+
+  private val expectedNumberOfImages = images.size
+
+  private val oneHundredMilliseconds = Duration(100, MILLISECONDS)
+  private val fiveSeconds = Duration(5, SECONDS)
+
+  override def beforeAll {
+    super.beforeAll()
+
+    ES.ensureAliasAssigned()
+    purgeTestImages
+
+    Await.ready(saveImages(images), 1.minute)
+    // allow the cluster to distribute documents... eventual consistency!
+    eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(totalImages shouldBe expectedNumberOfImages)
+  }
+
+  override def afterAll = purgeTestImages
 
   describe("Native elastic search sanity checks") {
 
@@ -376,6 +431,25 @@ class ElasticSearchTest extends ElasticSearchTestBase {
       }
       }
     }
+  }
+
+  private def saveImages(images: Seq[Image]) = {
+    implicit val logMarker: LogMarker = MarkerMap()
+
+    Future.sequence(images.map { i =>
+      executeAndLog(indexInto(index) id i.id source Json.stringify(Json.toJson(i)), s"Indexing test image")
+    })
+  }
+
+  private def totalImages: Long = Await.result(ES.totalImages(), oneHundredMilliseconds)
+
+  private def purgeTestImages = {
+    implicit val logMarker: LogMarker = MarkerMap()
+
+    def deleteImages = executeAndLog(deleteByQuery(index, matchAllQuery()), s"Deleting images")
+
+    Await.result(deleteImages, fiveSeconds)
+    eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(totalImages shouldBe 0)
   }
 
 }
