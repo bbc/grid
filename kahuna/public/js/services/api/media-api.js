@@ -20,14 +20,38 @@ mediaApi.factory('mediaApi',
         }
     }
 
+    function reconstructQuery(array){
+      let stringQuery = "";
+      for(var i = 0; i < array.length; i++){
+        	if(i % 2 != 0) stringQuery += array[i]+" ";
+        	else stringQuery += JSON.stringify(array[i])+":";
+      }
+
+      return stringQuery;
+    }
+
     function search(query = '', {ids, since, until, archived, valid, free,
                                  payType, uploadedBy, offset, length, orderBy,
                                  takenSince, takenUntil,
                                  modifiedSince, modifiedUntil, hasRightsAcquired, hasCrops,
                                  syndicationStatus} = {}) {
 
+        const splitQuery  = query.split(/([a-zA-Z]+):/);
+        splitQuery.shift();
+        if(splitQuery.length % 2 == 0){
+        for(var i = 0; i < splitQuery.length - 1; i++){
+                const field = splitQuery[i].trim();
+                const value = splitQuery[i+1].trim();
+                const getSearchableMetadata = window._clientConfig.fileMetadataConfig.
+                                              filter(res => res.displaySearchHint == true).
+                                              filter(f => f.alias == field);
+                if(getSearchableMetadata.length == 1)
+                splitQuery[i] = getSearchableMetadata[0].elasticsearchPath
+          }
+        }
+
         return root.follow('search', {
-            q:          query,
+            q:          reconstructQuery(splitQuery),
             since:      since,
             free:       free,
             payType:    payType,
