@@ -8,7 +8,7 @@
   usageRightsHelpLink: Option[String],
   invalidSessionHelpLink: Option[String],
   supportEmail: Option[String],
-  fileMetadataConfigs: String)
+  fieldAliases: String)
 <!DOCTYPE html>
 <html>
   <head>
@@ -45,7 +45,7 @@
           usageRightsHelpLink: "@Html(usageRightsHelpLink.getOrElse(""))",
           invalidSessionHelpLink: "@Html(invalidSessionHelpLink.getOrElse(""))",
           supportEmail: "@Html(supportEmail.getOrElse(""))",
-          fileMetadataConfig: @Html(fileMetadataConfigs)
+          fieldAliases: @Html(fieldAliases)
         }
     </script>
 
