@@ -39,7 +39,7 @@ module.controller('grImageMetadataCtrl', [
     ctrl.additionalMetadata = Object.fromEntries(
       Object.entries(ctrl.image.data.aliases)
         .map(([key, val]) => {
-          let match = ctrl.fieldAliases.find(_ => _.alias === key)
+          let match = ctrl.fieldAliases.find(_ => _.alias === key);
           if (match) {
             return [match.label, val];
           } else {
