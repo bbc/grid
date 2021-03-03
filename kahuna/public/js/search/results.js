@@ -90,7 +90,8 @@ results.controller('SearchResultsCtrl', [
              isReloadingPreviousSearch) {
 
         const ctrl = this;
-
+        ctrl.searchableFields = window._clientConfig.fieldAliases.
+                                filter(res => res.displaySearchHint == true);
         // Panel control
         ctrl.metadataPanel    = panels.metadataPanel;
         ctrl.collectionsPanel = panels.collectionsPanel;
@@ -284,6 +285,31 @@ results.controller('SearchResultsCtrl', [
             return $stateParams.query || '*';
         }
 
+        function reconstructQuery(array){
+          let stringQuery = "";
+          for(var i = 0; i < array.length; i++){
+              if(i % 2 != 0) stringQuery += array[i]+" ";
+              else stringQuery += JSON.stringify(array[i])+":";
+          }
+          return stringQuery;
+        }
+
+        function splitQuery(query){
+          const splitArray  = query.split(/([a-zA-Z]+):/);
+          splitArray.shift();
+          if(splitArray.length % 2 == 0){
+            for(var i = 0; i < splitArray.length - 1; i++){
+              const field = splitArray[i].trim();
+              const value = splitArray[i+1].trim();
+              const getSearchableMetadata = ctrl.searchableFields.
+                                            filter(f => f.alias == field);
+                if(getSearchableMetadata.length == 1)
+                splitArray[i] = getSearchableMetadata[0].elasticsearchPath
+              }
+          }
+          return splitArray;
+        }
+
         function search({until, since, offset, length, orderBy} = {}) {
             // FIXME: Think of a way to not have to add a param in a million places to add it
 
@@ -312,7 +338,12 @@ results.controller('SearchResultsCtrl', [
                 orderBy = $stateParams.orderBy;
             }
 
-            return mediaApi.search($stateParams.query, angular.extend({
+            let query = $stateParams.query;
+            if(query != undefined)
+              if(splitQuery(query).length != 0)
+                query = reconstructQuery(splitQuery(query));
+
+            return mediaApi.search(query, angular.extend({
                 ids:        $stateParams.ids,
                 archived:   $stateParams.archived,
                 free:       $stateParams.nonFree === 'true' ? undefined : true,

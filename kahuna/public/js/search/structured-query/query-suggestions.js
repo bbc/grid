@@ -84,7 +84,7 @@ querySuggestions.factory('querySuggestions', ['mediaApi', 'editsApi', function(m
         return (values) => values.filter(val => val.toLowerCase().startsWith(lowerPrefix));
     }
 
-        const getSearchableMetadata = window._clientConfig.fileMetadataConfig.
+        const getSearchableMetadata = window._clientConfig.fieldAliases.
                                         filter(res => res.displaySearchHint == true).
                                         flatMap(res => filterFields.push(res.alias));
 
