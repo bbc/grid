@@ -43,10 +43,9 @@ module.controller('grImageMetadataCtrl', [
           if (match) {
             return [match.label, val];
           } else {
-            return undefined;
+            return [key, val];
           }
-        })
-        .filter(_ => _ !== undefined));
+        }));
 
     // Alias for convenience in view
     ctrl.metadata = ctrl.image.data.metadata;
