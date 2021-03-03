@@ -25,8 +25,6 @@ abstract class CommonConfig(val configuration: Configuration) extends AwsClientB
 
   val useLocalAuth: Boolean = isDev && boolean("auth.useLocal")
 
-  val permissionsBucket: String = stringDefault("permissions.bucket", "permissions-cache")
-
   val localLogShipping: Boolean = sys.env.getOrElse("LOCAL_LOG_SHIPPING", "false").toBoolean
 
   val thrallKinesisStream = string("thrall.kinesis.stream.name")
@@ -58,7 +56,7 @@ abstract class CommonConfig(val configuration: Configuration) extends AwsClientB
 
   val services = new Services(domainRoot, serviceHosts, corsAllowedOrigins)
 
-  val fieldAliasConfigs: Seq[FieldAliasConfig] = configuration.getOptional[Seq[FieldAliasConfig]]("fieldAliases") getOrElse Seq.empty
+  val fieldAliasConfigs: Seq[FieldAlias] = configuration.get[Seq[FieldAlias]]("field.aliases")
 
   private def getKinesisConfigForStream(streamName: String) = KinesisSenderConfig(awsRegion, awsCredentials, awsLocalEndpoint, isDev, streamName)
 

@@ -8,6 +8,8 @@ import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.{LeasesByMedia, MediaLease}
 import com.gu.mediaservice.model.usage._
 import com.softwaremill.quicklens._
+import lib.ImageResponse.extractAliasFieldValues
+import lib.elasticsearch.SourceWrapper
 import lib.usagerights.CostCalculator
 import org.joda.time.DateTime
 import play.api.libs.functional.syntax._
@@ -15,7 +17,7 @@ import play.api.libs.json._
 import play.utils.UriEncoding
 
 import java.net.URI
-import scala.collection.mutable
+import scala.annotation.tailrec
 import scala.util.{Failure, Try}
 
 class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: UsageQuota)
@@ -48,11 +50,13 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
 
   def create(
               id: String,
-              image: Image,
+              imageWrapper: SourceWrapper[Image],
               withWritePermission: Boolean,
               withDeleteImagePermission: Boolean,
               withDeleteCropsOrUsagePermission: Boolean,
               included: List[String] = List(), tier: Tier): (JsValue, List[Link], List[Action]) = {
+
+    val image = imageWrapper.instance
 
     val source = Try {
       Json.toJson(image)(imageResponseWrites(image.id, included.contains("fileMetadata")))
@@ -83,6 +87,8 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
     val persistenceReasons = imagePersistenceReasons(image)
     val isPersisted = persistenceReasons.nonEmpty
 
+    val aliases = extractAliasFieldValues(config, imageWrapper)
+
     val data = source.transform(addSecureSourceUrl(imageUrl))
       .flatMap(_.transform(wrapUserMetadata(id)))
       .flatMap(_.transform(addSecureThumbUrl(thumbUrl)))
@@ -96,7 +102,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
       .flatMap(_.transform(addUsageCost(source)))
       .flatMap(_.transform(addPersistedState(isPersisted, persistenceReasons)))
       .flatMap(_.transform(addSyndicationStatus(image)))
-      .flatMap(_.transform(addAliases(source, image))).get
+      .flatMap(_.transform(addAliases(aliases))).get
 
     val links: List[Link] = tier match {
       case Internal => imageLinks(id, imageUrl, pngUrl, withWritePermission, valid)
@@ -222,28 +228,10 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
   def addInvalidReasons(reasons: Map[String, String]): Reads[JsObject] =
     __.json.update(__.read[JsObject]).map(_ ++ Json.obj("invalidReasons" -> Json.toJson(reasons)))
 
-  def addAliases(source: JsValue, image: Image): Reads[JsObject] = {
-    val aliases = new mutable.LinkedHashMap[String, JsValue]
-    val fieldAliasConfigs = config.fieldAliasConfigs
-
-    if (fieldAliasConfigs.nonEmpty) {
-      val fileMetadata: JsValue = source \ "fileMetadata" \ "data" getOrElse Json.toJson(image.fileMetadata)
-
-      fieldAliasConfigs.foreach { config =>
-        val parts = config.elasticsearchPath.split('.').toList
-        val lookupResult = parts match {
-          case "fileMetadata" :: directory :: key :: Nil => fileMetadata \ directory \ key
-          case other => throw new IllegalArgumentException(s"Sorry key $other not supported")
-        }
-
-        lookupResult.toOption.map { aliases(config.label) = _ }
-      }
-    }
-
+  def addAliases(aliases: Seq[(String, JsValue)]): Reads[JsObject] =
     __.json.update(__.read[JsObject]).map(_ ++ Json.obj(
-      "aliases" -> aliases
+      "aliases" -> JsObject(aliases)
     ))
-  }
 
   def makeImgopsUri(uri: URI): String =
     config.imgopsUri + List(uri.getPath, uri.getRawQuery).mkString("?") + "{&w,h,q}"
@@ -343,6 +331,24 @@ object ImageResponse {
   private def hasExports(image: Image) = image.exports.nonEmpty
 
   private def hasUsages(image: Image) = image.usages.nonEmpty
+
+  def extractAliasFieldValues(config: MediaApiConfig, source: SourceWrapper[Image]): Seq[(String, JsValue)] = {
+    @tailrec
+    def nestedLookup(jsLookup: JsLookupResult, pathComponents: List[String]): JsLookupResult = {
+      pathComponents match {
+        case Nil => jsLookup
+        case head :: tail => nestedLookup(jsLookup \ head, tail)
+      }
+    }
+
+    config.fieldAliasConfigs.flatMap { config =>
+      val parts = config.elasticsearchPath.split('.').toList.filter(_.nonEmpty)
+      val lookupResult = nestedLookup(JsDefined(source.source), parts)
+      lookupResult.toOption.map {
+        config.alias -> _
+      }
+    }
+  }
 }
 
 // We're using this to slightly hydrate the json response

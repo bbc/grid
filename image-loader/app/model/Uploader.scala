@@ -146,6 +146,7 @@ object Uploader extends GridLogging {
     val eventualImage = for {
       browserViewableImage <- eventualBrowserViewableImage
       s3Source <- sourceStoreFuture
+      mergedUploadRequest = patchUploadRequestWithS3Metadata(uploadRequest, s3Source)
       optimisedFileMetadata <- FileMetadataReader.fromIPTCHeadersWithColorInfo(browserViewableImage)
       thumbViewableImage <- createThumbFuture(optimisedFileMetadata, colourModelFuture, browserViewableImage, deps)
       s3Thumb <- storeOrProjectThumbFile(thumbViewableImage)
@@ -165,7 +166,7 @@ object Uploader extends GridLogging {
       val thumbAsset = Asset.fromS3Object(s3Thumb, thumbDimensions)
 
       val pngAsset = s3PngOption.map(Asset.fromS3Object(_, sourceDimensions))
-      val baseImage = ImageUpload.createImage(uploadRequest, sourceAsset, thumbAsset, pngAsset, fullFileMetadata, metadata)
+      val baseImage = ImageUpload.createImage(mergedUploadRequest, sourceAsset, thumbAsset, pngAsset, fullFileMetadata, metadata)
 
       val processedImage = processor(baseImage)
 
@@ -257,12 +258,23 @@ object Uploader extends GridLogging {
       case None => Future.failed(new Exception("This file is not an image with an identifiable mime type"))
     }
   }
+
+  def patchUploadRequestWithS3Metadata(request: UploadRequest, s3Object: S3Object): UploadRequest = {
+    val metadata = S3FileExtractedMetadata(s3Object.metadata.objectMetadata.lastModified.getOrElse(new DateTime), s3Object.metadata.userMetadata)
+    request.copy(
+      uploadTime = metadata.uploadTime,
+      uploadedBy = metadata.uploadedBy,
+      uploadInfo = request.uploadInfo.copy(filename = metadata.uploadFileName),
+      identifiers = metadata.identifiers
+    )
+  }
 }
 
 class Uploader(val store: ImageLoaderStore,
                val config: ImageLoaderConfig,
                val imageOps: ImageOperations,
-               val notifications: Notifications)
+               val notifications: Notifications,
+               imageProcessor: ImageProcessor)
               (implicit val ec: ExecutionContext) extends ArgoHelpers {
 
 
@@ -272,7 +284,7 @@ class Uploader(val store: ImageLoaderStore,
                        (implicit logMarker: LogMarker): Future[ImageUpload] = {
     val sideEffectDependencies = ImageUploadOpsDependencies(toImageUploadOpsCfg(config), imageOps,
       storeSource, storeThumbnail, storeOptimisedImage)
-    val finalImage = fromUploadRequestShared(uploadRequest, sideEffectDependencies, config.imageProcessor)
+    val finalImage = fromUploadRequestShared(uploadRequest, sideEffectDependencies, imageProcessor)
     finalImage.map(img => Stopwatch("finalImage"){ImageUpload(uploadRequest, img)})
   }
 

@@ -101,10 +101,6 @@ mediaApi.factory('mediaApi',
         return root.follow('image', {id: id}).get();
     }
 
-    function fileMetadata(image, {include} = {}) {
-      return image.follow('fileMetadata', { include: include }).get();
-    }
-
     function getSession() {
         // TODO: workout how we might be able to memoize this function but still
         // play nice with changes that might occur in the API (cache-header?).
@@ -131,7 +127,6 @@ mediaApi.factory('mediaApi',
         root,
         search,
         find,
-        fileMetadata,
         getSession,
         metadataSearch,
         labelSearch,
