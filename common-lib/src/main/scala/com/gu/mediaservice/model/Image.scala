@@ -9,27 +9,27 @@ import play.api.libs.json._
 
 
 case class Image(
-                  id:                  String,
-                  uploadTime:          DateTime,
-                  uploadedBy:          String,
-                  lastModified:        Option[DateTime],
-                  identifiers:         Map[String, String],
-                  uploadInfo:          UploadInfo,
-                  source:              Asset,
-                  thumbnail:           Option[Asset],
-                  optimisedPng:        Option[Asset],
-                  fileMetadata:        FileMetadata,
-                  userMetadata:        Option[Edits],
-                  metadata:            ImageMetadata,
-                  originalMetadata:    ImageMetadata,
-                  usageRights:         UsageRights,
-                  originalUsageRights: UsageRights,
-                  exports:             List[Crop]       = Nil,
-                  usages:              List[Usage]      = Nil,
-                  leases:              LeasesByMedia    = LeasesByMedia.empty,
-                  collections:         List[Collection] = Nil,
-                  syndicationRights:   Option[SyndicationRights] = None,
-                  userMetadataLastModified: Option[DateTime] = None) extends LogMarker {
+  id:                  String,
+  uploadTime:          DateTime,
+  uploadedBy:          String,
+  lastModified:        Option[DateTime],
+  identifiers:         Map[String, String],
+  uploadInfo:          UploadInfo,
+  source:              Asset,
+  thumbnail:           Option[Asset],
+  optimisedPng:        Option[Asset],
+  fileMetadata:        FileMetadata,
+  userMetadata:        Option[Edits],
+  metadata:            ImageMetadata,
+  originalMetadata:    ImageMetadata,
+  usageRights:         UsageRights,
+  originalUsageRights: UsageRights,
+  exports:             List[Crop]       = Nil,
+  usages:              List[Usage]      = Nil,
+  leases:              LeasesByMedia    = LeasesByMedia.empty,
+  collections:         List[Collection] = Nil,
+  syndicationRights:   Option[SyndicationRights] = None,
+  userMetadataLastModified: Option[DateTime] = None) extends LogMarker {
 
   def hasExports = exports.nonEmpty
 
