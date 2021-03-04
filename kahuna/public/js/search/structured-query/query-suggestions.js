@@ -80,8 +80,8 @@ const isSearch = [
 querySuggestions.factory('querySuggestions', ['mediaApi', 'editsApi', function(mediaApi, editsApi) {
 
     window._clientConfig.fieldAliases.
-    filter(res => res.displaySearchHint == true).
-    flatMap(res => filterFields.push(res.alias));
+      filter(res => res.displaySearchHint == true).
+      flatMap(res => filterFields.push(res.alias));
 
     function prefixFilter(prefix) {
         const lowerPrefix = prefix.toLowerCase();

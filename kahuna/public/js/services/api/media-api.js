@@ -12,13 +12,6 @@ mediaApi.factory('mediaApi',
 
     var root = client.resource(mediaApiUri);
     var session;
-    function searchConfig(nameKey, myArray){
-        for (var i=0; i < myArray.length; i++) {
-            if (myArray[i].name === nameKey) {
-                return myArray[i];
-            }
-        }
-    }
 
     function search(query = '', {ids, since, until, archived, valid, free,
                                  payType, uploadedBy, offset, length, orderBy,

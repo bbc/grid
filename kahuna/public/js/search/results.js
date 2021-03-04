@@ -90,8 +90,7 @@ results.controller('SearchResultsCtrl', [
              isReloadingPreviousSearch) {
 
         const ctrl = this;
-        ctrl.searchableFields = window._clientConfig.fieldAliases.
-                                filter(res => res.displaySearchHint === true);
+        ctrl.searchableFields = window._clientConfig.fieldAliases.filter(res => res.displaySearchHint === true);
         // Panel control
         ctrl.metadataPanel    = panels.metadataPanel;
         ctrl.collectionsPanel = panels.collectionsPanel;
@@ -288,8 +287,12 @@ results.controller('SearchResultsCtrl', [
         function reconstructQuery(array){
           let stringQuery = "";
           array.forEach(function (value, i) {
-              if(i % 2 !== 0) stringQuery += array[i]+" ";
-              else stringQuery += JSON.stringify(array[i])+":";
+              if (i % 2 !== 0){
+                stringQuery += array[i] + " ";
+              }
+              else {
+                stringQuery += JSON.stringify(array[i]) + ":";
+              }
           });
           return stringQuery;
         }
@@ -297,12 +300,13 @@ results.controller('SearchResultsCtrl', [
         function splitQuery(query){
           const splitArray  = query.split(/([a-zA-Z]+):/);
           splitArray.shift();
-          if(splitArray.length % 2 === 0){
+          if (splitArray.length % 2 === 0){
             splitArray.forEach(function (value, idx) {
               const field = splitArray[idx].trim();
               const searchableMetadata = ctrl.searchableFields.find(_ => _.alias === field);
-                if(searchableMetadata !== undefined)
+                if (searchableMetadata !== undefined){
                   splitArray[idx] = searchableMetadata.elasticsearchPath;
+                }
             });
           }
           return splitArray;
@@ -337,9 +341,11 @@ results.controller('SearchResultsCtrl', [
             }
 
             let query = $stateParams.query;
-            if(query !== undefined)
-              if(splitQuery(query).length !== 0)
+            if (query !== undefined){
+              if (splitQuery(query).length !== 0){
                 query = reconstructQuery(splitQuery(query));
+              }
+            }
 
             return mediaApi.search(query, angular.extend({
                 ids:        $stateParams.ids,
