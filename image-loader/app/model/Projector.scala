@@ -4,20 +4,24 @@ import java.io.{File, FileOutputStream}
 import java.util.UUID
 
 import com.amazonaws.services.s3.AmazonS3
-import com.amazonaws.services.s3.model.{ObjectMetadata, S3Object}
-import com.gu.mediaservice.lib.{ImageIngestOperations, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
+import com.gu.mediaservice.GridClient
+import com.gu.mediaservice.lib.auth.Authentication
+import com.amazonaws.services.s3.model.{ObjectMetadata, S3Object => AwsS3Object}
+import com.gu.mediaservice.lib.{ImageIngestOperations, ImageStorageProps, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
 import com.gu.mediaservice.lib.aws.S3Ops
+import com.gu.mediaservice.lib.aws.S3Object
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.LogMarker
 import com.gu.mediaservice.lib.net.URI
-import com.gu.mediaservice.model.{Image, Jpeg, Png, UploadInfo}
+import com.gu.mediaservice.model.{Image, UploadInfo}
 import lib.imaging.{MimeTypeDetection, NoSuchImageExistsInS3}
 import lib.{DigestedFile, ImageLoaderConfig}
-import model.upload.{OptimiseWithPngQuant, UploadRequest}
+import model.upload.UploadRequest
 import org.apache.tika.io.IOUtils
 import org.joda.time.{DateTime, DateTimeZone}
-import play.api.{Logger, MarkerContext}
+import play.api.Logger
+import play.api.libs.ws.WSRequest
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
@@ -27,36 +31,52 @@ object Projector {
 
   import Uploader.toImageUploadOpsCfg
 
-  def apply(config: ImageLoaderConfig, imageOps: ImageOperations)(implicit ec: ExecutionContext): Projector
-  = new Projector(toImageUploadOpsCfg(config), S3Ops.buildS3Client(config), imageOps, config.imageProcessor)
+  def apply(config: ImageLoaderConfig, imageOps: ImageOperations, processor: ImageProcessor, auth: Authentication)(implicit ec: ExecutionContext): Projector
+  = new Projector(toImageUploadOpsCfg(config), S3Ops.buildS3Client(config), imageOps, processor, auth)
 }
 
 case class S3FileExtractedMetadata(
   uploadedBy: String,
   uploadTime: DateTime,
   uploadFileName: Option[String],
-  picdarUrn: Option[String]
+  identifiers: Map[String, String]
 )
 
 object S3FileExtractedMetadata {
   def apply(s3ObjectMetadata: ObjectMetadata): S3FileExtractedMetadata = {
-    val lastModified = s3ObjectMetadata.getLastModified.toInstant.toString
-    val fileUserMetadata = s3ObjectMetadata.getUserMetadata.asScala.toMap
+    val lastModified = new DateTime(s3ObjectMetadata.getLastModified)
+    val userMetadata = s3ObjectMetadata.getUserMetadata.asScala.toMap
+    apply(lastModified, userMetadata)
+  }
 
-    val uploadedBy = fileUserMetadata.getOrElse("uploaded_by", "re-ingester")
-    val uploadedTimeRaw = fileUserMetadata.getOrElse("upload_time", lastModified)
-    val uploadTime = new DateTime(uploadedTimeRaw).withZone(DateTimeZone.UTC)
-    val picdarUrn = fileUserMetadata.get("identifier!picdarurn")
+  def apply(lastModified: DateTime, userMetadata: Map[String, String]): S3FileExtractedMetadata = {
+    val fileUserMetadata = userMetadata.map { case (key, value) =>
+      // Fix up the contents of the metadata.
+      (
+        // The keys used to be named with underscores instead of dashes but due to localstack being written in Python
+        // this didn't work locally (see https://github.com/localstack/localstack/issues/459)
+        key.replaceAll("_", "-"),
+        // The values are now all URL encoded and it is assumed safe to decode historical values too (based on the tested corpus)
+        URI.decode(value)
+      )
+    }
 
-    val uploadFileNameRaw = fileUserMetadata.get("file_name")
-    // The file name is URL encoded in  S3 metadata
-    val uploadFileName = uploadFileNameRaw.map(URI.decode)
+    val uploadedBy = fileUserMetadata.getOrElse(ImageStorageProps.uploadedByMetadataKey, "re-ingester")
+    val uploadedTimeRaw = fileUserMetadata.get(ImageStorageProps.uploadTimeMetadataKey).map(new DateTime(_).withZone(DateTimeZone.UTC))
+    val uploadTime = uploadedTimeRaw.getOrElse(lastModified)
+    val identifiers = fileUserMetadata.filter{ case (key, _) =>
+      key.startsWith(ImageStorageProps.identifierMetadataKeyPrefix)
+    }.map{ case (key, value) =>
+      key.stripPrefix(ImageStorageProps.identifierMetadataKeyPrefix) -> value
+    }
+
+    val uploadFileName = fileUserMetadata.get(ImageStorageProps.filenameMetadataKey)
 
     S3FileExtractedMetadata(
       uploadedBy = uploadedBy,
       uploadTime = uploadTime,
       uploadFileName = uploadFileName,
-      picdarUrn = picdarUrn,
+      identifiers = identifiers,
     )
   }
 }
@@ -64,11 +84,12 @@ object S3FileExtractedMetadata {
 class Projector(config: ImageUploadOpsCfg,
                 s3: AmazonS3,
                 imageOps: ImageOperations,
-                processor: ImageProcessor) {
+                processor: ImageProcessor,
+                auth: Authentication) {
 
   private val imageUploadProjectionOps = new ImageUploadProjectionOps(config, imageOps, processor)
 
-  def projectS3ImageById(imageUploadProjector: Projector, imageId: String, tempFile: File, requestId: UUID)
+  def projectS3ImageById(imageUploadProjector: Projector, imageId: String, tempFile: File, requestId: UUID, gridClient: GridClient, onBehalfOfFn: WSRequest => WSRequest)
                         (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[Image]] = {
     Future {
       import ImageIngestOperations.fileKeyFromId
@@ -83,27 +104,27 @@ class Projector(config: ImageUploadOpsCfg,
       val digestedFile = getSrcFileDigestForProjection(s3Source, imageId, tempFile)
       val extractedS3Meta = S3FileExtractedMetadata(s3Source.getObjectMetadata)
 
-      val finalImageFuture = imageUploadProjector.projectImage(digestedFile, extractedS3Meta, requestId)
+      val finalImageFuture = imageUploadProjector.projectImage(digestedFile, extractedS3Meta, requestId, gridClient, onBehalfOfFn)
       val finalImage = Await.result(finalImageFuture, Duration.Inf)
       Some(finalImage)
     }
   }
 
-  private def getSrcFileDigestForProjection(s3Src: S3Object, imageId: String, tempFile: File) = {
+  private def getSrcFileDigestForProjection(s3Src: AwsS3Object, imageId: String, tempFile: File) = {
     IOUtils.copy(s3Src.getObjectContent, new FileOutputStream(tempFile))
     DigestedFile(tempFile, imageId)
   }
 
-  def projectImage(srcFileDigest: DigestedFile, extractedS3Meta: S3FileExtractedMetadata, requestId: UUID)
+  def projectImage(srcFileDigest: DigestedFile,
+                   extractedS3Meta: S3FileExtractedMetadata,
+                   requestId: UUID,
+                   gridClient: GridClient,
+                   onBehalfOfFn: WSRequest => WSRequest)
                   (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Image] = {
-    import extractedS3Meta._
     val DigestedFile(tempFile_, id_) = srcFileDigest
-    // TODO more identifiers_ to rehydrate
-    val identifiers_ = picdarUrn match {
-      case Some(value) => Map[String, String]("picdarURN" -> value)
-      case _ => Map[String, String]()
-    }
-    val uploadInfo_ = UploadInfo(filename = uploadFileName)
+
+    val identifiers_ = extractedS3Meta.identifiers
+    val uploadInfo_ = UploadInfo(filename = extractedS3Meta.uploadFileName)
 
     MimeTypeDetection.guessMimeType(tempFile_) match {
       case util.Left(unsupported) => Future.failed(unsupported)
@@ -113,12 +134,26 @@ class Projector(config: ImageUploadOpsCfg,
           imageId = id_,
           tempFile = tempFile_,
           mimeType = Some(mimeType),
-          uploadTime = uploadTime,
-          uploadedBy,
+          uploadTime = extractedS3Meta.uploadTime,
+          uploadedBy = extractedS3Meta.uploadedBy,
           identifiers = identifiers_,
           uploadInfo = uploadInfo_
         )
-        imageUploadProjectionOps.projectImageFromUploadRequest(uploadRequest)
+
+        for {
+          futureImage <- imageUploadProjectionOps.projectImageFromUploadRequest(uploadRequest)
+          edits <- gridClient.getEdits(id_, onBehalfOfFn)
+          usages <- gridClient.getUsages(id_, onBehalfOfFn)
+          crops <- gridClient.getCrops(id_, onBehalfOfFn)
+          leases <- gridClient.getLeases(id_, onBehalfOfFn)
+          //todo collections?
+        } yield futureImage
+          .copy(
+            userMetadata = edits,
+            usages = usages,
+            exports = crops,
+            leases = leases
+          )
     }
   }
 }
@@ -140,7 +175,7 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
   private def projectOriginalFileAsS3Model(storableOriginalImage: StorableOriginalImage)
                                           (implicit ec: ExecutionContext)= Future {
     val key = ImageIngestOperations.fileKeyFromId(storableOriginalImage.id)
-    S3Ops.projectFileAsS3Object(
+    S3Object(
       config.originalFileBucket,
       key,
       storableOriginalImage.file,
@@ -151,8 +186,8 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
 
   private def projectThumbnailFileAsS3Model(storableThumbImage: StorableThumbImage)(implicit ec: ExecutionContext) = Future {
     val key = ImageIngestOperations.fileKeyFromId(storableThumbImage.id)
-    val thumbMimeType = Some(OptimiseWithPngQuant.optimiseMimeType) // this IS what we will generate.
-    S3Ops.projectFileAsS3Object(
+    val thumbMimeType = Some(ImageOperations.thumbMimeType)
+    S3Object(
       config.thumbBucket,
       key,
       storableThumbImage.file,
@@ -163,7 +198,7 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
   private def projectOptimisedPNGFileAsS3Model(storableOptimisedImage: StorableOptimisedImage)(implicit ec: ExecutionContext) = Future {
     val key = ImageIngestOperations.optimisedPngKeyFromId(storableOptimisedImage.id)
     val optimisedPngMimeType = Some(ImageOperations.thumbMimeType) // this IS what we will generate.
-    S3Ops.projectFileAsS3Object(
+    S3Object(
       config.originalFileBucket,
       key,
       storableOptimisedImage.file,

@@ -18,6 +18,7 @@ mediaApi.factory('mediaApi',
                                  takenSince, takenUntil,
                                  modifiedSince, modifiedUntil, hasRightsAcquired, hasCrops,
                                  syndicationStatus} = {}) {
+
         return root.follow('search', {
             q:          query,
             since:      since,

@@ -1,3 +1,5 @@
+@import lib.ScriptToLoad
+
 @(mediaApiUri: String,
   authApiUri: String,
   reauthUri: String,
@@ -7,7 +9,10 @@
   feedbackFormLink: Option[String],
   usageRightsHelpLink: Option[String],
   invalidSessionHelpLink: Option[String],
-  supportEmail: Option[String])
+  supportEmail: Option[String],
+  fieldAliases: String,
+  scriptsToLoad: List[ScriptToLoad]
+)
 <!DOCTYPE html>
 <html>
   <head>
@@ -27,6 +32,7 @@
     <link rel="assets" href="@routes.Assets.versioned("")"/>
     <link rel="media-api-uri" href="@mediaApiUri" />
     <link rel="reauth-uri" href="@reauthUri" />
+    <link rel="auth-uri" href="@authApiUri" />
 
     @sentryDsn.map { dsn => <link rel="sentry-dsn" href="@dsn" /> }
     <link rel="stylesheet" href="@routes.Assets.versioned("stylesheets/main.css")" />
@@ -42,7 +48,8 @@
           feedbackFormLink: "@Html(feedbackFormLink.getOrElse(""))",
           usageRightsHelpLink: "@Html(usageRightsHelpLink.getOrElse(""))",
           invalidSessionHelpLink: "@Html(invalidSessionHelpLink.getOrElse(""))",
-          supportEmail: "@Html(supportEmail.getOrElse(""))"
+          supportEmail: "@Html(supportEmail.getOrElse(""))",
+          fieldAliases: @Html(fieldAliases)
         }
     </script>
 
@@ -62,6 +69,10 @@
     }
 
     <script src="@routes.Assets.versioned("dist/build.js")"></script>
+
+    @scriptsToLoad.map { scriptDetail =>
+      <script async="@scriptDetail.async" src="@scriptDetail.host/@scriptDetail.path"></script>
+    }
 
   </body>
 </html>

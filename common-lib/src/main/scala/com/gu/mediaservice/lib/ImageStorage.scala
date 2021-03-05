@@ -13,6 +13,10 @@ import com.gu.mediaservice.model.MimeType
 object ImageStorageProps {
   val cacheDuration: Duration = 365 days
   val cacheForever: String = s"max-age=${cacheDuration.toSeconds}"
+  val filenameMetadataKey: String = "file-name"
+  val uploadTimeMetadataKey: String = "upload-time"
+  val uploadedByMetadataKey: String = "uploaded-by"
+  val identifierMetadataKeyPrefix: String = "identifier!"
 }
 
 trait ImageStorage {
@@ -30,7 +34,8 @@ trait ImageStorage {
   /** Store a copy of the given file and return the URI of that copy.
     * The file can safely be deleted afterwards.
     */
-  def storeImage(bucket: String, id: String, file: File, mimeType: Option[MimeType], meta: Map[String, String] = Map.empty)
+  def storeImage(bucket: String, id: String, file: File, mimeType: Option[MimeType],
+                 meta: Map[String, String] = Map.empty, overwrite: Boolean)
                 (implicit logMarker: LogMarker): Future[S3Object]
 
   def deleteImage(bucket: String, id: String): Future[Unit]

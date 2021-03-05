@@ -8,16 +8,16 @@ import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
 import com.gu.mediaservice.indexing.IndexInputCreation._
 import com.gu.mediaservice.indexing.ProduceProgress
 import com.gu.mediaservice.lib.aws.UpdateMessage
+import com.gu.mediaservice.lib.config.{ServiceHosts, Services}
 import com.gu.mediaservice.model.Image
 import com.typesafe.scalalogging.LazyLogging
 import net.logstash.logback.marker.Markers
 import play.api.libs.json.{JsObject, Json}
+import play.api.libs.ws.WSClient
 
-import scala.collection.JavaConverters._
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
-
 import scala.collection.JavaConverters._
 
 case class BatchIndexHandlerConfig(
@@ -35,12 +35,13 @@ case class BatchIndexHandlerConfig(
                                     threshold: Option[Integer],
                                     startState: ProduceProgress,
                                     checkerStartState: ProduceProgress,
-                                    maxSize: Int
+                                    maxSize: Int,
+                                    domainRoot: String
                                   )
 
 case class SuccessResult(foundImagesCount: Int, notFoundImagesCount: Int, progressHistory: String, projectionTookInSec: Long)
 
-class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LoggingWithMarkers {
+class BatchIndexHandler(cfg: BatchIndexHandlerConfig)(implicit wsClient: WSClient) extends LoggingWithMarkers {
 
   import cfg._
 
@@ -53,10 +54,13 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LoggingWithMarkers
 
   private val GetIdsTimeout = new FiniteDuration(20, TimeUnit.SECONDS)
   private val GlobalTimeout = new FiniteDuration(MainProcessingTimeoutInSec, TimeUnit.SECONDS)
-  private val ImagesProjectionTimeout = new FiniteDuration(ProjectionTimeoutInSec, TimeUnit.MINUTES)
-  private val gridClient = GridClient(maxIdleConnections, debugHttpResponse = false)
+  private val ImagesProjectionTimeout = new FiniteDuration(ProjectionTimeoutInSec, TimeUnit.SECONDS)
+  val services = new Services(domainRoot, ServiceHosts.guardianPrefixes, Set.empty)
+  private val gridClient = GridClient(services)
 
-  private val ImagesBatchProjector = new ImagesBatchProjection(apiKey, projectionEndpoint, ImagesProjectionTimeout, gridClient, maxSize)
+  private val ImagesBatchProjector = new ImagesBatchProjection(apiKey, ImagesProjectionTimeout, gridClient, maxSize, projectionEndpoint)
+  ImagesBatchProjector.assertApiKeyIsValid          // fail as fast as possible if the api key is duff
+
   private val InputIdsStore = new InputIdsStore(AwsHelpers.buildDynamoTableClient(dynamoTableName), batchSize)
 
   import ImagesBatchProjector._
@@ -65,7 +69,6 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LoggingWithMarkers
   private implicit val ec: ExecutionContext = scala.concurrent.ExecutionContext.Implicits.global
 
   def checkImages(): Unit = {
-    if (!validApiKey(projectionEndpoint)) throw new IllegalStateException("invalid api key")
     val stateProgress = scala.collection.mutable.ArrayBuffer[ProduceProgress]()
     stateProgress += NotStarted
     val mediaIdsFuture = getMediaIdsBatchByState(checkerStartState)
@@ -123,7 +126,6 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LoggingWithMarkers
   }
 
   def processImagesOnlyIfKinesisIsNiceAndFast(): Unit = {
-    if (!validApiKey(projectionEndpoint)) throw new IllegalStateException("invalid api key")
     val stateProgress = scala.collection.mutable.ArrayBuffer[ProduceProgress]()
     stateProgress += NotStarted
     val mediaIdsFuture = getUnprocessedMediaIdsBatch(startState)
@@ -134,6 +136,7 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LoggingWithMarkers
         stateProgress += updateStateToItemsInProgress(mediaIds)
         logger.info(s"Indexing ${mediaIds.length} media ids. Getting image projections from: $projectionEndpoint")
         val start = System.currentTimeMillis()
+        // left is found images
         val maybeBlobsFuture: List[Either[Image, String]] = getImagesProjection(mediaIds, projectionEndpoint, InputIdsStore)
 
         val (foundImages, notFoundImagesIds) = partitionToSuccessAndNotFound(maybeBlobsFuture)
