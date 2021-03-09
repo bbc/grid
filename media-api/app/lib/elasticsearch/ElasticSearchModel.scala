@@ -15,7 +15,7 @@ import scalaz.{Validation, ValidationNel}
 
 import scala.util.Try
 
-case class SearchResults(hits: Seq[(String, Image)], total: Long)
+case class SearchResults(hits: Seq[(String, SourceWrapper[Image])], total: Long)
 
 case class AggregateSearchResults(results: Seq[BucketResult], total: Long)
 
@@ -189,6 +189,8 @@ object SearchParams {
 
   type SearchParamValidation = Validation[InvalidUriParams, SearchParams]
   type SearchParamValidations = ValidationNel[InvalidUriParams, SearchParams]
+
+  // Also adjust in gu-lazy-table.js
   val maxSize = 200
 
   def validate(searchParams: SearchParams): SearchParamValidations = {

@@ -5,11 +5,10 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.util.UUID
-
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.auth.Authentication.Principal
-import com.gu.mediaservice.lib.{BrowserViewableImage, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
+import com.gu.mediaservice.lib.{BrowserViewableImage, ImageStorageProps, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
 import com.gu.mediaservice.lib.aws.{S3Object, UpdateMessage}
 import com.gu.mediaservice.lib.cleanup.{ImageProcessor, MetadataCleaners, SupplierProcessors}
 import com.gu.mediaservice.lib.config.MetadataConfig
@@ -17,6 +16,7 @@ import com.gu.mediaservice.lib.formatting._
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging._
 import com.gu.mediaservice.lib.metadata.{FileMetadataHelper, ImageMetadataConverter}
+import com.gu.mediaservice.lib.net.URI
 import com.gu.mediaservice.model._
 import lib.{DigestedFile, ImageLoaderConfig, Notifications}
 import lib.imaging.{FileMetadataReader, MimeTypeDetection}
@@ -146,6 +146,7 @@ object Uploader extends GridLogging {
     val eventualImage = for {
       browserViewableImage <- eventualBrowserViewableImage
       s3Source <- sourceStoreFuture
+      mergedUploadRequest = patchUploadRequestWithS3Metadata(uploadRequest, s3Source)
       optimisedFileMetadata <- FileMetadataReader.fromIPTCHeadersWithColorInfo(browserViewableImage)
       thumbViewableImage <- createThumbFuture(optimisedFileMetadata, colourModelFuture, browserViewableImage, deps)
       s3Thumb <- storeOrProjectThumbFile(thumbViewableImage)
@@ -159,13 +160,13 @@ object Uploader extends GridLogging {
       colourModel <- colourModelFuture
     } yield {
       val fullFileMetadata = fileMetadata.copy(colourModel = colourModel)
-      val metadata = ImageMetadataConverter.fromFileMetadata(fullFileMetadata)
+      val metadata = ImageMetadataConverter.fromFileMetadata(fullFileMetadata, s3Source.metadata.objectMetadata.lastModified)
 
       val sourceAsset = Asset.fromS3Object(s3Source, sourceDimensions)
       val thumbAsset = Asset.fromS3Object(s3Thumb, thumbDimensions)
 
       val pngAsset = s3PngOption.map(Asset.fromS3Object(_, sourceDimensions))
-      val baseImage = ImageUpload.createImage(uploadRequest, sourceAsset, thumbAsset, pngAsset, fullFileMetadata, metadata)
+      val baseImage = ImageUpload.createImage(mergedUploadRequest, sourceAsset, thumbAsset, pngAsset, fullFileMetadata, metadata)
 
       val processedImage = processor(baseImage)
 
@@ -201,14 +202,13 @@ object Uploader extends GridLogging {
 
   def toMetaMap(uploadRequest: UploadRequest): Map[String, String] = {
     val baseMeta = Map(
-      "uploaded_by" -> uploadRequest.uploadedBy,
-      "upload_time" -> printDateTime(uploadRequest.uploadTime)
-    ) ++ uploadRequest.identifiersMeta
+      ImageStorageProps.uploadedByMetadataKey -> uploadRequest.uploadedBy,
+      ImageStorageProps.uploadTimeMetadataKey -> printDateTime(uploadRequest.uploadTime)
+    ) ++
+      uploadRequest.identifiersMeta ++
+      uploadRequest.uploadInfo.filename.map(ImageStorageProps.filenameMetadataKey -> _)
 
-    uploadRequest.uploadInfo.filename match {
-      case Some(f) => baseMeta ++ Map("file_name" -> URLEncoder.encode(f, StandardCharsets.UTF_8.name()))
-      case _ => baseMeta
-    }
+    baseMeta.mapValues(URI.encode)
   }
 
   private def toFileMetadata(f: File, imageId: String, mimeType: Option[MimeType]): Future[FileMetadata] = {
@@ -258,12 +258,23 @@ object Uploader extends GridLogging {
       case None => Future.failed(new Exception("This file is not an image with an identifiable mime type"))
     }
   }
+
+  def patchUploadRequestWithS3Metadata(request: UploadRequest, s3Object: S3Object): UploadRequest = {
+    val metadata = S3FileExtractedMetadata(s3Object.metadata.objectMetadata.lastModified.getOrElse(new DateTime), s3Object.metadata.userMetadata)
+    request.copy(
+      uploadTime = metadata.uploadTime,
+      uploadedBy = metadata.uploadedBy,
+      uploadInfo = request.uploadInfo.copy(filename = metadata.uploadFileName),
+      identifiers = metadata.identifiers
+    )
+  }
 }
 
 class Uploader(val store: ImageLoaderStore,
                val config: ImageLoaderConfig,
                val imageOps: ImageOperations,
-               val notifications: Notifications)
+               val notifications: Notifications,
+               imageProcessor: ImageProcessor)
               (implicit val ec: ExecutionContext) extends ArgoHelpers {
 
 
@@ -273,7 +284,7 @@ class Uploader(val store: ImageLoaderStore,
                        (implicit logMarker: LogMarker): Future[ImageUpload] = {
     val sideEffectDependencies = ImageUploadOpsDependencies(toImageUploadOpsCfg(config), imageOps,
       storeSource, storeThumbnail, storeOptimisedImage)
-    val finalImage = fromUploadRequestShared(uploadRequest, sideEffectDependencies, config.imageProcessor)
+    val finalImage = fromUploadRequestShared(uploadRequest, sideEffectDependencies, imageProcessor)
     finalImage.map(img => Stopwatch("finalImage"){ImageUpload(uploadRequest, img)})
   }
 
@@ -287,8 +298,7 @@ class Uploader(val store: ImageLoaderStore,
                                  (implicit logMarker: LogMarker) = store.store(storableOptimisedImage)
 
   def loadFile(digestedFile: DigestedFile,
-               user: Principal,
-               uploadedBy: Option[String],
+               uploadedBy: String,
                identifiers: Option[String],
                uploadTime: DateTime,
                filename: Option[String],
@@ -298,7 +308,10 @@ class Uploader(val store: ImageLoaderStore,
     val DigestedFile(tempFile, id) = digestedFile
 
     // TODO: should error if the JSON parsing failed
-    val identifiersMap = identifiers.map(Json.parse(_).as[Map[String, String]]) getOrElse Map()
+    val identifiersMap = identifiers
+      .map(Json.parse(_).as[Map[String, String]])
+      .getOrElse(Map.empty)
+      .mapValues(_.toLowerCase)
 
     MimeTypeDetection.guessMimeType(tempFile) match {
       case util.Left(unsupported) =>
@@ -312,7 +325,7 @@ class Uploader(val store: ImageLoaderStore,
           tempFile = tempFile,
           mimeType = Some(mimeType),
           uploadTime = uploadTime,
-          uploadedBy = uploadedBy.getOrElse(Authentication.getIdentity(user)),
+          uploadedBy = uploadedBy,
           identifiers = identifiersMap,
           uploadInfo = UploadInfo(filename)
         )

@@ -1,21 +1,15 @@
 package com.gu.mediaservice.lib.config
 
 import java.util.UUID
-
 import com.gu.mediaservice.lib.aws.{AwsClientBuilderUtils, KinesisSenderConfig}
-import com.typesafe.config.ConfigException
+import com.typesafe.config.{Config, ConfigException}
 import com.typesafe.scalalogging.StrictLogging
 import play.api.Configuration
 
+import scala.collection.JavaConverters.collectionAsScalaIterableConverter
 import scala.util.Try
 
-
 abstract class CommonConfig(val configuration: Configuration) extends AwsClientBuilderUtils with StrictLogging {
-  final val elasticsearchStack = "media-service"
-
-  final val elasticsearchApp = "elasticsearch"
-  final val elasticsearch6App = "elasticsearch6"
-
   final val stackName = "media-service"
 
   final val sessionId = UUID.randomUUID().toString
@@ -31,8 +25,6 @@ abstract class CommonConfig(val configuration: Configuration) extends AwsClientB
   override val awsLocalEndpoint: Option[String] = if(isDev) stringOpt("aws.local.endpoint") else None
 
   val useLocalAuth: Boolean = isDev && boolean("auth.useLocal")
-
-  val permissionsBucket: String = stringDefault("permissions.bucket", "permissions-cache")
 
   val localLogShipping: Boolean = sys.env.getOrElse("LOCAL_LOG_SHIPPING", "false").toBoolean
 
@@ -65,6 +57,8 @@ abstract class CommonConfig(val configuration: Configuration) extends AwsClientB
 
   val services = new Services(domainRoot, serviceHosts, corsAllowedOrigins)
 
+  val fieldAliasConfigs: Seq[FieldAlias] = configuration.get[Seq[FieldAlias]]("field.aliases")
+
   private def getKinesisConfigForStream(streamName: String) = KinesisSenderConfig(awsRegion, awsCredentials, awsLocalEndpoint, isDev, streamName)
 
   final def getStringSet(key: String): Set[String] = Try {
@@ -73,6 +67,10 @@ abstract class CommonConfig(val configuration: Configuration) extends AwsClientB
     case _:ConfigException.WrongType => configuration.get[String](key).split(",").toSeq.map(_.trim)
   }.map(_.toSet)
    .getOrElse(Set.empty)
+
+  def getConfigList(key:String): List[_ <: Config] =
+    if (configuration.has(key)) configuration.underlying.getConfigList(key).asScala.toList
+    else List.empty
 
   final def apply(key: String): String =
     string(key)

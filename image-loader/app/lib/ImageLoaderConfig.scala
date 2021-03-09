@@ -5,11 +5,16 @@ import com.gu.mediaservice.lib.cleanup.{ComposedImageProcessor, ImageProcessor, 
 import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources, ImageProcessorLoader}
 import com.gu.mediaservice.model._
 import com.typesafe.scalalogging.StrictLogging
+import play.api.inject.ApplicationLifecycle
+
+import scala.concurrent.duration.FiniteDuration
 
 class ImageLoaderConfig(resources: GridConfigResources) extends CommonConfig(resources.configuration) with StrictLogging {
   val imageBucket: String = string("s3.image.bucket")
 
   val thumbnailBucket: String = string("s3.thumb.bucket")
+  val quarantineBucket: Option[String] = stringOpt("s3.quarantine.bucket")
+  val uploadToQuarantineEnabled: Boolean = boolean("upload.quarantine.enabled")
 
   val tempDir: File = new File(stringDefault("upload.tmp.dir", "/tmp"))
 
@@ -22,6 +27,9 @@ class ImageLoaderConfig(resources: GridConfigResources) extends CommonConfig(res
 
   val transcodedMimeTypes: List[MimeType] = getStringSet("transcoded.mime.types").toList.map(MimeType(_))
   val supportedMimeTypes: List[MimeType] = List(Jpeg, Png) ::: transcodedMimeTypes
+
+  val uploadStatusTable: String = string("dynamo.table.upload.status")
+  val uploadStatusExpiry: FiniteDuration = configuration.get[FiniteDuration]("uploadStatus.recordExpiry")
 
   /**
     * Load in the chain of image processors from config. This can be a list of
@@ -50,8 +58,8 @@ class ImageLoaderConfig(resources: GridConfigResources) extends CommonConfig(res
     *
     * If a configuration is needed by is not provided by the config, the module configuration will be used instead.
     */
-  val imageProcessor: ComposedImageProcessor = {
-    val configLoader = ImageProcessorLoader.seqConfigLoader(ImageProcessorResources(this, resources.actorSystem))
+  def imageProcessor(applicationLifecycle: ApplicationLifecycle): ComposedImageProcessor = {
+    val configLoader = ImageProcessorLoader.seqConfigLoader(ImageProcessorResources(this, resources.actorSystem), applicationLifecycle)
     val processors = configuration
       .get[Seq[ImageProcessor]]("image.processors")(configLoader)
     ImageProcessor.compose("ImageConfigLoader-imageProcessor", processors:_*)
