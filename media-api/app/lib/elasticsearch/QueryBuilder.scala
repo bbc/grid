@@ -16,7 +16,6 @@ import lib.MediaApiConfig
 class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agency], config: MediaApiConfig) extends ImageFields with GridLogging {
 
   def getAdvancedFieldPath(field: String): String = {
-
     val fileMetadataPath = config.fieldAliasConfigs.find(_.alias == field) match {
       case Some(x) => Some(x.elasticsearchPath)
       case None => None
@@ -26,6 +25,7 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
     if(fileMetadataPath != None) fileMetadataPath.get
     else simplePath
   }
+  
   // For some sad reason, there was no helpful alias for this in the ES library
   private def multiMatchPhraseQuery(value: String, fields: Seq[String]): MultiMatchQuery =
     ElasticDsl.multiMatchQuery(value).fields(fields).matchType(MultiMatchQueryBuilderType.PHRASE)
