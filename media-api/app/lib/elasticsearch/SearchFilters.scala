@@ -12,6 +12,7 @@ import scalaz.syntax.std.list._
 class SearchFilters(config: MediaApiConfig)  extends ImageFields {
 
   val syndicationFilter = new SyndicationFilter(config)
+  val usageRights = config.usageRights.toList
 
   import UsageRightsConfig.{freeSuppliers, suppliersCollectionExcl}
 
@@ -48,7 +49,7 @@ class SearchFilters(config: MediaApiConfig)  extends ImageFields {
   val maybeFreeFilter: Option[Query] = filterOrFilter(freeFilter, Some(filters.not(hasRightsCategoryFilter)))
 
   lazy val freeToUseCategories: List[String] =
-    UsageRights.all.filter(ur => ur.defaultCost.exists(cost => cost == Free || cost == Conditional)).map(ur => ur.category)
+    UsageRights.getAll(usageRights).filter(ur => ur.defaultCost.exists(cost => cost == Free || cost == Conditional)).map(ur => ur.category)
 
   val persistedCategories = NonEmptyList(
     StaffPhotographer.category,

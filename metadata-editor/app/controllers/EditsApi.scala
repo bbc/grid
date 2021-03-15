@@ -3,6 +3,7 @@ package controllers
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication
+import com.gu.mediaservice.lib.config.Photographers
 import com.gu.mediaservice.model._
 import lib.EditsConfig
 import model.UsageRightsProperty
@@ -33,7 +34,12 @@ class EditsApi(auth: Authentication, config: EditsConfig,
   def index = auth { indexResponse }
 
   val usageRightsResponse = {
-    val usageRightsData = UsageRights.all.map(CategoryResponse.fromUsageRights)
+    val photographers = config.photographers
+    val usageRights = config.usageRights.toList
+
+    val usageRightsData = UsageRights
+      .getAll(usageRights)
+      .map(u => CategoryResponse.fromUsageRights(u, photographers, usageRights))
 
     respond(usageRightsData)
   }
@@ -53,7 +59,7 @@ case class CategoryResponse(
 object CategoryResponse {
   // I'd like to have an override of the `apply`, but who knows how you do that
   // with the JSON parsing stuff
-  def fromUsageRights(u: UsageRightsSpec): CategoryResponse =
+  def fromUsageRights(u: UsageRightsSpec, p: Photographers, usageRights: List[String]): CategoryResponse =
     CategoryResponse(
       value               = u.category,
       name                = u.name,
@@ -61,7 +67,7 @@ object CategoryResponse {
       description         = u.description,
       defaultRestrictions = u.defaultRestrictions,
       caution             = u.caution,
-      properties          = UsageRightsProperty.getPropertiesForSpec(u)
+      properties          = UsageRightsProperty.getPropertiesForSpec(u, p, usageRights)
     )
 
   implicit val categoryResponseWrites: Writes[CategoryResponse] = Json.writes[CategoryResponse]

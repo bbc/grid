@@ -59,6 +59,10 @@ abstract class CommonConfig(val configuration: Configuration) extends AwsClientB
 
   val fieldAliasConfigs: Seq[FieldAlias] = configuration.get[Seq[FieldAlias]]("field.aliases")
 
+  val photographers: Photographers = configuration.get[Photographers]("photographers")
+
+  val usageRights: Seq[String] = configuration.get[Seq[String]]("usageRights")
+
   private def getKinesisConfigForStream(streamName: String) = KinesisSenderConfig(awsRegion, awsCredentials, awsLocalEndpoint, isDev, streamName)
 
   final def getStringSet(key: String): Set[String] = Try {
