@@ -79,11 +79,6 @@ val maybeBBCLib: Option[sbt.ProjectReference] = if(bbcBuildProcess) Some(bbcProj
 lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
     // also exists in plugins.sbt, TODO deduplicate this
-    "com.typesafe.play" %% "play" % "2.6.20", ws,
-    "com.typesafe.play" %% "play-json-joda" % "2.6.9",
-    "com.typesafe.play" %% "filters-helpers" % "2.6.20",
-    akkaHttpServer,
-    ws,
     "com.gu" %% "editorial-permissions-client" % "2.0",
     "com.gu" %% "pan-domain-auth-play_2-6" % "0.8.2",
     "com.amazonaws" % "aws-java-sdk-iam" % awsSdkVersion,
