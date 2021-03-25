@@ -4,7 +4,7 @@ import java.io.{File, FileOutputStream}
 import java.util.UUID
 
 import com.amazonaws.services.s3.AmazonS3
-import com.gu.mediaservice.GridClient
+import com.gu.mediaservice.{GridClient, ImageDataMerger}
 import com.gu.mediaservice.lib.auth.Authentication
 import com.amazonaws.services.s3.model.{ObjectMetadata, S3Object => AwsS3Object}
 import com.gu.mediaservice.lib.{ImageIngestOperations, ImageStorageProps, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
@@ -89,7 +89,7 @@ class Projector(config: ImageUploadOpsCfg,
 
   private val imageUploadProjectionOps = new ImageUploadProjectionOps(config, imageOps, processor)
 
-  def projectS3ImageById(imageUploadProjector: Projector, imageId: String, tempFile: File, requestId: UUID, gridClient: GridClient, onBehalfOfFn: WSRequest => WSRequest)
+  def projectS3ImageById(imageId: String, tempFile: File, requestId: UUID, gridClient: GridClient, onBehalfOfFn: WSRequest => WSRequest)
                         (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[Image]] = {
     Future {
       import ImageIngestOperations.fileKeyFromId
@@ -104,7 +104,7 @@ class Projector(config: ImageUploadOpsCfg,
       val digestedFile = getSrcFileDigestForProjection(s3Source, imageId, tempFile)
       val extractedS3Meta = S3FileExtractedMetadata(s3Source.getObjectMetadata)
 
-      val finalImageFuture = imageUploadProjector.projectImage(digestedFile, extractedS3Meta, requestId, gridClient, onBehalfOfFn)
+      val finalImageFuture = projectImage(digestedFile, extractedS3Meta, requestId, gridClient, onBehalfOfFn)
       val finalImage = Await.result(finalImageFuture, Duration.Inf)
       Some(finalImage)
     }
@@ -140,21 +140,9 @@ class Projector(config: ImageUploadOpsCfg,
           uploadInfo = uploadInfo_
         )
 
-        for {
-          futureImage <- imageUploadProjectionOps.projectImageFromUploadRequest(uploadRequest)
-          collections <- gridClient.getCollections(id_, onBehalfOfFn)
-          edits <- gridClient.getEdits(id_, onBehalfOfFn)
-          usages <- gridClient.getUsages(id_, onBehalfOfFn)
-          crops <- gridClient.getCrops(id_, onBehalfOfFn)
-          leases <- gridClient.getLeases(id_, onBehalfOfFn)
-        } yield futureImage
-          .copy(
-            userMetadata = edits,
-            collections = collections,
-            usages = usages,
-            exports = crops,
-            leases = leases
-          )
+        imageUploadProjectionOps.projectImageFromUploadRequest(uploadRequest) flatMap (
+          image => ImageDataMerger.aggregate(image, gridClient, onBehalfOfFn)
+        )
     }
   }
 }
@@ -173,38 +161,13 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
     fromUploadRequestShared(uploadRequest, dependenciesWithProjectionsOnly, processor)
   }
 
-  private def projectOriginalFileAsS3Model(storableOriginalImage: StorableOriginalImage)
-                                          (implicit ec: ExecutionContext)= Future {
-    val key = ImageIngestOperations.fileKeyFromId(storableOriginalImage.id)
-    S3Object(
-      config.originalFileBucket,
-      key,
-      storableOriginalImage.file,
-      Some(storableOriginalImage.mimeType),
-      storableOriginalImage.meta
-    )
-  }
+  private def projectOriginalFileAsS3Model(storableOriginalImage: StorableOriginalImage) =
+    Future.successful(storableOriginalImage.toProjectedS3Object(config.originalFileBucket))
 
-  private def projectThumbnailFileAsS3Model(storableThumbImage: StorableThumbImage)(implicit ec: ExecutionContext) = Future {
-    val key = ImageIngestOperations.fileKeyFromId(storableThumbImage.id)
-    val thumbMimeType = Some(ImageOperations.thumbMimeType)
-    S3Object(
-      config.thumbBucket,
-      key,
-      storableThumbImage.file,
-      thumbMimeType
-    )
-  }
+  private def projectThumbnailFileAsS3Model(storableThumbImage: StorableThumbImage) =
+    Future.successful(storableThumbImage.toProjectedS3Object(config.thumbBucket))
 
-  private def projectOptimisedPNGFileAsS3Model(storableOptimisedImage: StorableOptimisedImage)(implicit ec: ExecutionContext) = Future {
-    val key = ImageIngestOperations.optimisedPngKeyFromId(storableOptimisedImage.id)
-    val optimisedPngMimeType = Some(ImageOperations.thumbMimeType) // this IS what we will generate.
-    S3Object(
-      config.originalFileBucket,
-      key,
-      storableOptimisedImage.file,
-      optimisedPngMimeType
-    )
-  }
+  private def projectOptimisedPNGFileAsS3Model(storableOptimisedImage: StorableOptimisedImage) =
+    Future.successful(storableOptimisedImage.toProjectedS3Object(config.originalFileBucket))
 
 }
