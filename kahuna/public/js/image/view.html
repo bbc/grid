@@ -1,6 +1,9 @@
 <gr-top-bar>
     <gr-top-bar-nav>
-        <a class="top-bar-item side-padded clickable" ui-sref="search" title="Back to search">
+        <a class="top-bar-item side-padded clickable" ng-if="ctrl.query != ''" ng-href="/search?query={{::ctrl.query}}" title="Back to search">
+            <gr-icon-label gr-icon="youtube_searched_for">Back to search</gr-icon-label>
+        </a>
+        <a class="top-bar-item side-padded clickable" ng-if="ctrl.query == ''" ui-sref="search" title="Back to search">
             <gr-icon-label gr-icon="youtube_searched_for">Back to search</gr-icon-label>
         </a>
     </gr-top-bar-nav>

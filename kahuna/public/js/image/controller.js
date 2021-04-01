@@ -57,6 +57,7 @@ image.controller('ImageCtrl', [
   '$scope',
   '$element',
   '$state',
+  '$location',
   '$stateParams',
   '$window',
   '$filter',
@@ -76,6 +77,7 @@ image.controller('ImageCtrl', [
             $scope,
             $element,
             $state,
+            $location,
             $stateParams,
             $window,
             $filter,
@@ -92,6 +94,8 @@ image.controller('ImageCtrl', [
             cropSettings) {
 
     let ctrl = this;
+
+    ctrl.query = $location.search().query || "";
 
     keyboardShortcut.bindTo($scope)
       .add({
@@ -167,6 +171,8 @@ image.controller('ImageCtrl', [
     ctrl.cropSelected = cropSelected;
 
     ctrl.image.allCrops = [];
+
+  
 
     cropSettings.set($stateParams);
     ctrl.cropType = cropSettings.getCropType();
