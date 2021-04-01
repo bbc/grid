@@ -28,6 +28,7 @@ image.controller('uiPreviewImageCtrl', [
     'inject$',
     '$rootScope',
     '$window',
+    '$location',
     'imageService',
     'imageUsagesService',
     function (
@@ -35,6 +36,7 @@ image.controller('uiPreviewImageCtrl', [
         inject$,
         $rootScope,
         $window,
+        $location,
         imageService,
         imageUsagesService) {
       var ctrl = this;
@@ -52,6 +54,8 @@ image.controller('uiPreviewImageCtrl', [
       }
     });
 
+
+    ctrl.searchQuery = $location.search().query || '';
     ctrl.states = imageService(ctrl.image).states;
 
     ctrl.imageDescription = ctrl.states.isStaffPhotographer ?
