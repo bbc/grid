@@ -62,8 +62,10 @@ jobs.controller('RequiredMetadataEditorCtrl',
 
     if (Boolean(ctrl.withBatch)) {
         $scope.$on(batchApplyMetadataEvent, (e, { field, data }) => {
-            ctrl.metadata[field] = data;
-            ctrl.save();
+            if (ctrl.userCanEdit) {
+                ctrl.metadata[field] = data;
+                ctrl.save();
+            }
         });
 
         ctrl.batchApplyMetadata = field =>
