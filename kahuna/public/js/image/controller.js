@@ -172,7 +172,6 @@ image.controller('ImageCtrl', [
 
     ctrl.image.allCrops = [];
 
-  
 
     cropSettings.set($stateParams);
     ctrl.cropType = cropSettings.getCropType();
