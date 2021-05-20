@@ -1,12 +1,12 @@
 package com.gu.mediaservice.lib.cleanup
 
-import com.gu.mediaservice.model.{Agencies, Agency, ContractPhotographer, Image, StaffPhotographer}
-import com.gu.mediaservice.lib.config.PhotographersList
+import com.gu.mediaservice.lib.config.{RuntimeUsageRightsConfig, UsageRightsConfigProvider}
+import com.gu.mediaservice.model._
 
 /**
   * This is largely generic or close to generic processing aside from the Guardian Photographer parser.
   */
-object SupplierProcessors
+class SupplierProcessors(resources: ImageProcessorResources)
   extends ComposeImageProcessors(
     GettyXmpParser,
     GettyCreditParser,
@@ -20,7 +20,7 @@ object SupplierProcessors
     ReutersParser,
     RexParser,
     RonaldGrantParser,
-    PhotographerParser,
+    new PhotographerParser(resources.commonConfiguration.usageRightsConfig),
     AllstarSportsphotoParser,
     AllStarParser
   )
@@ -28,10 +28,10 @@ object SupplierProcessors
 /**
   * Guardian specific logic to correctly identify Guardian and Observer photographers and their contracts
   */
-object PhotographerParser extends ImageProcessor {
+class PhotographerParser(photographersConfig: UsageRightsConfigProvider) extends ImageProcessor {
   def apply(image: Image): Image = {
     image.metadata.byline.flatMap { byline =>
-      PhotographersList.getPhotographer(byline).map{
+      photographersConfig.getPhotographer(byline).map{
         case p: StaffPhotographer => image.copy(
           usageRights = p,
           metadata    = image.metadata.copy(credit = Some(p.publication), byline = Some(p.photographer))
@@ -114,6 +114,10 @@ trait CanonicalisingImageProcessor extends ImageProcessor {
   def getCanonicalName(): String
   lazy val canonicalName = getCanonicalName
 
+  private def matches(image: Image):Boolean = {
+    List(image.metadata.byline, image.metadata.credit).flatten.mkString.contains(canonicalName)
+  }
+
   def getPrefixAndSuffix(s:Option[String]): Option[RegexResult]
 
   lazy val agencyName = getAgencyName
@@ -121,7 +125,8 @@ trait CanonicalisingImageProcessor extends ImageProcessor {
   def getAgencyName(): String
 
   // Rules for slash delimited strings: byline, credit and supplier collection.
-  def apply(image: Image): Image = (
+  def apply(image: Image): Image = image match {
+    case _ if matches(image) => (
       dedupeAndCanonicaliseName _ andThen
       moveCanonicalNameFromBylineToCredit andThen
       removeBylineElementsInCredit andThen
@@ -129,6 +134,8 @@ trait CanonicalisingImageProcessor extends ImageProcessor {
       setSupplierCollection andThen
       stripDuplicateByline
     )(image)
+    case _ => image
+  }
 
   // There should only be one instance of the name
   private def dedupeAndCanonicaliseName(image: Image): Image = {

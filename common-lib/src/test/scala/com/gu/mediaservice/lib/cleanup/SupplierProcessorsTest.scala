@@ -1,9 +1,28 @@
 package com.gu.mediaservice.lib.cleanup
 
+import akka.actor.ActorSystem
+import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources}
+import com.gu.mediaservice.lib.guardian.GuardianUsageRightsConfig
 import com.gu.mediaservice.model._
-import org.scalatest.{Matchers, FunSpec}
+import org.scalatest.{FunSpec, Matchers}
+import play.api.inject.ApplicationLifecycle
+import play.api.{Configuration, Environment}
+
+import scala.concurrent.Future
 
 class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
+
+  private val actorSystem: ActorSystem = ActorSystem()
+  private val applicationLifecycle = new ApplicationLifecycle {
+    override def addStopHook(hook: () => Future[_]): Unit = {}
+    override def stop(): Future[_] = Future.successful(())
+  }
+  private val config = new CommonConfig(GridConfigResources(
+    Configuration.load(Environment.simple()) ++
+      Configuration.from(Map("usageRightsConfigProvider" -> GuardianUsageRightsConfig.getClass.getCanonicalName)),
+    actorSystem,
+    applicationLifecycle
+  )){}
 
   it("should leave supplier, suppliersCollection and credit empty by default") {
     val image = createImageFromMetadata()
@@ -18,6 +37,13 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
     val processedImage = applyProcessors(image)
     processedImage.usageRights should be (NoRights)
     processedImage.metadata.credit should be (Some("Unknown Party"))
+  }
+
+  it("should absolutely not delete the byline when it's the same as the credit"){
+    val image = createImageFromMetadata("credit" -> "Lorem Ipsum", "byline" -> "Lorem Ipsum")
+    val processedImage = applyProcessors(image)
+    processedImage.metadata.byline should be(Some("Lorem Ipsum"))
+    processedImage.metadata.credit should be(Some("Lorem Ipsum"))
   }
 
   describe("Photographer") {
@@ -505,8 +531,9 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
   }
 
 
-  def applyProcessors(image: Image): Image =
-    SupplierProcessors.apply(image)
-
+  def applyProcessors(image: Image): Image = {
+    val processorResources = ImageProcessorResources(config, actorSystem)
+    new SupplierProcessors(processorResources).apply(image)
+  }
 
 }

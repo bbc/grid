@@ -8,21 +8,19 @@ import com.amazonaws.AmazonServiceException
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model._
-import com.gu.mediaservice.lib.aws.DynamoDB.caseClassToMap
-import com.gu.mediaservice.lib.aws.{DynamoDB, NoItemFound, UpdateMessage}
-import com.gu.mediaservice.lib.auth.Authentication.{Principal, Request}
+import com.gu.mediaservice.lib.aws.DynamoDB
+import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth.Permissions.EditMetadata
-import com.gu.mediaservice.lib.auth.{Authentication, Authorisation, SimplePermission}
-import com.gu.mediaservice.lib.aws.{NoItemFound, UpdateMessage}
+import com.gu.mediaservice.lib.auth.{Authentication, Authorisation}
+import com.gu.mediaservice.lib.aws.NoItemFound
 import com.gu.mediaservice.lib.config.{ServiceHosts, Services}
-import com.gu.mediaservice.lib.formatting._
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.syntax.MessageSubjects
 import lib._
 import lib.Edit
 import play.api.libs.json._
 import play.api.libs.ws.WSClient
-import play.api.mvc.{ActionFilter, BaseController, ControllerComponents, Result}
+import play.api.mvc.{BaseController, ControllerComponents}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -62,7 +60,7 @@ class EditsController(
   val gridClient: GridClient = GridClient(services)(ws)
 
   val metadataBaseUri = config.services.metadataBaseUri
-
+  private val AuthenticatedAndAuthorised = auth andThen authorisation.CommonActionFilters.authorisedForArchive
   private def getUploader(imageId: String, user: Principal): Future[Option[String]] = gridClient.getUploadedBy(imageId, auth.getOnBehalfOfPrincipal(user))
 
   private def authorisedForEditMetadataOrUploader(imageId: String) = authorisation.actionFilterForUploaderOr(imageId, EditMetadata, getUploader)
@@ -94,7 +92,7 @@ class EditsController(
     }
   }
 
-  def setArchived(id: String) = auth.async(parse.json) { implicit req =>
+  def setArchived(id: String) = AuthenticatedAndAuthorised.async(parse.json) { implicit req =>
     (req.body \ "data").validate[Boolean].fold(
       errors =>
         Future.successful(BadRequest(errors.toString())),
@@ -118,36 +116,6 @@ class EditsController(
       .map {case (uri, labels) => respondCollection(labels)} recover {
       case NoItemFound => respond(Array[String]())
     }
-  }
-
-  // TODO remove when SyndicationController takes over.
-  def getPhotoshoot(id: String) = auth.async {
-    editsStore.jsonGet(id, Edits.Photoshoot).map(dynamoEntry => {
-      (dynamoEntry \ Edits.Photoshoot).toOption match {
-        case Some(photoshoot) => respond(photoshoot.as[Photoshoot])
-        case None => respondNotFound("No photoshoot found")
-      }
-    }) recover {
-      case NoItemFound => respondNotFound("No photoshoot found")
-    }
-  }
-
-  // TODO remove when SyndicationController takes over.
-  def setPhotoshoot(id: String) = auth.async(parse.json) { req => {
-    (req.body \ "data").asOpt[Photoshoot].map(photoshoot => {
-      editsStore.jsonAdd(id, Edits.Photoshoot, caseClassToMap(photoshoot))
-        .map(publish(id, UpdateImagePhotoshoot))
-        .map(_ => respond(photoshoot))
-    }).getOrElse(
-      Future.successful(respondError(BadRequest, "invalid-form-data", "Invalid form data"))
-    )
-  }}
-
-  // TODO remove when SyndicationController takes over.
-  def deletePhotoshoot(id: String) = auth.async {
-    editsStore.removeKey(id, Edits.Photoshoot)
-      .map(publish(id, UpdateImagePhotoshoot))
-      .map(_ => Accepted)
   }
 
   def addLabels(id: String) = auth.async(parse.json) { req =>
