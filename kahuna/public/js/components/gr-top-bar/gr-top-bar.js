@@ -22,8 +22,17 @@ topBar.directive('grTopBarNav', [function() {
         transclude: true,
         // Annoying to have to hardcode root route here, but only
         // way I found to clear $stateParams from uiRouter...
-        template: `<a href="/search" class="home-link" title="Home">Home</a>
-                   <ng:transclude></ng:transclude>`
+        template: `
+        <div class="home-link-container">
+            <a href="/search" class="home-link__logo" title="Home"></a>
+            <div class="home-link__border"></div>
+            <a href="/search" class="home-link__images" title="Home">
+                Images
+                <div class="home-link__images__environment">BETA</div>
+            </a>
+            <div class="home-link__border"></div>
+        </div>
+        <ng:transclude></ng:transclude>`
     };
 }]);
 

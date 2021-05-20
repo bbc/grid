@@ -459,7 +459,7 @@ textarea.ng-invalid {
 }
 
 .top-bar-item:first-child {
-    margin-left: 0;
+    margin-left: -16px;
 }
 
 .top-bar-item:last-child {
@@ -485,18 +485,58 @@ textarea.ng-invalid {
     margin-top: 12px;
 }
 
-.home-link {
-    text-indent: -9999px;
-    width: 50px;
+.home-link-container {
+    width: 260px;
     height: 50px;
-    background: url(/assets/images/grid-logo.svg) no-repeat center;
     margin-right: 0;
     vertical-align: top;
     float: left;
+    display: flex;
 }
 
-.home-link:hover {
+.home-link__logo {
+    background: url(/assets/images/BBC_Logo_white.svg) no-repeat center;
+    margin-left: 14px;
+    width: 50%;
+    height: 100%;
+    background-size: contain;
+}
+
+.home-link__images {
+    color:white;
+    font-size: 22px;
+    font-weight: bold;
+    width: 50%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.home-link__images__environment {
+    border: white;
+    font-weight: normal;
+    border-style: solid;
+    border-width: 1px;
+    height: fit-content;
+    font-size: 12px;
+    margin: 0 0 0 12px;
+    padding: 0 2px;
+}
+
+.home-link__logo:hover {
     background-color: #666666;
+}
+
+.home-link__images:hover {
+    background-color: #666666;
+}
+
+.home-link__border {
+    border-right: #565656;
+    border-style: solid;
+    border-width: 0 2px 0 0;
+    margin: 0 14px;
 }
 
 .logout {
