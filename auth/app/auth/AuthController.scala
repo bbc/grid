@@ -3,7 +3,7 @@ package auth
 import java.net.URI
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
-import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, UserPrincipal}
+import com.gu.mediaservice.lib.auth.Authentication.{InnerServicePrincipal, MachinePrincipal, UserPrincipal}
 import com.gu.mediaservice.lib.auth.Permissions.{ShowPaid, UploadImages}
 import com.gu.mediaservice.lib.auth.provider.{AuthenticationProviders, LocalAuthenticationProvider}
 import com.gu.mediaservice.lib.auth.{Authentication, Authorisation, Internal}
@@ -77,6 +77,16 @@ class AuthController(auth: Authentication, providers: AuthenticationProviders, v
                 "showPaid" -> showPaid,
                 "canUpload" -> (accessor.tier == Internal)
               )
+          )
+        )
+      )
+      case InnerServicePrincipal(identity, attributes) => respond(
+        Json.obj( "inner-service" ->
+          Json.obj(
+            "identity" -> identity,
+            providers.innerServiceProvider.uuidKey.toString -> attributes.get(providers.innerServiceProvider.uuidKey),
+            providers.innerServiceProvider.timestampKey.toString -> attributes.get(providers.innerServiceProvider.timestampKey),
+            providers.innerServiceProvider.signatureKey.toString -> attributes.get(providers.innerServiceProvider.signatureKey),
           )
         )
       )
