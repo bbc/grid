@@ -6,7 +6,7 @@ import akka.actor.ActorSystem
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.json.{JsonByteArrayUtil, PlayJsonHelpers}
 import com.gu.mediaservice.lib.logging._
-import com.gu.mediaservice.model.ThrallMessage
+import com.gu.mediaservice.model.ExternalThrallMessage
 import com.gu.mediaservice.model.usage.UsageNotice
 import lib._
 import lib.elasticsearch._
@@ -35,7 +35,7 @@ class ThrallEventConsumer(es: ElasticSearch,
   private implicit val executionContext: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
 
-  def processUpdateMessage(updateMessage: ThrallMessage): Future[ThrallMessage]  = {
+  def processUpdateMessage(updateMessage: ExternalThrallMessage): Future[ExternalThrallMessage]  = {
     val marker = updateMessage
 
     val stopwatch = Stopwatch.start
@@ -84,22 +84,57 @@ class ThrallEventConsumer(es: ElasticSearch,
 
 }
 
-object ThrallEventConsumer extends GridLogging {
+object ThrallEventConsumer extends GridLogging with PlayJsonHelpers {
 
-  def parseRecord(r: Array[Byte], timestamp: Instant):Either[Throwable,UpdateMessage] = {
+  def parseRecordAsUpdateMessage(r: Array[Byte], timestamp: Instant):Either[Throwable,ExternalThrallMessage] = {
     Try(JsonByteArrayUtil.fromByteArray[UpdateMessage](r)) match {
-      case Success(Some(updateMessage: UpdateMessage)) => {
-        logger.info(updateMessage.toLogMarker, s"Received ${updateMessage.subject} message at $timestamp")
-        Right(updateMessage)
+      case Success(Right(updateMessage: UpdateMessage)) => {
+        MessageTranslator.translate(updateMessage)
       }
-      case Success(None)=> {
+      case Success(Left(cause)) => {
         val message = new String(r)
-        logger.warn(s"No message present in record at $timestamp", message)
+        logParseErrors(cause)
         Left(NoMessageException(timestamp, message)) //No message received
       }
       case Failure(e) => {
-        logger.error(s"Exception during process record block at $timestamp", e)
         Left(e)
+      }
+    }
+  }
+
+  def parseRecordAsExternalThrallMessage(r: Array[Byte], timestamp: Instant):Either[Throwable,ExternalThrallMessage] = {
+    Try(JsonByteArrayUtil.fromByteArray[ExternalThrallMessage](r)) match {
+      case Success(Right(message: ExternalThrallMessage)) => {
+        Right(message)
+      }
+      case Success(Left(_)) => {
+        // We expect this to fail validation until `UpdateMessage`s are phased out completely,
+        // so we do not log the cause of this Left.
+        val message = new String(r)
+        Left(NoMessageException(timestamp, message)) //No message received
+      }
+      case Failure(e) => {
+        Left(e)
+      }
+    }
+  }
+
+  def parseRecord(r: Array[Byte], timestamp: Instant):Either[Throwable,ExternalThrallMessage] = {
+    (parseRecordAsExternalThrallMessage(r, timestamp) match {
+      case Right(message) => Right(message)
+      case _ => parseRecordAsUpdateMessage(r, timestamp)
+    }) match {
+      case Right(message) => {
+        logger.info(message.toLogMarker, s"Received ${message.subject} message at $timestamp")
+        Right(message)
+      }
+      case left@Left(NoMessageException(timestamp, message)) => {
+        logger.warn(s"No message present in record at $timestamp", message)
+        left
+      }
+      case left@Left(e) => {
+        logger.error(s"Exception during process record block at $timestamp", e)
+        left
       }
     }
   }

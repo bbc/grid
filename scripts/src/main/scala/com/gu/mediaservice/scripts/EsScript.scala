@@ -167,7 +167,7 @@ object Reindex extends EsScript {
       println(s"Reindexing from: ${IndexClient.currentIndex} to: $newIndex")
       val scrollResponse = query(from)
       _scroll(scrollResponse) flatMap  { case (response: SearchResponse) =>
-        println(s"Pointing ${IndexClient.imagesAlias} to new index: $newIndex")
+        println(s"Pointing ${IndexClient.imagesCurrentAlias} to new index: $newIndex")
         IndexClient.changeAliasTo(newIndex, currentIndex)
 
         val changedDocuments: Long = query(Option(startTime)).hits.total.value
@@ -197,7 +197,7 @@ object UpdateMapping extends EsScript {
 
     object MappingsClient extends EsClient(esUrl) {
       def updateMappings(specifiedIndex: Option[String]) {
-        val index = specifiedIndex.getOrElse(imagesAlias)
+        val index = specifiedIndex.getOrElse(imagesCurrentAlias)
         println(s"Updating mapping on index: $index")
 
         val result = client.execute {
@@ -231,7 +231,7 @@ object GetMapping extends EsScript {
 
     object MappingsClient extends EsClient(esUrl) {
       def getMappings(specifiedIndex: Option[String]) {
-        val index = specifiedIndex.getOrElse(imagesAlias)
+        val index = specifiedIndex.getOrElse(imagesCurrentAlias)
         println(s"Getting mapping on index: $index")
 
         val result = Await.result(client.execute(
@@ -269,7 +269,7 @@ object UpdateSettings extends EsScript {
 
       def updateIdxSettings(specifiedIndex: Option[String]) {
 
-        val index = specifiedIndex.getOrElse(imagesAlias)
+        val index = specifiedIndex.getOrElse(imagesCurrentAlias)
         println(s"Getting mapping on index: $index")
 
         val settingsToAdd: Map[String, String] = Map("max_result_window" -> "25000")
@@ -311,7 +311,7 @@ object GetSettings extends EsScript {
 
     object SettingsClient extends EsClient(esUrl) {
       def getIdxSettings(specifiedIndex: Option[String]) {
-        val index = specifiedIndex.getOrElse(imagesAlias)
+        val index = specifiedIndex.getOrElse(imagesCurrentAlias)
         println(s"Getting settings on index: $index")
 
         val result = Await.result(client.execute(
@@ -340,8 +340,8 @@ object GetSettings extends EsScript {
 abstract class EsScript {
   // FIXME: Get from config (no can do as Config is coupled to Play)
   final val esCluster = "media-service"
-  final val esImagesAlias = "writeAlias"
-  final val esImagesReadAlias = "readAlias"
+  final val esImagesAlias = "Images_Current"
+  final val esImagesReadAlias = "Images_Current"
   final val esShards = 5
   final val esReplicas = 0
 
@@ -359,12 +359,15 @@ abstract class EsScript {
 
   class EsClient(val url: String) extends ElasticSearchClient {
     override def cluster = esCluster
-    override def imagesAlias = esImagesAlias
+    override def imagesCurrentAlias = esImagesAlias
     override def shards = esShards
     override def replicas = esReplicas
 
+    @deprecated(message = "Should not be used in scripts", since = "2021-Jul-07")
+    lazy val imagesMigrationAlias: String = "Images_Migration"
+
     lazy val indexResult: Response[Map[String, GetIndexResponse]] = client.execute {
-      getIndex(imagesAlias)
+      getIndex(imagesCurrentAlias)
     }.await
 
     lazy val currentIndex: String = indexResult.status match {

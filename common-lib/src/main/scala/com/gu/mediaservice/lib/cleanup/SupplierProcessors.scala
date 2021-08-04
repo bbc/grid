@@ -300,7 +300,7 @@ object GettyXmpParser extends ImageProcessor with GettyProcessor {
       "Empics Sports Photography Ltd.", "EMPICS Entertainment", "Empics Entertainment", "MatchDay Images Limited",
       "S&G and Barratts/EMPICS Archive", "PPAUK", "SWNS.COM", "Euan Cherry", "Plumb Images", "Mercury Press", "SWNS",
       "Athena Pictures", "Flick.digital", "Matthew Horwood", "Focus Images Ltd", "www.scottishphotographer.com",
-      "ZUMAPRESS.com"
+      "ZUMAPRESS.com", "Huw Evans Agency", "Media6", "Alpha Press"
     )
 
     val excludedSource = List(
@@ -430,6 +430,7 @@ object RexParser extends ImageProcessor {
     case (Some("Rex Features"), _)      => image.copy(usageRights = rexAgency)
     case (_, Some(SlashRex()))          => image.copy(usageRights = rexAgency)
     case (Some("REX/Shutterstock"), _)  => image.copy(usageRights = rexAgency)
+    case (Some("Shutterstock"), _)      => image.copy(usageRights = rexAgency)
     case _ => image
   }
 }

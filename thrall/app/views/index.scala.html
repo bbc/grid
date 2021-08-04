@@ -1,0 +1,51 @@
+@import helper._
+
+@(currentAlias: String,
+  currentIndex: String,
+  currentIndexCount: String,
+  migrationAlias: String,
+  migrationIndex: Option[String],
+  migrationIndexCount: String,
+)
+
+@migrationIndexCell = {
+    @migrationIndex match {
+        case Some(indexName) => {
+            @indexName <button>Migrate single image</button>
+        }
+        case None => {
+            @form(routes.ThrallController.startMigration()) {
+                <input type="submit" value="Start migration">
+            }
+        }
+    }
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Thrall Control Panel</title>
+    <link rel="stylesheet" href="@routes.Assets.versioned("stylesheets/main.css")" />
+</head>
+<body>
+    <h1>Current elasticsearch indices</h1>
+    <table>
+        <tr>
+            <th>Alias</th>
+            <th>Index</th>
+            <th>Image count</th>
+        </tr>
+        <tr>
+            <td>@currentAlias</td>
+            <td>@currentIndex</td>
+            <td>@currentIndexCount</td>
+        </tr>
+        <tr>
+            <td>@migrationAlias</td>
+            <td>@migrationIndexCell</td>
+            <td>@migrationIndexCount</td>
+        </tr>
+    </table>
+</body>
+</html>
