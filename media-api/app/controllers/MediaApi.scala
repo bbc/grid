@@ -279,6 +279,27 @@ class MediaApi(
     }
   }
 
+  def unSoftDeleteImage(id: String) = auth.async { request =>
+    implicit val r = request
+
+    elasticSearch.getImageById(id) map {
+      case Some(image) if hasPermission(request.user, image) =>
+        val canDelete = authorisation.isUploaderOrHasPermission(request.user, image.uploadedBy, DeleteImagePermission)
+        if(canDelete){
+          messageSender.publish(
+            UpdateMessage(
+              subject = UnSoftDeleteImage,
+              id = Some(id)
+            )
+          )
+          Accepted
+        } else {
+          ImageDeleteForbidden
+        }
+      case _ => ImageNotFound(id)
+    }
+  }
+
   def downloadOriginalImage(id: String) = auth.async { request =>
     implicit val r = request
 
