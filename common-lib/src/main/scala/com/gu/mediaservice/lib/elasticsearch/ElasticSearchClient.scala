@@ -1,12 +1,13 @@
 package com.gu.mediaservice.lib.elasticsearch
 
-import com.gu.mediaservice.lib.logging.{GridLogging, MarkerMap}
+import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, MarkerMap}
 import com.sksamuel.elastic4s.ElasticDsl._
+import com.sksamuel.elastic4s._
 import com.sksamuel.elastic4s.http.JavaClient
-import com.sksamuel.elastic4s.{ElasticClient, ElasticError, ElasticProperties, Response}
 import com.sksamuel.elastic4s.requests.common.HealthStatus
 import com.sksamuel.elastic4s.requests.indexes.CreateIndexResponse
 import com.sksamuel.elastic4s.requests.indexes.admin.IndexExistsResponse
+
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
@@ -66,6 +67,10 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
     executeAndLog(request, "Healthcheck").map { _ => true}.recover { case _ => false}
   }
 
+  def getIndexForAlias(alias: String)(implicit logMarker: LogMarker = MarkerMap()): Future[Option[Index]] = {
+    executeAndLog(getAliases(Nil, Seq(alias)), s"Looking up index for alias '$alias'").map(_.result.mappings.keys.headOption)
+  }
+
   def countImages(indexName: String = "images"): Future[ElasticSearchImageCounts] = {
     implicit val logMarker = MarkerMap()
     val queryCatCount = catCount(indexName) // document count only of index including live documents, not deleted documents which have not yet been removed by the merge process
@@ -113,7 +118,7 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
       // Deep pagination. It's fairly easy to scroll the grid past the default Elastic 6 pagination limit.
       // Elastic start talking about why this is problematic in the 2.x docs and by 6 it's been defaulted to 10k.
       // https://www.elastic.co/guide/en/elasticsearch/guide/current/pagination.html
-      // Override to 100,000 to preserve the existing behaviour without comprising the Elastic cluster.
+      // Override to 25,000 to preserve the existing behaviour without comprising the Elastic cluster.
       // The grid UI should consider scrolling by datetime offsets if possible.
       val maximumPaginationOverride = Map("max_result_window" -> 25000)
 
@@ -191,6 +196,14 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
     logger.info("Got alias action response: " + aliasActionResponse)
   }
 
- def removeAliasFrom(index: String) = ???
+  def removeAliasFrom(index: String, alias: String) = {
+    logger.info(s"Removing alias $alias from $index")
+    val removeAliasResponse = Await.result(client.execute {
+      aliases(
+        removeAlias(alias, index),
+      )
+    }, tenSeconds)
+    logger.info("Got alias remove response: " + removeAliasResponse)
+  }
 
 }
