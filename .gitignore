@@ -1,3 +1,5 @@
+common-lib/src/main/resources/application.conf
+bbc
 node_modules
 target
 logs
