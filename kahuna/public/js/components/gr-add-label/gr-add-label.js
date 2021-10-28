@@ -15,8 +15,8 @@ export var addLabel = angular.module('gr.addLabel', [
 ]);
 
 addLabel.controller('GrAddLabelCtrl', [
-    '$window', '$q', 'labelService', 'mediaApi',
-    function ($window, $q, labelService,  mediaApi) {
+    '$scope', '$window', '$q', 'labelService', 'mediaApi',
+    function ($scope, $window, $q, labelService,  mediaApi) {
 
         let ctrl = this;
 
@@ -42,7 +42,10 @@ addLabel.controller('GrAddLabelCtrl', [
                     reset();
                 })
                 .catch(saveFailed)
-                .finally(() => ctrl.adding = false);
+                .finally(() => {
+                    ctrl.adding = false;
+                    $scope.$apply();
+                });
 
         }
 
