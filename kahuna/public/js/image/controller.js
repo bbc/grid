@@ -12,6 +12,7 @@ import '../components/gr-collection-overlay/gr-collection-overlay';
 import '../components/gr-crop-image/gr-crop-image';
 import '../components/gr-delete-crops/gr-delete-crops';
 import '../components/gr-delete-image/gr-delete-image';
+import '../components/gr-undelete-image/gr-un-delete-image';
 import '../components/gr-downloader/gr-downloader';
 import '../components/gr-export-original-image/gr-export-original-image';
 import '../components/gr-image-cost-message/gr-image-cost-message';
@@ -39,6 +40,7 @@ const image = angular.module('kahuna.image.controller', [
   'gr.cropImage',
   'gr.deleteCrops',
   'gr.deleteImage',
+  'gr.undeleteImage',
   'gr.downloader',
   'gr.exportOriginalImage',
   'gr.imageCostMessage',
