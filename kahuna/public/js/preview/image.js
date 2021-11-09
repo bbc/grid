@@ -6,9 +6,12 @@ import '../util/rx';
 import template from './image.html';
 import templateLarge from './image-large.html';
 
+import {List} from 'immutable';
 import '../image/service';
 import '../imgops/service';
 import '../services/image/usages';
+import '../services/label';
+import '../services/image-accessor';
 import '../components/gr-add-label/gr-add-label';
 import '../components/gr-archiver-status/gr-archiver-status';
 import '../components/gr-syndication-icon/gr-syndication-icon';
@@ -16,6 +19,8 @@ import '../components/gr-syndication-icon/gr-syndication-icon';
 export var image = angular.module('kahuna.preview.image', [
     'gr.image.service',
     'gr.image-usages.service',
+    'kahuna.services.label',
+    'kahuna.services.image-accessor',
     'gr.addLabel',
     'gr.archiverStatus',
     'gr.syndicationIcon',
@@ -30,14 +35,26 @@ image.controller('uiPreviewImageCtrl', [
     '$window',
     'imageService',
     'imageUsagesService',
+    'labelService',
+    'imageAccessor',
     function (
         $scope,
         inject$,
         $rootScope,
         $window,
         imageService,
-        imageUsagesService) {
+        imageUsagesService,
+        labelService,
+        imageAccessor) {
       var ctrl = this;
+
+      $scope.$watch(() => ctrl.image, (newImage) => {
+          debugger;
+      })
+
+      ctrl.addLabelToImages = labelService.batchAdd;
+      ctrl.removeLabelFromImages = labelService.batchRemove;
+      ctrl.labelAccessor = (image) => List(imageAccessor.readLabels(image)).map(label => label.data);
 
     const updateImage = (updatedImage) => {
       ctrl.states = imageService(updatedImage).states;

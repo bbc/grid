@@ -208,8 +208,11 @@
                         class="result-editor__field-container__add-button">
                     </gr-add-label>
                     <ui-list-editor
-                        image="ctrl.image"
-                        with-batch="ctrl.withBatch">
+                        images="[ctrl.image]"
+                        with-batch="ctrl.withBatch"
+                        add-to-images="ctrl.addLabelToImages"
+                        remove-from-images="ctrl.removeLabelFromImages"
+                        accessor="ctrl.labelAccessor">
                     </ui-list-editor>
                 </div>
             </div>

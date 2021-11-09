@@ -3,29 +3,29 @@
         <button
             title="Apply these labels to all your current uploads"
             ng-if="!ctrl.confirmDelete"
-            ng-click="ctrl.batchApplyLabels()"
+            ng-click="ctrl.batchApply()"
         >⇔</button>
 
         <button title="Remove ALL labels"
                 class="button button--confirm-delete"
                 ng-if="ctrl.confirmDelete"
-                ng-click="ctrl.batchRemoveLabels()">
+                ng-click="ctrl.batchRemove()">
             <gr-icon>warning</gr-icon>Remove ALL labels in job?
         </button>
     </span>
 
     <ul class="labels"
-        ng-if="ctrl.labels.data.length > 0">
+        ng-if="ctrl.list.length > 0">
         <li class="label"
-            ng-repeat="label in ctrl.labels.data"
-            ng-class="{'label--removing': ctrl.labelsBeingRemoved.has(label)}">
-            <a ui-sref="search.results({query: (label.data | queryLabelFilter)})"
-               class="label__value label__link">{{label.data}}</a>
+            ng-repeat="element in ctrl.list"
+            ng-class="{'label--removing': ctrl.elementsBeingRemoved.has(element)}">
+            <a ui-sref="search.results({query: (element | queryLabelFilter)})"
+               class="label__value label__link">{{element}}</a>
 
             <button data-cy="it-remove-label-button"
                     class="label__remove"
                     title="Remove label"
-                    ng-click="ctrl.removeLabel(label.data)">
+                    ng-click="ctrl.removeElement(element)">
                 <gr-icon>close</gr-icon>
             </button>
         </li>

@@ -1,14 +1,14 @@
 import angular from 'angular';
 import template from './list-editor.html';
 import templateCompact from './list-editor-compact.html';
+import {List} from 'immutable';
 import './list-editor.css';
 
 import '../search/query-filter';
-import '../services/label';
 
 export var listEditor = angular.module('kahuna.edits.listEditor', [
     'kahuna.search.filters.query',
-    'kahuna.services.label'
+    'kahuna.services.image-logic',
 ]);
 
 listEditor.controller('ListEditorCtrl', [
@@ -16,31 +16,44 @@ listEditor.controller('ListEditorCtrl', [
     '$scope',
     '$window',
     '$timeout',
-    'labelService',
-   function($rootScope,
+    'imageLogic',
+    function($rootScope,
             $scope,
             $window,
             $timeout,
-            labelService) {
-
+            imageLogic) {
     var ctrl = this;
 
-    $scope.$watch(() => ctrl.image.data.userMetadata.data.labels, newLabels => {
-        ctrl.labels = newLabels;
+    const retrieveElements = (images) => List(images).flatMap(img => ctrl.accessor(img)).toArray();
+
+    $scope.$watchCollection('ctrl.images', updatedImages => {
+        debugger;
+        updateHandler(updatedImages);
+    }, true);
+
+    const updateHandler = (updatedImages) => {
+        ctrl.images = ctrl.images.map(img => updatedImages.find(x => imageLogic.isSameImage(x, img)) || img);
+        ctrl.list = retrieveElements(ctrl.images);
+    };
+
+    const updateListener = $rootScope.$on('images-updated', (e, updatedImages) => {
+        updateHandler(updatedImages);
     });
 
-     function saveFailed(e) {
-       console.error(e);
+    ctrl.list = retrieveElements(ctrl.images);
+
+    function saveFailed(e) {
+        console.error(e);
         $window.alert('Something went wrong when saving, please try again!');
     }
 
-    ctrl.addLabels = labels => {
+    ctrl.addElements = elements => {
         ctrl.adding = true;
 
-        labelService.add(ctrl.image, labels)
-            .then(img => {
-                ctrl.image = img;
-                ctrl.labels = ctrl.image.data.userMetadata.data.labels;
+        ctrl.addToImages(ctrl.images, elements)
+            .then(imgs => {
+                ctrl.images = imgs;
+                ctrl.list = retrieveElements(ctrl.images);
             })
             .catch(saveFailed)
             .finally(() => {
@@ -48,37 +61,37 @@ listEditor.controller('ListEditorCtrl', [
             });
     };
 
-    ctrl.labelsBeingRemoved = new Set();
-    ctrl.removeLabel = label => {
-        ctrl.labelsBeingRemoved.add(label);
+    ctrl.elementsBeingRemoved = new Set();
+    ctrl.removeElement = element => {
+        ctrl.elementsBeingRemoved.add(element);
 
-        labelService.remove(ctrl.image, label)
-            .then(img => {
-                ctrl.image = img;
-                ctrl.labels = ctrl.image.data.userMetadata.data.labels;
+        ctrl.removeFromImages(ctrl.images, element)
+            .then(imgs => {
+                ctrl.images = imgs;
+                ctrl.list = retrieveElements(ctrl.images);
             })
             .catch(saveFailed)
             .finally(() => {
-                ctrl.labelsBeingRemoved.delete(label);
+                ctrl.elementsBeingRemoved.delete(element);
             });
     };
 
-    ctrl.removeLabels = () => {
-        ctrl.labels.data.map(label => ctrl.removeLabel(label.data));
+    ctrl.removeAll = () => {
+        ctrl.list.forEach(element => ctrl.removeFromImages(ctrl.images, element));
     };
 
-    const batchAddLabelsEvent = 'events:batch-apply:add-labels';
-    const batchRemoveLabelsEvent = 'events:batch-apply:remove-labels';
+    const batchAddEvent = 'events:batch-apply:add-all';
+    const batchRemoveEvent = 'events:batch-apply:remove-all';
 
     if (Boolean(ctrl.withBatch)) {
-        $scope.$on(batchAddLabelsEvent, (e, labels) => ctrl.addLabels(labels));
-        $scope.$on(batchRemoveLabelsEvent, () => ctrl.removeLabels());
+        $scope.$on(batchAddEvent, (e, elements) => ctrl.addElements(elements));
+        $scope.$on(batchRemoveEvent, () => ctrl.removeAll());
 
-        ctrl.batchApplyLabels = () => {
-            var labels = ctrl.labels.data.map(label => label.data);
+        ctrl.batchApply = () => {
+            var elements = ctrl.list;
 
-            if (labels.length > 0) {
-                $rootScope.$broadcast(batchAddLabelsEvent, labels);
+            if (elements.length > 0) {
+                $rootScope.$broadcast(batchAddEvent, elements);
             } else {
                 ctrl.confirmDelete = true;
 
@@ -88,12 +101,15 @@ listEditor.controller('ListEditorCtrl', [
             }
         };
 
-        ctrl.batchRemoveLabels = () => {
+        ctrl.batchRemove = () => {
             ctrl.confirmDelete = false;
-            $rootScope.$broadcast(batchRemoveLabelsEvent);
+            $rootScope.$broadcast(batchRemoveEvent);
         };
     }
 
+    $scope.$on('$destroy', function() {
+        updateListener();
+    });
 }]);
 
 listEditor.directive('uiListEditor', [function() {
@@ -102,8 +118,11 @@ listEditor.directive('uiListEditor', [function() {
         scope: {
             // Annoying that we can't make a uni-directional binding
             // as we don't really want to modify the original
-            image: '=',
-            withBatch: '=?'
+            images: '=',
+            withBatch: '=?',
+            addToImages: '=',
+            removeFromImages: '=',
+            accessor: '='
         },
         controller: 'ListEditorCtrl',
         controllerAs: 'ctrl',
@@ -118,8 +137,11 @@ listEditor.directive('uiListEditorCompact', [function() {
         scope: {
             // Annoying that we can't make a uni-directional binding
             // as we don't really want to modify the original
-            image: '=',
-            disabled: '='
+            images: '=',
+            disabled: '=',
+            addToImages: '=',
+            removeFromImages: '=',
+            accessor: '='
         },
         controller: 'ListEditorCtrl',
         controllerAs: 'ctrl',

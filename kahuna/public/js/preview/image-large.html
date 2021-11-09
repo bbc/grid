@@ -71,9 +71,12 @@
                 </ul>
 
                 <ui-list-editor-compact class="preview__labeller"
-                                     image="ctrl.image"
+                                     images="[ctrl.image]"
                                      disabled="ctrl.selectionMode"
-                                     ng-if="!ctrl.inputtingLabel">
+                                     ng-if="!ctrl.inputtingLabel"
+                                     add-to-images="ctrl.addLabelToImages"
+                                     remove-from-images="ctrl.removeLabelFromImages"
+                                     accessor="ctrl.labelAccessor">
                 </ui-list-editor-compact>
                 <span class="flex-spacer"></span>
                 <gr-add-label class="gr-add-label"

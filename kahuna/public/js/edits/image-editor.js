@@ -4,16 +4,22 @@ import './image-editor.css';
 
 import {service} from './service';
 import {imageService} from '../image/service';
+import '../services/label';
+import {imageAccessor} from '../services/image-accessor'
 import {usageRightsEditor} from '../usage-rights/usage-rights-editor';
 import {leases} from '../leases/leases';
 import {archiver} from '../components/gr-archiver-status/gr-archiver-status';
 import {collectionsApi} from '../services/api/collections-api';
 import {rememberScrollTop} from '../directives/gr-remember-scroll-top';
 
+import {List} from 'immutable';
+
 
 export var imageEditor = angular.module('kahuna.edits.imageEditor', [
     service.name,
     imageService.name,
+    "kahuna.services.label",
+    imageAccessor.name,
     usageRightsEditor.name,
     archiver.name,
     collectionsApi.name,
@@ -28,6 +34,8 @@ imageEditor.controller('ImageEditorCtrl', [
     'editsService',
     'editsApi',
     'imageService',
+    'labelService',
+    'imageAccessor',
     'collections',
 
     function($rootScope,
@@ -36,6 +44,8 @@ imageEditor.controller('ImageEditorCtrl', [
              editsService,
              editsApi,
              imageService,
+             labelService,
+             imageAccessor,
              collections) {
 
     var ctrl = this;
@@ -55,6 +65,10 @@ imageEditor.controller('ImageEditorCtrl', [
     ctrl.usageRights = imageService(ctrl.image).usageRights;
     ctrl.invalidReasons = ctrl.image.data.invalidReasons;
     ctrl.systemName = window._clientConfig.systemName;
+
+    ctrl.addLabelToImages = labelService.batchAdd;
+    ctrl.removeLabelFromImages = labelService.batchRemove;
+    ctrl.labelAccessor = (image) => List(imageAccessor.readLabels(image)).map(label => label.data);
 
     //TODO put collections in their own directive
     ctrl.addCollection = false;

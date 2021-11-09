@@ -15,6 +15,9 @@ imageAccessor.factory('imageAccessor', function() {
 
 
     /* == Readers ==  (return data) */
+    function readId(image) {
+        return image.data.id;
+    }
 
     function readCost(image) {
         return image.data.cost;
@@ -80,6 +83,7 @@ imageAccessor.factory('imageAccessor', function() {
     }
 
     return {
+        readId,
         readCost,
         readLabels,
         readLeases,
