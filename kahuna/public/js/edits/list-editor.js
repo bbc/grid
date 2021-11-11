@@ -26,10 +26,7 @@ listEditor.controller('ListEditorCtrl', [
 
     const retrieveElements = (images) => List(images).flatMap(img => ctrl.accessor(img)).toArray();
 
-    $scope.$watchCollection('ctrl.images', updatedImages => {
-        debugger;
-        updateHandler(updatedImages);
-    }, true);
+    $scope.$watchCollection('ctrl.images', updatedImages => updateHandler(updatedImages));
 
     const updateHandler = (updatedImages) => {
         ctrl.images = ctrl.images.map(img => updatedImages.find(x => imageLogic.isSameImage(x, img)) || img);

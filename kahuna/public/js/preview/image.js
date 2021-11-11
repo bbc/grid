@@ -49,17 +49,19 @@ image.controller('uiPreviewImageCtrl', [
       var ctrl = this;
 
       $scope.$watch(() => ctrl.image, (newImage) => {
-          debugger;
+          ctrl.imageAsArray = [newImage];
       })
 
       ctrl.addLabelToImages = labelService.batchAdd;
       ctrl.removeLabelFromImages = labelService.batchRemove;
       ctrl.labelAccessor = (image) => List(imageAccessor.readLabels(image)).map(label => label.data);
+      ctrl.imageAsArray = [ctrl.image];
 
     const updateImage = (updatedImage) => {
       ctrl.states = imageService(updatedImage).states;
       ctrl.image = updatedImage;
       ctrl.flagState = ctrl.states.costState;
+      ctrl.imageAsArray = [updatedImage];
     };
 
     const freeImagesUpdateListener = $rootScope.$on('images-updated', (e, updatedImages) => {
