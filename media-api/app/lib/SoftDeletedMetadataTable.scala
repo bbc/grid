@@ -9,8 +9,8 @@ import com.gu.scanamo.syntax._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
-class SoftDeletedMetadataTable(config: MediaApiConfig) extends DynamoDB(config, config.softDeletedMetadataTable.get) {
-  private val softDeletedMetadataTable = Table[ImageStatusRecord](config.softDeletedMetadataTable.get)
+class SoftDeletedMetadataTable(config: MediaApiConfig) extends DynamoDB(config, config.softDeletedMetadataTable) {
+  private val softDeletedMetadataTable = Table[ImageStatusRecord](config.softDeletedMetadataTable)
 
   def getStatus(imageId: String) = {
     ScanamoAsync.exec(client)(softDeletedMetadataTable.get('id -> imageId))
