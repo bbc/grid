@@ -100,15 +100,9 @@ module.controller('grImageMetadataCtrl', [
       );
     };
 
-    ctrl.addLabel = function (label) {
-      var imageArray = Array.from(ctrl.selectedImages);
-      labelService.batchAdd(imageArray, [label]);
-    };
-
-    ctrl.removeLabel = function (label) {
-      var imageArray = Array.from(ctrl.selectedImages);
-      labelService.batchRemove(imageArray, label);
-    };
+    ctrl.addLabelToImages = labelService.batchAdd;
+    ctrl.removeLabelFromImages = labelService.batchRemove;
+    ctrl.labelAccessor = (image) => imageAccessor.readLabels(image).map(label => label.data);
 
     const ignoredMetadata = [
       'title', 'description', 'copyright', 'keywords', 'byline',

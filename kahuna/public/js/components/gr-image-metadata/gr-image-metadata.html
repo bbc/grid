@@ -449,22 +449,12 @@
             </gr-add-label>
         </dt>
         <dd class="labels">
-            <li class="label"
-                ng-repeat="label in ctrl.selectedLabels | orderBy:'data'"
-                ng-class="{'label--partial': label.count < ctrl.selectedImages.size}">
-                <button ng-if="label.count < ctrl.selectedImages.size"
-                        class="label__add"
-                        title="Apply label to all"
-                        ng-click="ctrl.addLabel(label.data)">
-                    <gr-icon>library_add</gr-icon>
-                </button>
-                <span class="label__value">{{label.data}}</span>
-                <button class="label__remove"
-                        title="Remove label from all"
-                        ng-click="ctrl.removeLabel(label.data)">
-                    <gr-icon>close</gr-icon>
-                </button>
-            </li>
+            <ui-list-editor-info-panel
+                images="ctrl.selectedImages"
+                add-to-images="ctrl.addLabelToImages"
+                remove-from-images="ctrl.removeLabelFromImages"
+                accessor="ctrl.labelAccessor">
+            </ui-list-editor-info-panel>
         </dd>
     </dl>
 </div>

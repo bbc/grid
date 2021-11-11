@@ -1,8 +1,8 @@
 <div class="labeller">
     <ul class="labels"
-        ng-if="ctrl.list.length > 0">
+        ng-if="ctrl.plainList.length > 0">
         <li class="label"
-            ng-repeat="element in ctrl.list">
+            ng-repeat="element in ctrl.plainList">
 
             <span ng-if="ctrl.disabled" class="label__value label__value--compact">{{element}}</span>
 

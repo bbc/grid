@@ -1,8 +1,10 @@
 import angular from 'angular';
-import template from './list-editor.html';
+import templateUpload from './list-editor-upload.html';
 import templateCompact from './list-editor-compact.html';
+import templateInfoPanel from './list-editor-info-panel.html';
 import {List} from 'immutable';
 import './list-editor.css';
+import '../services/image-list';
 
 import '../search/query-filter';
 
@@ -17,27 +19,32 @@ listEditor.controller('ListEditorCtrl', [
     '$window',
     '$timeout',
     'imageLogic',
+    'imageList',
     function($rootScope,
             $scope,
             $window,
             $timeout,
-            imageLogic) {
+            imageLogic,
+            imageList) {
     var ctrl = this;
 
-    const retrieveElements = (images) => List(images).flatMap(img => ctrl.accessor(img)).toArray();
+    const retrieveElementsWithOccurrences = (images) => imageList.getOccurrences(images.flatMap(img => ctrl.accessor(img)));
 
     $scope.$watchCollection('ctrl.images', updatedImages => updateHandler(updatedImages));
 
-    const updateHandler = (updatedImages) => {
-        ctrl.images = ctrl.images.map(img => updatedImages.find(x => imageLogic.isSameImage(x, img)) || img);
-        ctrl.list = retrieveElements(ctrl.images);
+    const updateHandler = (maybeUpdatedImages) => {
+        const updatedImages = ctrl.images.map(img => maybeUpdatedImages.find(x => imageLogic.isSameImage(x, img)) || img);
+        ctrl.listWithOccurrences = retrieveElementsWithOccurrences(updatedImages);
+        ctrl.plainList = ctrl.listWithOccurrences.map(x => x.data);
+
     };
 
     const updateListener = $rootScope.$on('images-updated', (e, updatedImages) => {
         updateHandler(updatedImages);
     });
 
-    ctrl.list = retrieveElements(ctrl.images);
+    ctrl.listWithOccurrences = retrieveElementsWithOccurrences(ctrl.images);
+    ctrl.plainList = ctrl.listWithOccurrences.map(x => x.data);
 
     function saveFailed(e) {
         console.error(e);
@@ -49,8 +56,7 @@ listEditor.controller('ListEditorCtrl', [
 
         ctrl.addToImages(ctrl.images, elements)
             .then(imgs => {
-                ctrl.images = imgs;
-                ctrl.list = retrieveElements(ctrl.images);
+                updateHandler(imgs);
             })
             .catch(saveFailed)
             .finally(() => {
@@ -64,8 +70,7 @@ listEditor.controller('ListEditorCtrl', [
 
         ctrl.removeFromImages(ctrl.images, element)
             .then(imgs => {
-                ctrl.images = imgs;
-                ctrl.list = retrieveElements(ctrl.images);
+                updateHandler(imgs);
             })
             .catch(saveFailed)
             .finally(() => {
@@ -74,7 +79,7 @@ listEditor.controller('ListEditorCtrl', [
     };
 
     ctrl.removeAll = () => {
-        ctrl.list.forEach(element => ctrl.removeFromImages(ctrl.images, element));
+        ctrl.plainList.forEach(element => ctrl.removeFromImages(ctrl.images, element));
     };
 
     const batchAddEvent = 'events:batch-apply:add-all';
@@ -85,7 +90,7 @@ listEditor.controller('ListEditorCtrl', [
         $scope.$on(batchRemoveEvent, () => ctrl.removeAll());
 
         ctrl.batchApply = () => {
-            var elements = ctrl.list;
+            var elements = ctrl.plainList;
 
             if (elements.length > 0) {
                 $rootScope.$broadcast(batchAddEvent, elements);
@@ -109,13 +114,13 @@ listEditor.controller('ListEditorCtrl', [
     });
 }]);
 
-listEditor.directive('uiListEditor', [function() {
+listEditor.directive('uiListEditorUpload', [function() {
     return {
         restrict: 'E',
         scope: {
             // Annoying that we can't make a uni-directional binding
             // as we don't really want to modify the original
-            images: '=',
+            images: '<',
             withBatch: '=?',
             addToImages: '=',
             removeFromImages: '=',
@@ -124,7 +129,7 @@ listEditor.directive('uiListEditor', [function() {
         controller: 'ListEditorCtrl',
         controllerAs: 'ctrl',
         bindToController: true,
-        template: template
+        template: templateUpload
     };
 }]);
 
@@ -134,7 +139,7 @@ listEditor.directive('uiListEditorCompact', [function() {
         scope: {
             // Annoying that we can't make a uni-directional binding
             // as we don't really want to modify the original
-            images: '=',
+            images: '<',
             disabled: '=',
             addToImages: '=',
             removeFromImages: '=',
@@ -144,5 +149,24 @@ listEditor.directive('uiListEditorCompact', [function() {
         controllerAs: 'ctrl',
         bindToController: true,
         template: templateCompact
+    };
+}]);
+
+listEditor.directive('uiListEditorInfoPanel', [function() {
+    return {
+        restrict: 'E',
+        scope: {
+            // Annoying that we can't make a uni-directional binding
+            // as we don't really want to modify the original
+            images: '<',
+            disabled: '<',
+            addToImages: '<',
+            removeFromImages: '<',
+            accessor: '<'
+        },
+        controller: 'ListEditorCtrl',
+        controllerAs: 'ctrl',
+        bindToController: true,
+        template: templateInfoPanel
     };
 }]);
