@@ -283,6 +283,8 @@ class MediaApi(
                   ))
                 )
               )
+            }.recover{
+              case error => logger.error(error.getMessage)
             }
             Accepted
           } else {
