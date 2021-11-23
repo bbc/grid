@@ -1,4 +1,4 @@
-<div class="labeller">
+<div>
     <span ng-if="ctrl.withBatch" class="labeller__apply-all">
         <button
             title="Apply these labels to all your current uploads"
@@ -14,16 +14,15 @@
         </button>
     </span>
 
-    <ul class="labels"
-        ng-if="ctrl.plainList.length > 0">
-        <li class="label"
+    <ul ng-if="ctrl.plainList.length > 0">
+        <li class="element"
             ng-repeat="element in ctrl.plainList"
-            ng-class="{'label--removing': ctrl.elementsBeingRemoved.has(element)}">
+            ng-class="{'element--removing': ctrl.elementsBeingRemoved.has(element)}">
             <a ui-sref="search.results({query: (element | queryLabelFilter)})"
-               class="label__value label__link">{{element}}</a>
+               class="element__value element__link">{{element}}</a>
 
             <button data-cy="it-remove-label-button"
-                    class="label__remove"
+                    class="element__remove"
                     title="Remove label"
                     ng-click="ctrl.removeElement(element)">
                 <gr-icon>close</gr-icon>

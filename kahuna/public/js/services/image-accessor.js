@@ -28,6 +28,10 @@ imageAccessor.factory('imageAccessor', function() {
         return userMetadata.data.labels.data;
     }
 
+    function readPeopleInImage(image) {
+        return image.data.metadata.peopleInImage;
+    }
+
     function readLeases(image) {
         return image.data.leases.data;
     }
@@ -91,6 +95,7 @@ imageAccessor.factory('imageAccessor', function() {
         readExtraInfo,
         readUsageRights,
         readPersistedReasons,
+        readPeopleInImage,
         isPersisted,
         isArchived,
         readCollections,

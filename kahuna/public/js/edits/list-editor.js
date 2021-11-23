@@ -141,9 +141,9 @@ listEditor.directive('uiListEditorCompact', [function() {
             // as we don't really want to modify the original
             images: '<',
             disabled: '=',
-            addToImages: '=',
             removeFromImages: '=',
-            accessor: '='
+            accessor: '=',
+            sref: '='
         },
         controller: 'ListEditorCtrl',
         controllerAs: 'ctrl',

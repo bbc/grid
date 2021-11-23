@@ -1,15 +1,15 @@
-<li class="label"
+<li class="element"
     ng-repeat="element in ctrl.listWithOccurrences"
-    ng-class="{'label--partial': element.count < ctrl.images.size}">
+    ng-class="{'element--partial': element.count < ctrl.images.size}">
     <button ng-if="element.count < ctrl.images.size"
-            class="label__add"
-            title="Apply label to all"
+            class="element__add"
+            title="Apply element to all"
             ng-click="ctrl.addElements([element.data])">
         <gr-icon>library_add</gr-icon>
     </button>
-    <span class="label__value">{{element.data}}</span>
-    <button class="label__remove"
-            title="Remove label from all"
+    <span class="element__value">{{element.data}}</span>
+    <button class="element__remove"
+            title="Remove element from all"
             ng-click="ctrl.removeElement(element.data)">
         <gr-icon>close</gr-icon>
     </button>

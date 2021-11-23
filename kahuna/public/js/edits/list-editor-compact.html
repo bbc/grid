@@ -1,14 +1,13 @@
-<div class="labeller">
-    <ul class="labels"
-        ng-if="ctrl.plainList.length > 0">
-        <li class="label"
+<div>
+    <ul ng-if="ctrl.plainList.length > 0">
+        <li class="element"
             ng-repeat="element in ctrl.plainList">
 
-            <span ng-if="ctrl.disabled" class="label__value label__value--compact">{{element}}</span>
+            <span ng-if="ctrl.disabled" class="element__value element__value--compact">{{element}}</span>
 
-            <a class="label__value label__value--compact label__link"
+            <a class="element__value element__value--compact element__link"
                ng-if="!ctrl.disabled"
-               ui-sref="search.results({query: (element | queryLabelFilter)})">
+               ui-sref="ctrl.sref(element)">
                 {{element}}
             </a>
         </li>
