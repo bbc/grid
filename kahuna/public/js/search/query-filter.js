@@ -26,6 +26,7 @@ queryFilters.filter('queryFilter', function() {
 });
 
 queryFilters.filter('queryLabelFilter', function() {
+    debugger;
     return (value) => {
         const cleanValue = stripDoubleQuotes(value);
         if (containsSpace(cleanValue)) {
