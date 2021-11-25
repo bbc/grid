@@ -27,6 +27,9 @@ listEditor.controller('ListEditorCtrl', [
             imageLogic,
             imageList) {
     var ctrl = this;
+//    debugger;
+//    ctrl.sref("test-sref")
+
 
     const retrieveElementsWithOccurrences = (images) => imageList.getOccurrences(images.flatMap(img => ctrl.accessor(img)));
 
@@ -143,7 +146,8 @@ listEditor.directive('uiListEditorCompact', [function() {
             disabled: '=',
             removeFromImages: '=',
             accessor: '=',
-            sref: '='
+            sref: '=',
+            element: '='
         },
         controller: 'ListEditorCtrl',
         controllerAs: 'ctrl',

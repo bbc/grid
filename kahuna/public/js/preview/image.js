@@ -6,6 +6,8 @@ import '../util/rx';
 import template from './image.html';
 import templateLarge from './image-large.html';
 
+import '../search/query-filter';
+
 import {List} from 'immutable';
 import '../image/service';
 import '../imgops/service';
@@ -17,6 +19,7 @@ import '../components/gr-archiver-status/gr-archiver-status';
 import '../components/gr-syndication-icon/gr-syndication-icon';
 
 export var image = angular.module('kahuna.preview.image', [
+    'kahuna.search.filters.query',
     'gr.image.service',
     'gr.image-usages.service',
     'kahuna.services.label',
@@ -55,7 +58,13 @@ image.controller('uiPreviewImageCtrl', [
       ctrl.addLabelToImages = labelService.batchAdd;
       ctrl.removeLabelFromImages = labelService.batchRemove;
       ctrl.labelAccessor = (image) => imageAccessor.readLabels(image).map(label => label.data);
-      ctrl.labelSref = (element) => {debugger; return search.results({query:(element | queryLabelFilter)})};
+      ctrl.labelSref = (element) => {
+        console.log("***********image.js ctrl.labelSref *************")
+        console.log(element)
+//        debugger;
+        const result = `(${element} | queryLabelFilter)`
+        return result
+      };
       ctrl.imageAsArray = [ctrl.image];
 
     const updateImage = (updatedImage) => {
