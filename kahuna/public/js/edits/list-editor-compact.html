@@ -4,10 +4,11 @@
             ng-repeat="element in ctrl.plainList">
 
             <span ng-if="ctrl.disabled" class="element__value element__value--compact">{{element}}</span>
-
+            <h1>XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX</h1>
+            <h1>{{ctrl.sref(element)}}</h1>
             <a class="element__value element__value--compact element__link"
                ng-if="!ctrl.disabled"
-               ui-sref="ctrl.sref(element)">
+               ui-sref="search.results({query: ctrl.sref(element)})">
                 {{element}}
             </a>
         </li>
