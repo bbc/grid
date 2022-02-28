@@ -50,6 +50,7 @@ module.controller('grImageMetadataCtrl', [
 
     let ctrl = this;
 
+    ctrl.displayMetadataTemplates = window._clientConfig.metadataTemplates !== undefined && window._clientConfig.metadataTemplates.length > 0;
     // Deep copying window._clientConfig.domainMetadataModels
     ctrl.domainMetadataSpecs = JSON.parse(JSON.stringify(window._clientConfig.domainMetadataSpecs));
     ctrl.showUsageRights = false;
@@ -349,6 +350,15 @@ module.controller('grImageMetadataCtrl', [
 
     $scope.$on('$destroy', function() {
         freeUpdateListener();
+    });
+
+    $scope.$on('events:metadata-template-apply:metadata', (e, { metadata } ) => {
+      ctrl.metadata = metadata;
+    });
+
+    $scope.$on('events:metadata-template-apply:usage-rights', (e, { usageRights } ) => {
+      ctrl.usageRights.first().data = usageRights;
+      ctrl.showUsageRights = true;
     });
 }
 ]);

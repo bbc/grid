@@ -5,6 +5,7 @@ import './image-editor.css';
 import {service} from './service';
 import {imageService} from '../image/service';
 import {usageRightsEditor} from '../usage-rights/usage-rights-editor';
+import {metadataTemplates} from "../metadata-templates/metadata-templates";
 import {leases} from '../leases/leases';
 import {archiver} from '../components/gr-archiver-status/gr-archiver-status';
 import {collectionsApi} from '../services/api/collections-api';
@@ -18,7 +19,8 @@ export var imageEditor = angular.module('kahuna.edits.imageEditor', [
     archiver.name,
     collectionsApi.name,
     rememberScrollTop.name,
-    leases.name
+    leases.name,
+    metadataTemplates.name
 ]);
 
 imageEditor.controller('ImageEditorCtrl', [
@@ -43,6 +45,7 @@ imageEditor.controller('ImageEditorCtrl', [
     var ctrl = this;
     ctrl.canUndelete = false;
     ctrl.isDeleted = false;
+    ctrl.displayMetadataTemplates = window._clientConfig.metadataTemplates !== undefined && window._clientConfig.metadataTemplates.length > 0;
 
     mediaApi.getSession().then(session => {
         if (ctrl.image.data.softDeletedMetadata !== undefined && (session.user.permissions.canDelete || session.user.email === ctrl.image.data.uploadedBy)) { ctrl.canUndelete = true; }
@@ -111,6 +114,15 @@ imageEditor.controller('ImageEditorCtrl', [
         offUsageRightsUpdateStart();
         offUsageRightsUpdateEnd();
         offUsageRightsUpdateError();
+    });
+
+    $scope.$on('events:metadata-template-apply:metadata', (e, { metadata } ) => {
+      $scope.$broadcast('events:image-update:metadata', { metadata});
+    });
+
+    $scope.$on('events:metadata-template-apply:usage-rights', (e, { usageRights } ) => {
+      ctrl.usageRights.data = usageRights;
+      ctrl.showUsageRights = true;
     });
 
     if (Boolean(ctrl.withBatch)) {

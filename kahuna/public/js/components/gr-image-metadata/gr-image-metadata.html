@@ -1,4 +1,17 @@
 <div class="image-info">
+    <div class="image-info__group" ng-if="ctrl.displayMetadataTemplates && ctrl.userCanEdit">
+        <div class="image-info__heading image-info__heading--lease">
+            <span>Fill in from template:</span>
+        </div>
+        <gr-metadata-templates
+            image="ctrl.singleImage"
+            metadata="ctrl.singleImage.data.metadata"
+            usage-rights="ctrl.singleImage.data.usageRights"
+            gr-on-save="ctrl.showUsageRights = false"
+            gr-on-cancel="ctrl.showUsageRights = false"
+            class="metadata-templates-flex">
+        </gr-metadata-templates>
+    </div>
     <div class="image-info__group">
         <dl class="image-info__wrap metadata-line image-info__usage-rights">
         <dt class="metadata-line__key">Rights & restrictions</dt>

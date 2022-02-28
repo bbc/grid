@@ -101,6 +101,19 @@
             <span ng-if="!ctrl.canUndelete">Image deleted (this image already exists and has been deleted. Click View image to see details)</span>
         </div>
 
+        <div class="image-actions-container" ng-if="ctrl.displayMetadataTemplates">
+            <div class="result-editor__usage-rights-container">
+                <gr-metadata-templates
+                           image="ctrl.image"
+                           metadata="ctrl.image.data.metadata"
+                           usage-rights="ctrl.image.data.usageRights"
+                           gr-on-save="ctrl.showUsageRights = false"
+                           gr-on-cancel="ctrl.showUsageRights = false"
+                           class="metadata-templates-flex">
+                </gr-metadata-templates>
+            </div>
+        </div>
+
         <span class="result-editor__save-status-container">
             <span class="result-editor__save-status"
                   ng-show="ctrl.saving">Saving… <span class="saving">⧖</span>
