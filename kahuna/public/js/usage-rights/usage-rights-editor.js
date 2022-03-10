@@ -89,7 +89,6 @@ usageRightsEditor.controller(
             cat.properties.find(prop => prop.name === 'defaultRestrictions');
         const restrictedProp =
             cat.properties.find(prop => prop.name === 'restrictions');
-
         return defaultRestrictions || (restrictedProp && restrictedProp.required);
     });
 
@@ -97,10 +96,12 @@ usageRightsEditor.controller(
     const modelHasRestrictions$ = model$.map(model => angular.isDefined(model.restrictions));
 
     // Stream.<Boolean>
-    const showRestrictions$ = forceRestrictions$.combineLatest(modelHasRestrictions$,
-        (forceRestrictions, showRestrictions) => {
-
+    const showRestrictions$ = forceRestrictions$.combineLatest(modelHasRestrictions$, usageRights$,
+        (forceRestrictions, showRestrictions, usageRights) => {
+        const [urs] = usageRights;
         if (forceRestrictions) {
+            return true;
+        } else if (angular.isDefined(urs.data.restrictions)) {
             return true;
         } else {
             return showRestrictions;
@@ -134,6 +135,20 @@ usageRightsEditor.controller(
         const val = ctrl.model[key];
         return property.optionsMap[val] || [];
     };
+
+    $scope.$watch('ctrl.usageRights', (newUsageRights) => {
+      const [usageRights] = newUsageRights;
+
+      if (usageRights.data.category) {
+        if (ctrl.categories) {
+          ctrl.category = ctrl.categories.find(cat => cat.value === usageRights.data.category);
+        }
+
+        (usageRights.data.restrictions) ? ctrl.model.restrictions = usageRights.data.restrictions : ctrl.reset();
+      } else if (ctrl.categories) {
+        ctrl.category = ctrl.categories.find(cat => cat.value === "");
+      }
+    }, true);
 
     ctrl.save = () => {
         ctrl.saving = true;

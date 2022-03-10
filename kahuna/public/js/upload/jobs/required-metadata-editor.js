@@ -59,6 +59,12 @@ jobs.controller('RequiredMetadataEditorCtrl',
         });
     };
 
+     $scope.$on('events:image-update:metadata', (e, { metadata } ) => {
+       if (ctrl.userCanEdit) {
+         ctrl.metadata = metadata;
+       }
+     });
+
     // As we make a copy of this, we need to watch it
     // in case the metadata changes from above.
     $scope.$watch(() => ctrl.originalMetadata, metadata =>
