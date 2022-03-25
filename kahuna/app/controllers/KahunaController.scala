@@ -27,13 +27,7 @@ class KahunaController(
 
   def index(ignored: String) = withOptionalLoginRedirect { request =>
 
-    val maybeUser: Option[Authentication.Principal] = request match {
-      case authedRequest: AuthenticatedRequest[_, _] => authedRequest.user match {
-        case principal: Principal => Some(principal)
-        case _ => None
-      }
-      case _ => None
-    }
+    val maybeUser: Option[Authentication.Principal] = authentication.authenticationStatus(request).toOption
 
     val isIFramed = request.headers.get("Sec-Fetch-Dest").contains("iframe")
 
