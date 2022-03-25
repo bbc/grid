@@ -30,7 +30,7 @@ trait BaseControllerWithLoginRedirects extends BaseController {
   def withLoginRedirectAsync(handler: Request[AnyContent] => Future[Result]): Action[AnyContent] =
     withLoginRedirectAsync(isLoginOptional = false)(handler)
   def withOptionalLoginRedirectAsync(handler: Request[AnyContent] => Future[Result]): Action[AnyContent] =
-    withLoginRedirectAsync(isLoginOptional = true)(handler)
+    withLoginRedirectAsync(isLoginOptional = false)(handler)
 
   def withLoginRedirectAsync(handler: => Future[Result]): Action[AnyContent] = withLoginRedirectAsync(_ => handler)
   def withOptionalLoginRedirectAsync(handler: => Future[Result]): Action[AnyContent] = withOptionalLoginRedirectAsync(_ => handler)
