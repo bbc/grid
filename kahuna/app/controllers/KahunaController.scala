@@ -25,7 +25,7 @@ class KahunaController(
 
   override def services: Services = config.services
 
-  def index(ignored: String) = withOptionalLoginRedirect { request =>
+  def index(ignored: String) = Action { request =>
 
     val maybeUser: Option[Authentication.Principal] = authentication.authenticationStatus(request).toOption
 
