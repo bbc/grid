@@ -14,7 +14,7 @@ trait BaseControllerWithLoginRedirects extends BaseController {
   private def withLoginRedirectAsync(isLoginOptional: Boolean)(handler: Request[AnyContent] => Future[Result]): Action[AnyContent] = Action.async { request =>
     auth.authenticationStatus(request) match {
       case Left(resultFuture) => auth.loginLinks.headOption match {
-        case None if isLoginOptional => handler(request) // if login is not strictly required, then still perform the action (just the user principal won't be available)
+//        case None if isLoginOptional => handler(request) // if login is not strictly required, then still perform the action (just the user principal won't be available)
         case None => resultFuture // if login is strictly required, then return the auth failure result
         case Some(loginLink) =>
           val returnTo = s"https://${request.domain}${request.uri}"
