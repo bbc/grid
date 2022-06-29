@@ -25,7 +25,7 @@ class KahunaController(
 
   override def services: Services = config.services
 
-  def index(ignored: String) = withOptionalLoginRedirect { request =>
+  def index(ignored: String) = withLoginRedirect { request =>
 
     val maybeUser: Option[Authentication.Principal] = request match {
       case authedRequest: AuthenticatedRequest[_, _] => authedRequest.user match {
