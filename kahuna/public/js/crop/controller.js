@@ -133,6 +133,13 @@ crop.controller('ImageCropCtrl', [
 
       ctrl.cropSizeWarning = () => ctrl.cropWidth() < 1000;
 
+      function untilNewImageAppears() {
+          return image.get().then( (apiImage) => {
+              console.log("untilNewImageAppears");
+              return apiImage;
+          });
+      }
+
       function crop() {
         // TODO: show crop
         const coords = {
@@ -146,18 +153,27 @@ crop.controller('ImageCropCtrl', [
 
         ctrl.cropping = true;
 
-        mediaCropper.createCrop(ctrl.image, coords, ratioString).then(crop => {
-          // Global notification of action
-          $rootScope.$emit('events:crop-created', {
-            image: ctrl.image,
-            crop: crop
-          });
+        mediaCropper.createCrop(ctrl.image, coords, ratioString)
+        .then(crop => {
+           return untilNewImageAppears().then( newImage => {
+              console.log("finished untilNewImageAppears");
 
-          $state.go('image', {
-            imageId: imageId,
-            crop: crop.data.id
-          });
-        }).finally(() => {
+                // Global notification of action
+                $rootScope.$emit('events:crop-created', {
+                  image: newImage,
+                  crop: crop
+                });
+                return crop;
+           });
+        })
+        .then(crop => {
+            console.log("image.get called");
+            $state.go('image', {
+              imageId: imageId,
+              crop: crop.data.id
+            });
+        })
+        .finally(() => {
           ctrl.cropping = false;
         });
       }

@@ -226,59 +226,72 @@ image.controller('ImageCtrl', [
       return imageId;
     }
 
-    mediaCropper.getCropsFor(image).then(cropsResource => {
-      const s3Crops = cropsResource.data;
-      const esCrops = ctrl.image.data.exports;
+    getCropsTmp(ctrl.image, ctrl.image.data.exports);
 
-      const crops = s3Crops.filter( (s3Crop)=> {
-        return esCrops.find( (esCrop)=> {
-          return s3Crop.id == esCrop.id && s3Crop.assets.every( (s3CropAsset)=> {
-            return esCrop.assets.find( (esCropAsset)=> {
-              return s3CropAsset.dimensions !== undefined &&
-              esCropAsset.dimensions !== undefined &&
-              s3CropAsset.dimensions.width == esCropAsset.dimensions.width;
-            }) !== undefined;
-          });
-        }) !== undefined;
-      });
-
-      if ($window._clientConfig.canDownloadCrop) {
-        crops.forEach((crop) => {
-          crop.assets.forEach((asset) =>
-            asset.downloadLink = cropsResource.links.find(link => link.rel.includes(`crop-download-${crop.id}-${asset.dimensions.width}`))?.href
-          );
-          //set the download link of the crop to be the largest asset
-          //by ordering the assets in increasing dimension width and picking the last one
-          //this way largestAsset can never be undefined
-          //this will ensure that asset inconsistency in S3 will still result to a fallback download
-          if (crop.assets.length > 0) {
-            const largestAsset = crop.assets.sort((a, b) => (a.dimensions.width > b.dimensions.width) ? 1 : -1)[ crop.assets.length - 1];
-            const largestWidth = largestAsset.dimensions.width;
-            if (largestWidth != crop.master.dimensions.width) {
-              const imageId = getImageIdFromCropResource(cropsResource);
-              console.log('The largest cropped asset of ' + crop.id + ' available for image ' + imageId +
-              ' does not have the same dimensions as the master. Using the next largest cropped asset with width ' + largestWidth +
-              'Please correct this inconsistency.');
-            }
-            crop.downloadLink = largestAsset.downloadLink;
-          }
-        });
-      }
-      ctrl.crop = crops.find(crop => crop.id === cropKey);
-      ctrl.fullCrop = crops.find(crop => crop.specification.type === 'full');
-      ctrl.crops = crops.filter(crop => crop.specification.type === 'crop');
-      ctrl.image.allCrops = ctrl.fullCrop ? [ctrl.fullCrop].concat(ctrl.crops) : ctrl.crops;
-      //boolean version for use in template
-      ctrl.hasFullCrop = angular.isDefined(ctrl.fullCrop);
-      ctrl.hasCrops = ctrl.crops.length > 0;
-    }).finally(() => {
-      ctrl.dimensions = angular.isDefined(ctrl.crop) ?
-        getCropDimensions() : getImageDimensions();
-
-      if (angular.isDefined(ctrl.crop)) {
-        ctrl.originalDimensions = getImageDimensions();
-      }
+    $scope.$watch('ctrl.image.data.exports', value => {
+      console.log("ctrl.image=", ctrl.image);
+      getCropsTmp(ctrl.image, value);
     });
+
+    function getCropsTmp(newImage, newCrops) {
+      mediaCropper.getCropsFor(newImage).then(cropsResource => {
+            const s3Crops = cropsResource.data;
+            console.log("s3Crops=", s3Crops);
+            ctrl.image = newImage;
+            const esCrops = newCrops;
+            console.log("esCrops=", esCrops);
+
+            let crops = s3Crops.filter( (s3Crop)=> {
+              return esCrops.find( (esCrop)=> {
+                return s3Crop.id == esCrop.id && s3Crop.assets.every( (s3CropAsset)=> {
+                  return esCrop.assets.find( (esCropAsset)=> {
+                    return s3CropAsset.dimensions !== undefined &&
+                    esCropAsset.dimensions !== undefined &&
+                    s3CropAsset.dimensions.width == esCropAsset.dimensions.width
+                  }) !== undefined;
+                });
+              }) !== undefined;
+            });
+
+            if ($window._clientConfig.canDownloadCrop) {
+              crops.forEach((crop) => {
+                crop.assets.forEach((asset) => {
+                  asset.downloadLink = cropsResource.links.find(link => link.rel.includes(`crop-download-${crop.id}-${asset.dimensions.width}`))?.href
+                });
+                //set the download link of the crop to be the largest asset
+                //by ordering the assets in increasing dimension width and picking the last one
+                //this way largestAsset can never be undefined
+                if (crop.assets.length > 0) {
+                  const largestAsset = crop.assets.sort((a, b) => (a.dimensions.width > b.dimensions.width) ? 1 : -1)[ crop.assets.length - 1];
+                  const largestWidth = largestAsset.dimensions.width
+                  if (largestWidth != crop.master.dimensions.width) {
+                    const imageId = getImageIdFromCropResource(cropsResource);
+                    console.log('The largest cropped asset of ' + crop.id + ' available for image ' + imageId +
+                    ' does not have the same dimensions as the master. Using the next largest cropped asset with width ' + largestWidth +
+                    'Please correct this inconsistency.');
+                  }
+                  crop.downloadLink = largestAsset.downloadLink;
+                }
+              });
+            }
+
+            ctrl.crop = crops.find(crop => crop.id === cropKey);
+            ctrl.fullCrop = crops.find(crop => crop.specification.type === 'full');
+            ctrl.crops = crops.filter(crop => crop.specification.type === 'crop');
+            ctrl.image.allCrops = ctrl.fullCrop ? [ctrl.fullCrop].concat(ctrl.crops) : ctrl.crops;
+            //boolean version for use in template
+            ctrl.hasFullCrop = angular.isDefined(ctrl.fullCrop);
+            ctrl.hasCrops = ctrl.crops.length > 0;
+          }).finally(() => {
+            ctrl.dimensions = angular.isDefined(ctrl.crop) ?
+              getCropDimensions() : getImageDimensions();
+
+            if (angular.isDefined(ctrl.crop)) {
+              ctrl.originalDimensions = getImageDimensions();
+            }
+          });
+
+    }
 
     function cropSelected(crop) {
       $rootScope.$emit('events:crop-selected', {

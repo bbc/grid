@@ -8,7 +8,7 @@ import java.io.File
 class CropperConfig(resources: GridConfigResources) extends CommonConfig(resources) {
   val imgPublishingBucket = string("publishing.image.bucket")
 
-  val canDownloadCrop: Boolean = boolean("canDownloadCrop")
+  val canDownloadCrop: Boolean = true //boolean("canDownloadCrop")
 
   val imgPublishingHost = string("publishing.image.host")
   // Note: work around CloudFormation not allowing optional parameters
