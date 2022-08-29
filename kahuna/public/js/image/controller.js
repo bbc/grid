@@ -218,33 +218,43 @@ image.controller('ImageCtrl', [
       return ctrl.image.data.source.dimensions;
     }
 
-    mediaCropper.getCropsFor(image).then(cropsResource => {
-      let crops = cropsResource.data;
-      if ($window._clientConfig.canDownloadCrop) {
-        crops.forEach((crop) => {
-          crop.assets.forEach((asset) =>
-            asset.downloadLink = cropsResource.links.find(link => link.rel.includes(`crop-download-${crop.id}-${asset.dimensions.width}`))?.href
-          );
-          //set the download link of the crop to be the largest asset
-          let largestAsset = crop.assets.find(asset => asset.dimensions.width == crop.master.dimensions.width);
-          crop.downloadLink = largestAsset.downloadLink;
-        });
-      }
-      ctrl.crop = crops.find(crop => crop.id === cropKey);
-      ctrl.fullCrop = crops.find(crop => crop.specification.type === 'full');
-      ctrl.crops = crops.filter(crop => crop.specification.type === 'crop');
-      ctrl.image.allCrops = ctrl.fullCrop ? [ctrl.fullCrop].concat(ctrl.crops) : ctrl.crops;
-      //boolean version for use in template
-      ctrl.hasFullCrop = angular.isDefined(ctrl.fullCrop);
-      ctrl.hasCrops = ctrl.crops.length > 0;
-    }).finally(() => {
-      ctrl.dimensions = angular.isDefined(ctrl.crop) ?
-        getCropDimensions() : getImageDimensions();
 
-      if (angular.isDefined(ctrl.crop)) {
-        ctrl.originalDimensions = getImageDimensions();
-      }
-    });
+    mediaCropper.getCropsFor(image).then(cropsResource => {
+      const s3Crops = cropsResource.data;
+      ctrl.image = image;
+      image.get().then( (apiImage) => {
+          ctrl.image = apiImage;
+          const esCrops = ctrl.image.data.exports;
+
+          const cropsIntersection = s3Crops.filter(s3Crop => esCrops.some(esCrop => s3Crop.id === esCrop.id))
+          let crops =  cropsIntersection;
+          if ($window._clientConfig.canDownloadCrop) {
+            crops.forEach((crop) => {
+              crop.assets.forEach((asset) =>
+                asset.downloadLink = cropsResource.links.find(link => link.rel.includes(`crop-download-${crop.id}-${asset.dimensions.width}`))?.href
+              );
+              //set the download link of the crop to be the largest asset
+              let largestAsset = crop.assets.find(asset => asset.dimensions.width == crop.master.dimensions.width);
+              crop.downloadLink = largestAsset.downloadLink;
+            });
+          }
+          ctrl.crop = crops.find(crop => crop.id === cropKey);
+          ctrl.fullCrop = crops.find(crop => crop.specification.type === 'full');
+          ctrl.crops = crops.filter(crop => crop.specification.type === 'crop');
+          ctrl.image.allCrops = ctrl.fullCrop ? [ctrl.fullCrop].concat(ctrl.crops) : ctrl.crops;
+          //boolean version for use in template
+          ctrl.hasFullCrop = angular.isDefined(ctrl.fullCrop);
+          ctrl.hasCrops = ctrl.crops.length > 0;
+        }).finally(() => {
+          ctrl.dimensions = angular.isDefined(ctrl.crop) ?
+            getCropDimensions() : getImageDimensions();
+
+          if (angular.isDefined(ctrl.crop)) {
+            ctrl.originalDimensions = getImageDimensions();
+          }
+        });
+      });
+
 
     function cropSelected(crop) {
       $rootScope.$emit('events:crop-selected', {
