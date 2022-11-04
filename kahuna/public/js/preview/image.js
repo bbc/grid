@@ -105,6 +105,10 @@ image.controller('uiPreviewImageCtrl', [
 
     ctrl.srefNonfree = () => storage.getJs("isNonFree", true) ? true : undefined;
 
+    ctrl.showOverlay = (image) => ctrl.isSelected && (ctrl.showAlertOverlay(image) || ctrl.showWarningOverlay(image));
+    ctrl.showAlertOverlay = (image) => Object.keys(image.data.invalidReasons).length > 0;
+    ctrl.showWarningOverlay = (image) => image.data.cost === 'conditional';
+
 }]);
 
 image.directive('uiPreviewImage', function() {
@@ -112,6 +116,7 @@ image.directive('uiPreviewImage', function() {
         restrict: 'E',
         scope: {
             image: '=',
+            isSelected: '=',
             hideInfo: '=',
             selectionMode: '='
         },
