@@ -1,7 +1,7 @@
 import * as React from "react";
 import * as angular from "angular";
 import { react2angular } from "react2angular";
-import refresh from '@bbc/partner-platform-ui-refresh-library'
+import refresh from '@bbc/partner-platform-ui-refresh-library';
 
 
 const success = () => {
@@ -25,7 +25,7 @@ const GrRefreshAuth = () => {
   console.log('GrRefreshAuth');
   refresh(options);
   return (
-    <div>
+    <div id="pp-refresh">
     </div>
   );
 };
