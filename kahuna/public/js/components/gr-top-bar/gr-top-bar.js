@@ -1,8 +1,10 @@
 import angular from 'angular';
 import './gr-top-bar.css';
 import template from './gr-top-bar.html';
+import '../gr-refresh-auth/gr-refresh-auth';
 
-export var topBar = angular.module('gr.topBar', []);
+
+export var topBar = angular.module('gr.topBar', ['gr.refreshAuth']);
 
 topBar.directive('grTopBar', [function() {
     return {
