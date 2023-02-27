@@ -6,17 +6,18 @@ import refresh from '@bbc/partner-platform-ui-refresh-library';
 
 const success = () => {
 	console.log('Successful Refresh!');
-}
+};
 
 const error = (message: string) => {
 	console.log('Error on Refresh!', message);
-}
+};
 
 const options = {
 	success,
 	error,
 	retryWindowPeriod: 10,
-	retryAttempts: 3
+	retryAttempts: 3,
+  basePathOverride: "https://auth.images.int.tools.bbc.co.uk"
 };
 
 
