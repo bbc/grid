@@ -29,6 +29,9 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
   val costFilterChargeable: Option[Boolean] = booleanOpt("costFilter.chargeable")
   val additionalLinks: Seq[AdditionalLink] = configuration.getOptional[Seq[AdditionalLink]]("links.additional").getOrElse(Seq.empty)
   val feedbackFormLink: Option[String]= stringOpt("links.feedbackForm").filterNot(_.isEmpty)
+
+  val accessProxyBasePath: Option[String]= stringOpt("access-proxy-base-path")
+
   val usageRightsHelpLink: Option[String]= stringOpt("links.usageRightsHelp").filterNot(_.isEmpty)
   val invalidSessionHelpLink: Option[String]= stringOpt("links.invalidSessionHelp").filterNot(_.isEmpty)
   val supportEmail: Option[String]= stringOpt("links.supportEmail").filterNot(_.isEmpty)

@@ -54,6 +54,9 @@ class KahunaController(
     val metadataTemplates: String = Json.toJson(config.metadataTemplates).toString()
     val returnUri = config.rootUri + okPath
     val costFilterLabel = config.costFilterLabel.getOrElse("Free to use only")
+
+    val accessProxyBasePath = config.accessProxyBasePath.getOrElse("https://proxy.media.local.dev-gutools.co.uk")
+
     val costFilterChargeable = config.costFilterChargeable.getOrElse(false)
     Ok(views.html.main(
       s"${config.authUri}/login?redirectUri=$returnUri",
@@ -63,6 +66,7 @@ class KahunaController(
       metadataTemplates,
       additionalNavigationLinks,
       costFilterLabel,
+      accessProxyBasePath,
       costFilterChargeable,
       config,
       featureSwitchesJson

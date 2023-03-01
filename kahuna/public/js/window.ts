@@ -4,6 +4,7 @@ declare global {
     interface Window {
       _clientConfig: {
         telemetryUri: string;
+        accessProxyBasePath: string;
         featureSwitches: Array<FeatureSwitchData>
       }
     }

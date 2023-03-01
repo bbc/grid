@@ -17,7 +17,7 @@ const options = {
 	error,
 	retryWindowPeriod: 10,
 	retryAttempts: 3,
-  basePathOverride: "https://auth.images.int.tools.bbc.co.uk"
+  basePathOverride: window._clientConfig.accessProxyBasePath
 };
 
 
