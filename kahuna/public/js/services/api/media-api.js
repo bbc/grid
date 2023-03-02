@@ -68,10 +68,10 @@ mediaApi.factory('mediaApi',
         return root.follow('image', {id: id}).get();
     }
 
-    function getSession() {
+    function getSession(link = 'session') {
         // TODO: workout how we might be able to memoize this function but still
         // play nice with changes that might occur in the API (cache-header?).
-        return session || (session = root.follow('session').getData());
+        return session || (session = root.follow(link).getData());
     }
 
     function metadataSearch(field, { q }) {
