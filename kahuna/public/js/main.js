@@ -308,8 +308,13 @@ kahuna.controller('SessionCtrl',
                   ['$scope', '$state', '$stateParams', 'mediaApi',
                    function($scope, $state, $stateParams, mediaApi) {
 
+    console.log('SessionCtrl');
     mediaApi.getSession().then(session => {
         $scope.user = session.user;
+    });
+
+    mediaApi.getSession('ppSession').then(session => {
+        console.log('ppSession', session);
     });
 }]);
 
