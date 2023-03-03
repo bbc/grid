@@ -315,6 +315,8 @@ kahuna.controller('SessionCtrl',
 
     mediaApi.getPPSession('ppSession').then(ppSession => {
         console.log('ppSession', ppSession);
+    }).catch(err => {
+        console.log('ppSession error mediaApi', err);
     });
 }]);
 

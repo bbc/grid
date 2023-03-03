@@ -12,6 +12,7 @@ mediaApi.factory('mediaApi',
 
     var root = client.resource(mediaApiUri);
     var session;
+    var ppSession;
 
     function search(query = '', {ids, since, until, archived, valid, free,
                                  payType, uploadedBy, offset, length, orderBy,
@@ -77,6 +78,20 @@ mediaApi.factory('mediaApi',
     function getPPSession(link) {
         // TODO: workout how we might be able to memoize this function but still
         // play nice with changes that might occur in the API (cache-header?).
+        try {
+            ppSession = ppSession = root.follow(link).getData();
+            console.log('ppSession getData', ppSession);
+        }
+        catch (e) {
+            console.log('ppSession error getData', e);
+        }
+        try {
+            ppSession = ppSession = root.follow(link).get();
+            console.log('ppSession get', ppSession);
+        }
+        catch (e) {
+            console.log('ppSession error get', e);
+        }
         return root.follow(link).get();
     }
 
