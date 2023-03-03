@@ -29,7 +29,7 @@ class AuthController(auth: Authentication, providers: AuthenticationProviders, v
       Link("login",         config.services.loginUriTemplate),
       Link("ui:logout",     s"${config.rootUri}/logout"),
       Link("session",       s"${config.rootUri}/session"),
-      Link("ppSession",       s"${config.rootUri}/_ppap/session.")
+      Link("ppSession",       s"${config.rootUri}/_ppap/session")
     )
     respond(indexData, indexLinks)
   }
