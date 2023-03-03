@@ -109,6 +109,7 @@ class MediaApi(
       Link("cropper",         config.cropperUri),
       Link("edits",           config.metadataUri),
       Link("session",         s"${config.authUri}/session"),
+      Link("ppSession",       s"${config.authUri}/_ppap/session"),
       Link("witness-report",  s"${config.services.guardianWitnessBaseUri}/2/report/{id}"),
       Link("collections",     config.collectionsUri),
       Link("permissions",     s"${config.rootUri}/permissions"),
