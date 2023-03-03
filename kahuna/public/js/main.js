@@ -313,7 +313,7 @@ kahuna.controller('SessionCtrl',
         $scope.user = session.user;
     });
 
-    mediaApi.getSession('ppSession').then(session => {
+    mediaApi.getPPSession('ppSession').then(session => {
         console.log('ppSession', session);
     });
 }]);

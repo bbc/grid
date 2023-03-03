@@ -74,6 +74,12 @@ mediaApi.factory('mediaApi',
         return session || (session = root.follow(link).getData());
     }
 
+    function getPPSession(link) {
+        // TODO: workout how we might be able to memoize this function but still
+        // play nice with changes that might occur in the API (cache-header?).
+        return root.follow(link).getData();
+    }
+
     function metadataSearch(field, { q }) {
         return root.follow('metadata-search', { field, q }).get();
     }
@@ -107,6 +113,7 @@ mediaApi.factory('mediaApi',
         search,
         find,
         getSession,
+        getPPSession,
         metadataSearch,
         labelSearch,
         labelsSuggest,
