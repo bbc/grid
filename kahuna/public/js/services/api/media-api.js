@@ -80,6 +80,9 @@ mediaApi.factory('mediaApi',
         // play nice with changes that might occur in the API (cache-header?).
         try {
             ppSession = ppSession = root.follow(link).getData();
+            ppSession.then(function(data) {
+                console.log('ppSession getData then', data);
+            });
             console.log('ppSession getData', ppSession);
         }
         catch (e) {
@@ -87,6 +90,9 @@ mediaApi.factory('mediaApi',
         }
         try {
             ppSession = ppSession = root.follow(link).get();
+            ppSession.then(function(data) {
+                console.log('ppSession get then', data);
+            });
             console.log('ppSession get', ppSession);
         }
         catch (e) {
