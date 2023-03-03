@@ -77,7 +77,7 @@ mediaApi.factory('mediaApi',
     function getPPSession(link) {
         // TODO: workout how we might be able to memoize this function but still
         // play nice with changes that might occur in the API (cache-header?).
-        ppSession = root.follow(link)
+        const ppSession = root.follow(link)
         console.log("ppSession root: ", ppSession);
         console.log("ppSession get: ", ppSession.get());
         return ppSession.get();
