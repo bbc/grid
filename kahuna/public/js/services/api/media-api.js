@@ -97,17 +97,17 @@ mediaApi.factory('mediaApi',
         // catch (e) {
         //     console.log('ppSession error getData', e);
         // }
-        try {
-            ppSession = root.follow(link).get();
-            ppSession.then(function(data) {
-                console.log('ppSession get then', data);
-            });
-            console.log('ppSession get', ppSession);
-        }
-        catch (e) {
-            console.log('ppSession error get', e);
-        }
-        return null ;//root.follow(link).get();
+        // try {
+        //     ppSession = root.follow(link).get();
+        //     ppSession.then(function(data) {
+        //         console.log('ppSession get then', data);
+        //     });
+        //     console.log('ppSession get', ppSession);
+        // }
+        // catch (e) {
+        //     console.log('ppSession error get', e);
+        // }
+        return ppSession || (ppSession = root.follow(link).get());
     }
 
     function metadataSearch(field, { q }) {
