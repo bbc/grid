@@ -310,6 +310,7 @@ kahuna.controller('SessionCtrl',
 
     console.log('SessionCtrl');
     mediaApi.getSession().then(session => {
+        console.log('session media api', session);
         $scope.user = session.user;
     });
 
