@@ -79,7 +79,18 @@ mediaApi.factory('mediaApi',
         // TODO: workout how we might be able to memoize this function but still
         // play nice with changes that might occur in the API (cache-header?).
         try {
-            ppSession = ppSession = root.follow(link).getData();
+            Session = root.follow("session").getData();
+            Session.then(function(data) {
+                console.log('Session getData then', data);
+            });
+            console.log('Session getData', ppSession);
+        }
+        catch (e) {
+            console.log('Session error getData', e);
+        }
+
+        try {
+            ppSession = root.follow(link).getData();
             ppSession.then(function(data) {
                 console.log('ppSession getData then', data);
             });
@@ -89,7 +100,7 @@ mediaApi.factory('mediaApi',
             console.log('ppSession error getData', e);
         }
         try {
-            ppSession = ppSession = root.follow(link).get();
+            ppSession = root.follow(link).get();
             ppSession.then(function(data) {
                 console.log('ppSession get then', data);
             });
