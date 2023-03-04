@@ -50,6 +50,7 @@ class AuthController(auth: Authentication, providers: AuthenticationProviders, v
     val showPaid = authorisation.hasPermissionTo(ShowPaid)(request.user)
     val canUpload = authorisation.hasPermissionTo(UploadImages)(request.user)
     val canDelete = authorisation.hasPermissionTo(DeleteImage)(request.user)
+    println(s"request.user: $request.user")
     request.user match {
       case UserPrincipal(firstName, lastName, email, _) =>
 

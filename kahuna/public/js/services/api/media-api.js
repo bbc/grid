@@ -87,26 +87,26 @@ mediaApi.factory('mediaApi',
             console.log('Session error getData', e);
         }
 
-        try {
-            ppSession = root.follow(link).getData();
-            ppSession.then(function(data) {
-                console.log('ppSession getData then', data);
-            });
-            console.log('ppSession getData', ppSession);
-        }
-        catch (e) {
-            console.log('ppSession error getData', e);
-        }
-        try {
-            ppSession = root.follow(link).get();
-            ppSession.then(function(data) {
-                console.log('ppSession get then', data);
-            });
-            console.log('ppSession get', ppSession);
-        }
-        catch (e) {
-            console.log('ppSession error get', e);
-        }
+        // try {
+        //     ppSession = root.follow(link).getData();
+        //     ppSession.then(function(data) {
+        //         console.log('ppSession getData then', data);
+        //     });
+        //     console.log('ppSession getData', ppSession);
+        // }
+        // catch (e) {
+        //     console.log('ppSession error getData', e);
+        // }
+        // try {
+        //     ppSession = root.follow(link).get();
+        //     ppSession.then(function(data) {
+        //         console.log('ppSession get then', data);
+        //     });
+        //     console.log('ppSession get', ppSession);
+        // }
+        // catch (e) {
+        //     console.log('ppSession error get', e);
+        // }
         return root.follow(link).get();
     }
 
