@@ -9,10 +9,11 @@ import com.gu.mediaservice.lib.auth.{Authentication, Authorisation, Internal}
 import com.gu.mediaservice.lib.guardian.auth.PandaAuthenticationProvider
 import com.gu.pandomainauth.service.CookieUtils
 import play.api.libs.json.Json
+import play.api.libs.typedmap.TypedKey
 import play.api.mvc.{BaseController, ControllerComponents, Result}
+
 import java.net.URI
 import java.util.Date
-
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
