@@ -63,6 +63,7 @@ class AuthController(auth: Authentication, providers: AuthenticationProviders, v
         // val cookieValue = request.cookies.get(cookieKey.name).map(_.value)
         val cookieValue = attributes.get(cookieKey)
         println(s"XXXXXXXX cookieValue: $cookieValue")
+        println(s"XXXXXXXX attributes: $attributes")
 
 
         respond(
