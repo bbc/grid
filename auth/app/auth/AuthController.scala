@@ -10,7 +10,7 @@ import com.gu.mediaservice.lib.guardian.auth.PandaAuthenticationProvider
 import com.gu.pandomainauth.service.CookieUtils
 import play.api.libs.json.Json
 import play.api.libs.typedmap.TypedKey
-import play.api.mvc.{BaseController, ControllerComponents, Result}
+import play.api.mvc.{BaseController, ControllerComponents, Cookie, Result}
 
 import java.net.URI
 import java.util.Date
@@ -59,7 +59,7 @@ class AuthController(auth: Authentication, providers: AuthenticationProviders, v
 
     request.user match {
       case UserPrincipal(firstName, lastName, email, attributes) =>
-        val cookieKey = TypedKey[String]("ckns_pp_id")
+        val cookieKey = TypedKey[Cookie]("ckns_pp_id")
         // val cookieValue = request.cookies.get(cookieKey.name).map(_.value)
         val cookieValue = attributes.get(cookieKey)
         println(s"XXXXXXXX cookieValue: $cookieValue")
