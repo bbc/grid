@@ -63,8 +63,9 @@ class AuthController(auth: Authentication, providers: AuthenticationProviders, v
         val cookieKey: TypedKey[Any] = TypedKey[Any]("ckns_pp_id")
         // val cookieValue = request.cookies.get(cookieKey.name).map(_.value)
         val cookieValue = attributes.get(cookieKey)
-        println(s"XXXXXXXX cookieValue: $cookieValue")
+        println(s"XXXXXXXX cookieValue ANy: $cookieValue")
         println(s"XXXXXXXX attributes: $attributes")
+        println(s"XXXXXXXX attributes: ${attributes.get(cookieKey)}")
 
 
         respond(
