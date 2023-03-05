@@ -55,9 +55,14 @@ class AuthController(auth: Authentication, providers: AuthenticationProviders, v
     println(s"XXXXXXXX request.headers: ${request.headers}")
     logger.info(s"XXXXXLOG request: $request")
     logger.info(s"XXXXXXXXLOG request.user: ${request.user}")
-    
+
     request.user match {
-      case UserPrincipal(firstName, lastName, email, _) =>
+      case UserPrincipal(firstName, lastName, email, attributes) =>
+        val cookieKey = TypedKey[String]("ckns_pp_id")
+        // val cookieValue = request.cookies.get(cookieKey.name).map(_.value)
+        val cookieValue = attributes.get(cookieKey)
+        println(s"XXXXXXXX cookieValue: $cookieValue")
+
 
         respond(
           Json.obj("user" ->
