@@ -18,7 +18,6 @@ const options = {
 	error,
 	retryWindowPeriod: 10,
 	retryAttempts: 3,
-  updatedTokenExpiry: 1678074444,
   basePathOverride: window._clientConfig.accessProxyBasePath
 };
 
