@@ -9,8 +9,9 @@ import com.gu.mediaservice.lib.auth.{Authentication, Authorisation, Internal}
 import com.gu.mediaservice.lib.guardian.auth.PandaAuthenticationProvider
 import com.gu.pandomainauth.service.CookieUtils
 import play.api.libs.json.Json
-import play.api.libs.typedmap.TypedKey
 import play.api.mvc.{BaseController, ControllerComponents, Cookie, Result}
+
+import play.api.libs.typedmap.{TypedEntry, TypedKey, TypedMap}
 
 import java.net.URI
 import java.util.Date
@@ -52,20 +53,26 @@ class AuthController(auth: Authentication, providers: AuthenticationProviders, v
     val canUpload = authorisation.hasPermissionTo(UploadImages)(request.user)
     val canDelete = authorisation.hasPermissionTo(DeleteImage)(request.user)
     println(s"XXXXXXXX request: $request")
+    println(s"XXXXXXXX request cookies: ${request.cookies}")
     println(s"XXXXXXXX request.user: ${request.user}")
     println(s"XXXXXXXX request.headers: ${request.headers}")
-    logger.info(s"XXXXXLOG request: $request")
-    logger.info(s"XXXXXXXXLOG request.user: ${request.user}")
+
 
     request.user match {
       case UserPrincipal(firstName, lastName, email, attributes) =>
 //        val cookieKey = TypedKey[Cookie]("ckns_pp_id")
         val cookieKey: TypedKey[Any] = TypedKey[Any]("ckns_pp_id")
         // val cookieValue = request.cookies.get(cookieKey.name).map(_.value)
+
+        val ppProxyCookieKey: TypedKey[Cookie] = TypedKey[Cookie]("ckns_pp_id")
+        // val ppUserAttributesCookieKey: TypedKey[Cookie] = TypedKey[Cookie](ppUserAttributesCookieName)
         val cookieValue = attributes.get(cookieKey)
+        val maybePPProxyCookie: Option[TypedEntry[Cookie]] = request.cookies.get("ckns_pp_id").map(TypedEntry[Cookie](ppProxyCookieKey, _))
         println(s"XXXXXXXX cookieValue ANy: $cookieValue")
         println(s"XXXXXXXX attributes: $attributes")
-        println(s"XXXXXXXX attributes: ${attributes.get(cookieKey)}")
+        println(s"XXXXXXXX attributes get: ${attributes.get(ppProxyCookieKey)}")
+        println(s"XXXXXXXX maybePPProxyCookie: $maybePPProxyCookie")
+        println(s"XXXXXXXX maybePPProxyCookie request.cookies.get: ${request.cookies.get("ckns_pp_id")}")
 
 
         respond(
