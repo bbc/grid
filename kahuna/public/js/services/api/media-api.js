@@ -78,27 +78,27 @@ mediaApi.factory('mediaApi',
     function getPPSession(link) {
         // TODO: workout how we might be able to memoize this function but still
         // play nice with changes that might occur in the API (cache-header?).
-        try {
-            session = root.follow("session").getData()
-            console.log('Session getData promise', session);
-            session.then(function(data) {
-                console.log('Session getData then', data);
-            });
-        }
-        catch (e) {
-            console.log('Session error getData', e);
-        }
+        // try {
+        //     session = root.follow("session").getData()
+        //     console.log('PPSession getData promise', session);
+        //     session.then(function(data) {
+        //         console.log('PPSession getData then', data);
+        //     });
+        // }
+        // catch (e) {
+        //     console.log('Session error getData', e);
+        // }
 
-        try {
-            ppSession = root.follow("ppSession").get()
-            console.log('PPsession get promise', ppSession);
-            ppSession.then(function(data) {
-                console.log('PPsession get then', data);
-            });
-        }
-        catch (e) {
-            console.log('ppSession error get', e);
-        }
+        // try {
+        //     ppSession = root.follow("ppSession").get()
+        //     console.log('PPsession get promise', ppSession);
+        //     ppSession.then(function(data) {
+        //         console.log('PPsession get then', data);
+        //     });
+        // }
+        // catch (e) {
+        //     console.log('ppSession error get', e);
+        // }
 
         // try {
         //     ppSession = root.follow(link).getData();
