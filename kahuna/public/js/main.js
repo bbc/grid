@@ -328,7 +328,8 @@ kahuna.controller('SessionCtrl',
         error,
         retryWindowPeriod: 10,
         retryAttempts: 3,
-        basePathOverride: window._clientConfig.accessProxyBasePath
+        basePathOverride: window._clientConfig.accessProxyBasePath,
+        updatedTokenExpiry: 1678461441
     };
 
     refresh(options);
@@ -338,11 +339,11 @@ kahuna.controller('SessionCtrl',
         $scope.user = session.user;
     });
 
-    mediaApi.getPPSession('ppSession').then(ppSession => {
-        console.log('ppSession', ppSession);
-    }).catch(err => {
-        console.log('ppSession error mediaApi', err);
-    });
+    // mediaApi.getPPSession('ppSession').then(ppSession => {
+    //     console.log('ppSession', ppSession);
+    // }).catch(err => {
+    //     console.log('ppSession error mediaApi', err);
+    // });
 }]);
 
 kahuna.filter("embeddableUrl", ['$state', function($state) {
