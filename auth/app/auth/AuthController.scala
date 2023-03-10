@@ -54,23 +54,27 @@ class AuthController(auth: Authentication, providers: AuthenticationProviders, v
     val canDelete = authorisation.hasPermissionTo(DeleteImage)(request.user)
     println(s"XXXXXXXX request: $request")
     println(s"XXXXXXXX request cookies: ${request.cookies}")
-    println(s"XXXXXXXX request.user: ${request.user}")
-    println(s"XXXXXXXX request.headers: ${request.headers}")
+//    println(s"XXXXXXXX request.user: ${request.user}")
+//    println(s"XXXXXXXX request.headers: ${request.headers}")
 
 
     request.user match {
       case UserPrincipal(firstName, lastName, email, attributes) =>
 //        val cookieKey = TypedKey[Cookie]("ckns_pp_id")
+        println(s"XXXXXXXX attributes: $attributes")
+
         val cookieKey: TypedKey[Any] = TypedKey[Any]("ckns_pp_id")
-        // val cookieValue = request.cookies.get(cookieKey.name).map(_.value)
+        println(s"XXXXXXXX attributes get: ${attributes.get(cookieKey)}")
+
+         val cookieValue = request.cookies.get(cookieKey.displayName.get).map(_.value)
+        println(s"XXXXXXXX cookieValue : $cookieValue")
 
         val ppProxyCookieKey: TypedKey[Cookie] = TypedKey[Cookie]("ckns_pp_id")
+        println(s"XXXXXXXX attributes get Any: ${attributes.get(ppProxyCookieKey)}")
+
         // val ppUserAttributesCookieKey: TypedKey[Cookie] = TypedKey[Cookie](ppUserAttributesCookieName)
-        val cookieValue = attributes.get(cookieKey)
+//        val cookieValue = attributes.get(cookieKey)
         val maybePPProxyCookie: Option[TypedEntry[Cookie]] = request.cookies.get("ckns_pp_id").map(TypedEntry[Cookie](ppProxyCookieKey, _))
-        println(s"XXXXXXXX cookieValue ANy: $cookieValue")
-        println(s"XXXXXXXX attributes: $attributes")
-        println(s"XXXXXXXX attributes get: ${attributes.get(ppProxyCookieKey)}")
         println(s"XXXXXXXX maybePPProxyCookie: $maybePPProxyCookie")
         println(s"XXXXXXXX maybePPProxyCookie request.cookies.get: ${request.cookies.get("ckns_pp_id")}")
 
