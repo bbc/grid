@@ -31,7 +31,7 @@ import {globalErrors} from './errors/global';
 import {icon}    from './components/gr-icon/gr-icon';
 import {tooltip} from './components/gr-tooltip/gr-tooltip';
 
-import refresh from '@bbc/partner-platform-ui-refresh-library';
+// import refresh from '@bbc/partner-platform-ui-refresh-library';
 
 
 // TODO: move to an async config to remove deps on play
@@ -315,24 +315,24 @@ kahuna.controller('SessionCtrl',
 
     
 
-    const success = () => {
-        console.log('Successful Refresh! - main js');
-    }
+    // const success = () => {
+    //     console.log('Successful Refresh! - main js');
+    // }
 
-    const error = (message) => {
-        console.log('Error on Refresh! - main js', message);
-    }
+    // const error = (message) => {
+    //     console.log('Error on Refresh! - main js', message);
+    // }
 
-    const options = {
-        success,
-        error,
-        retryWindowPeriod: 10,
-        retryAttempts: 3,
-        basePathOverride: window._clientConfig.accessProxyBasePath,
-        updatedTokenExpiry: 1678461441
-    };
+    // const options = {
+    //     success,
+    //     error,
+    //     retryWindowPeriod: 10,
+    //     retryAttempts: 3,
+    //     basePathOverride: window._clientConfig.accessProxyBasePath,
+    //     updatedTokenExpiry: 1678461441
+    // };
 
-    refresh(options);
+    // refresh(options);
 
     mediaApi.getSession().then(session => {
         console.log('session media api', session);
