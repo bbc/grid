@@ -75,7 +75,8 @@
           imagePreviewFlagLeaseAttachedCopy: "@Html(kahunaConfig.imagePreviewFlagLeaseAttachedCopy)",
           useReaper: @kahunaConfig.useReaper.getOrElse(false),
           featureSwitches: @Html(featureSwitches),
-          telemetryUri: '@kahunaConfig.telemetryUri.getOrElse("")'
+          telemetryUri: '@kahunaConfig.telemetryUri.getOrElse("")',
+          usePermissionsFilter: @kahunaConfig.usePermissionsFilter.getOrElse(true)
         }
     </script>
 
