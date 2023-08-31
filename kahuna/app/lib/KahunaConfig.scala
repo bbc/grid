@@ -42,11 +42,11 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
 
   // interim permissions filter configuration settings
   val usePermissionsFilter: Option[Boolean] = booleanOpt("usePermissionsFilter")
-  val permissionsOptions: String = "allPermissions,usableForAll,usableForNews,bbcOwned,independent"
-  val permissionsLabels: String = "All Permissions,Usable for All,Usable for News,BBC Owned Programmes,Independent Programmes"
-  val permissionsMappings: String = ",is:BBC-owned#-has:restrictions,category:agency,category:programmes-bbc-owned,category:programmes-independents"
-  val permissionsDefault: String = "allPermissions"
-  val permissionsQueries: String = "is:BBC-owned,-has:restrictions,category:agency,category:programmes-bbc-owned,category:programmes-independents"
+  val permissionsOptions: String = string("permissionsOptions")
+  val permissionsLabels: String = string("permissionsLabels")
+  val permissionsMappings: String = string("permissionsMappings")
+  val permissionsDefault: String = string("permissionsDefault")
+  val permissionsQueries: String = string("permissionsQueries")
 
   val frameAncestors: Set[String] = getStringSet("security.frameAncestors")
   val connectSources: Set[String] = getStringSet("security.connectSources")
