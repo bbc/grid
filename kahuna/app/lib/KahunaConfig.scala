@@ -48,6 +48,8 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
   val permissionsDefault: String = string("permissionsDefault")
   val permissionsQueries: String = string("permissionsQueries")
 
+  val showDenySyndicationWarning: Option[Boolean] = booleanOpt("showDenySyndicationWarning")
+
   val frameAncestors: Set[String] = getStringSet("security.frameAncestors")
   val connectSources: Set[String] = getStringSet("security.connectSources")
   val fontSources: Set[String] = getStringSet("security.fontSources")
