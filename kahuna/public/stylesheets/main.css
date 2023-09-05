@@ -1701,7 +1701,13 @@ FIXME: what to do with touch devices
     padding-left: 2px;
     padding-right: 2px;
 }
-
+.photo_sales {
+    background: url(/assets/images/Sent-to-photosales-icon-new.svg) no-repeat;
+    width: 45px;
+    height: 18px;
+    float: right;
+    margin-top: 3px;
+}
 /* ==========================================================================
    Image actions
    ========================================================================== */

@@ -171,6 +171,7 @@ Credit: {{ctrl.image.data.metadata.credit  || '[none]'}}">
                  just assume it's here. We might need to revisit this. -->
                 <gr-icon>flag</gr-icon>
             </div>
+            
         </span>
 
         <div class="bottom-bar__action preview__bottom-icons-align-right" ng-if="ctrl.states.syndicationStatus !== 'unsuitable'">
@@ -181,5 +182,6 @@ Credit: {{ctrl.image.data.metadata.credit  || '[none]'}}">
                             image="ctrl.image"
                             readonly="ctrl.selectionMode">
         </gr-archiver-status>
+        <span ng-class="{'photo_sales': ctrl.image.data.uploadedBy == 'Capture_AutoIngest'}"></span>
     </div>
 </div>
