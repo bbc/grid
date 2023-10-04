@@ -18,6 +18,8 @@ import play.api.data.Forms._
 import play.api.libs.json.Json
 import play.api.mvc.{Action, AnyContent, ControllerComponents}
 
+import com.sksamuel.elastic4s.requests.searches.queries.Query
+
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.language.postfixOps
@@ -32,7 +34,9 @@ class ThrallController(
   override val auth: Authentication,
   override val services: Services,
   override val controllerComponents: ControllerComponents,
-  gridClient: GridClient
+  gridClient: GridClient,
+  isReapableQuery: Query
+
 )(implicit val ec: ExecutionContext) extends BaseControllerWithLoginRedirects with GridLogging {
 
   private val numberFormatter: Long => String = java.text.NumberFormat.getIntegerInstance().format
@@ -130,6 +134,38 @@ class ThrallController(
     }
   }
 
+  def migrationSkippedImages(maybePage: Option[Int]): Action[AnyContent] = withLoginRedirectAsync {
+    val filter = ""
+    Paging.withPaging(maybePage) { paging =>
+      es.migrationStatus match {
+        case running: Running =>
+          es.getMigrationSkippedImages(es.imagesCurrentAlias, running.migrationIndexName, paging.from, paging.pageSize, filter, isReapableQuery).map(skippedImages =>
+            Ok(views.html.migrationSkippedImages(
+              skippedImages,
+              apiBaseUrl = services.apiBaseUri,
+              uiBaseUrl = services.kahunaBaseUri,
+              filter,
+              paging.page,
+              shouldAllowReattempts = true
+            ))
+          )
+        case _ => for {
+          currentIndex <- es.getIndexForAlias(es.imagesCurrentAlias)
+          currentIndexName <- currentIndex.map(_.name).map(Future.successful).getOrElse(Future.failed(new Exception(s"No index found for '${es.imagesCurrentAlias}' alias")))
+          skippedImages <- es.getMigrationSkippedImages(es.imagesHistoricalAlias, currentIndexName, paging.from, paging.pageSize, filter, isReapableQuery)
+          response = Ok(views.html.migrationSkippedImages(
+            skippedImages,
+            apiBaseUrl = services.apiBaseUri,
+            uiBaseUrl = services.kahunaBaseUri,
+            filter,
+            paging.page,
+            shouldAllowReattempts = false
+          ))
+        } yield response
+      }
+    }
+  }
+
   implicit val pollingMaterializer = Materializer.matFromSystem(actorSystem)
 
   def startMigration = withLoginRedirectAsync { implicit request =>
@@ -214,6 +250,10 @@ class ThrallController(
   def previewMigrationCompletion = adjustMigration(es.previewMigrationCompletion _)
   def unPreviewMigrationCompletion = adjustMigration(es.unPreviewMigrationCompletion _)
 
+  def cleanUpImageResources: Action[AnyContent] = withLoginRedirectAsync { implicit request =>
+    val imageId = migrateSingleImageFormReader.bindFromRequest.get.id
+    Future.successful(Ok(s"Image cleanup queued successfully with id $imageId"))
+  }
   def migrateSingleImage: Action[AnyContent] = withLoginRedirectAsync { implicit request =>
     val imageId = migrateSingleImageFormReader.bindFromRequest.get.id
 

@@ -4,8 +4,14 @@
 
 GET     /                                             controllers.ThrallController.index
 GET     /upsertProject                                controllers.ThrallController.upsertProjectPage(imageId: Option[String])
+
 GET     /migrationFailuresOverview                    controllers.ThrallController.migrationFailuresOverview()
+
 GET     /migrationFailures                            controllers.ThrallController.migrationFailures(filter: String, page: Option[Int])
+GET     /migrationSkippedImages                       controllers.ThrallController.migrationSkippedImages(page: Option[Int])
++nocsrf
+POST    /cleanUpImageResources                        controllers.ThrallController.cleanUpImageResources
+
 +nocsrf
 POST    /migrationFailures/reattempt                  controllers.ThrallController.reattemptMigrationFailures(filter: String, page: Int)
 

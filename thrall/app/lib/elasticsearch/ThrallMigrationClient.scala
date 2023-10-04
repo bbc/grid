@@ -152,6 +152,39 @@ trait ThrallMigrationClient extends MigrationStatusProvider {
     }
   }
 
+  def getMigrationSkippedImages(
+    currentIndexName: String, migrationIndexName: String, from: Int, pageSize: Int, filter: String, isReapableQuery: Query
+  )(implicit ec: ExecutionContext, logMarker: LogMarker = MarkerMap()): Future[FailedMigrationSummary] = {
+    val search = ElasticDsl.search(currentIndexName).trackTotalHits(true).version(true).from(from).size(pageSize) query must(
+      not(existsQuery(s"esInfo.migration")),
+      isReapableQuery
+    ) sortByFieldDesc "lastModified"
+    executeAndLog(search, s"retrieving list of migration failures")
+      .map { resp =>
+        val skippedMigrationDetails: Seq[FailedMigrationDetails] = resp.result.hits.hits.map { hit =>
+
+          val sourceJson = Json.parse(hit.sourceAsString)
+
+          FailedMigrationDetails(
+            imageId = hit.id,
+            lastModified = (sourceJson \ "lastModified").asOpt[String].getOrElse("-"),
+            crops = (sourceJson \ "exports").asOpt[List[JsObject]].map(_.size.toString).getOrElse("-"),
+            usages = (sourceJson \ "usages").asOpt[List[JsObject]].map(_.size.toString).getOrElse("-"),
+            uploadedBy = (sourceJson \ "uploadedBy").asOpt[String].getOrElse("-"),
+            uploadTime = (sourceJson \ "uploadTime").asOpt[String].getOrElse("-"),
+            sourceJson = Json.prettyPrint(sourceJson),
+            esDocAsImageValidationFailures = sourceJson.validate[Image].fold(failure => Some(failure.toString()), _ => None),
+            version = hit.version
+          )
+        }
+
+        FailedMigrationSummary(
+          totalFailed = resp.result.hits.total.value,
+          details = skippedMigrationDetails
+        )
+      }
+  }
+
   def getMigrationFailures(
     currentIndexName: String, migrationIndexName: String, from: Int, pageSize: Int, filter: String
   )(implicit ec: ExecutionContext, logMarker: LogMarker = MarkerMap()): Future[FailedMigrationSummary] = {

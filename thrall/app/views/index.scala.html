@@ -97,6 +97,12 @@
             </a></p>
         }
 
+        @if(migrationStatus.isInstanceOf[Running] || hasHistoricalIndex) {
+        <p><a href="@routes.ThrallController.migrationSkippedImages(None)">
+            View Skipped images
+        </a></p>
+        }
+
         @if(migrationStatus.isInstanceOf[Running]) {
             <h3>Complete Migration?</h3>
             <p>

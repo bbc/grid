@@ -92,7 +92,11 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
   )
   val syncCheckerStream: Future[Done] = syncChecker.run()
 
-  val thrallController = new ThrallController(es, migrationSourceWithSender.send, messageSender, actorSystem, auth, config.services, controllerComponents, gridClient)
+  val isReapableQuery = new ReapableEligibility {
+    val persistedRootCollections: List[String] = config.persistedRootCollections
+    val maybePersistenceIdentifier: Option[String] = config.maybePersistenceIdentifier
+  }.query
+  val thrallController = new ThrallController(es, migrationSourceWithSender.send, messageSender, actorSystem, auth, config.services, controllerComponents, gridClient, isReapableQuery)
   val healthCheckController = new HealthCheck(es, streamRunning.isCompleted, config, controllerComponents)
   val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(auth, controllerComponents, config.services, wsClient)
 

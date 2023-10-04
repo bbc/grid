@@ -10,26 +10,12 @@ trait ReapableEligibility {
   val persistedRootCollections: List[String] // typically from config
   val maybePersistenceIdentifier: Option[String] // typically from config
 
-  private def moreThanTwentyDaysOld =
-    filters.date("uploadTime", None, Some(DateTime.now().minusDays(20))).getOrElse(matchAllQuery())
-
-  private lazy val persistedQueries = filters.or(
-    PersistedQueries.hasCrops,
-    PersistedQueries.usedInContent,
-    PersistedQueries.addedToLibrary,
-    PersistedQueries.hasUserEditsToImageMetadata,
-    PersistedQueries.hasPhotographerUsageRights,
-    PersistedQueries.hasIllustratorUsageRights,
-    PersistedQueries.hasAgencyCommissionedUsageRights,
-    PersistedQueries.addedToPhotoshoot,
-    PersistedQueries.hasLabels,
-    PersistedQueries.hasLeases,
-    maybePersistenceIdentifier.map(PersistedQueries.existedPreGrid).getOrElse(matchNoneQuery()),
-    PersistedQueries.addedGNMArchiveOrPersistedCollections(persistedRootCollections)
-  )
-
+  private def moreThanSomeDaysOld(days: Int) =
+    filters.date("uploadTime", None, Some(DateTime.now().minusDays(days))).getOrElse(matchAllQuery())
+  
   def query: Query = filters.and(
-    moreThanTwentyDaysOld,
-    filters.not(persistedQueries)
+    moreThanSomeDaysOld(50),
+    PersistedQueries.isSoftDeleted,
+    PersistedQueries.isBBCAgency,
   )
 }

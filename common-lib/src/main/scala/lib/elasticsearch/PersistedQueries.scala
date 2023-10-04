@@ -22,7 +22,23 @@ object PersistedQueries extends ImageFields {
     CommissionedAgency.category
   )
 
+  val bbcAgencies = NonEmptyList(
+    "AFP_AutoIngest",
+    "Alamy_AutoIngest",
+    "AP_AutoIngest",
+    "EPA_AutoIngest",
+    "Getty_AutoIngest",
+    "PA_AutoIngest",
+    "Reuters_AutoIngest",
+    "Rex_AutoIngest",
+    "REX_AutoIngest",
+    "Shutterstock_AutoIngest"
+  )
+
   val hasCrops = filters.bool.must(filters.existsOrMissing("exports", exists = true))
+  val isSoftDeleted = filters.bool.must(filters.existsOrMissing("softDeletedMetadata", exists = true))
+  val isBBCAgency = filters.bool.must(filters.terms("uploadedBy", bbcAgencies))
+
   val usedInContent = filters.nested("usages", filters.exists(NonEmptyList("usages")))
 
   def existedPreGrid(persistenceIdentifier: String) = filters.exists(NonEmptyList(identifierField(persistenceIdentifier)))
