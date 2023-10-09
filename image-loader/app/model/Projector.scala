@@ -98,20 +98,25 @@ class Projector(config: ImageUploadOpsCfg,
       if (!s3.doesObjectExist(config.originalFileBucket, s3Key))
         throw new NoSuchImageExistsInS3(config.originalFileBucket, s3Key)
       logger.info(s"*_*_*_*_:getting s3 Object $s3Key")
-      val s3Source = Stopwatch(s"object exists, getting s3 object at s3://${config.originalFileBucket}/$s3Key to perform Image projection"){
-        s3.getObject(config.originalFileBucket, s3Key)
-      }(logMarker)
+      var s3Source: Option[AwsS3Object] = None
 
       try {
-        val digestedFile = getSrcFileDigestForProjection(s3Source, imageId, tempFile)
-        val extractedS3Meta = S3FileExtractedMetadata(s3Source.getObjectMetadata)
-
+        s3Source = Some(Stopwatch(s"object exists, getting s3 object at s3://${config.originalFileBucket}/$s3Key to perform Image projection"){
+          s3.getObject(config.originalFileBucket, s3Key)
+        }(logMarker))
+        val digestedFile = getSrcFileDigestForProjection(s3Source.get, imageId, tempFile)
+        logger.info("**** image:$imageId digested successfully")
+        val extractedS3Meta = S3FileExtractedMetadata(s3Source.get.getObjectMetadata)
+        logger.info("**** image:$imageId extractedS3Meta successfully")
         val finalImageFuture = projectImage(digestedFile, extractedS3Meta, gridClient, onBehalfOfFn)
         val finalImage = Await.result(finalImageFuture, Duration.Inf)
+        logger.info("**** image:$imageId projectImage successfully")
 
         Some(finalImage)
       } finally {
-        s3Source.close()
+        logger.info(s" *****closing in TRY")
+        logger.info(s"***** closing imageid: $imageId, s3Resource: $s3Source")
+        s3Source.map( s => s.close())
       }
     }
   }
