@@ -33,9 +33,10 @@ object Stopwatch extends GridLogging {
   def start: Stopwatch = new Stopwatch
 
   def apply[T](label: String)(body: => T)(implicit marker: LogMarker): T = {
-
+    logger.info(s"*****inside Stopwatch label: $label, body: $body")
     val stopwatch = new Stopwatch
     try {
+
       val result = body
       logger.info(addMarkers("elapsed" -> stopwatch.elapsed.duration.toString).toLogMarker, s"Stopwatch: $label")
       result
