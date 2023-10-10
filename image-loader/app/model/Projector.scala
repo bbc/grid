@@ -96,11 +96,13 @@ class Projector(config: ImageUploadOpsCfg,
       import ImageIngestOperations.fileKeyFromId
       val s3Key = fileKeyFromId(imageId)
 
+      logger.info(s"*** s3Key: $s3Key")
+
       if (!s3.doesObjectExist(config.originalFileBucket, s3Key)) {
-        logger.info(s"NoSuchImageExistsInS3: $s3Key")
+        logger.info(s"*** NoSuchImageExistsInS3: $s3Key")
         throw new NoSuchImageExistsInS3(config.originalFileBucket, s3Key)
       }
-      logger.info(s"*_*_*_*_:getting s3 Object $s3Key")
+      logger.info(s"*** *_*_*_*_:getting s3 Object $s3Key")
       var s3Source: Option[AwsS3Object] = None
 
       try {
