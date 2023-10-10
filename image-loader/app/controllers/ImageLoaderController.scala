@@ -133,6 +133,7 @@ class ImageLoaderController(auth: Authentication,
         "requestId" -> RequestLoggingFilter.getRequestId(req)
       )
       val onBehalfOfFn: OnBehalfOfPrincipal = auth.getOnBehalfOfPrincipal(req.user)
+      println(s"*** projectImageBy: $imageId")
       val result = projector.projectS3ImageById(imageId, tempFile, gridClient, onBehalfOfFn)
 
       result.onComplete( _ => Try { deleteTempFile(tempFile) } )
