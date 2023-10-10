@@ -106,6 +106,7 @@ class Projector(config: ImageUploadOpsCfg,
       var s3Source: Option[AwsS3Object] = None
 
       try {
+        logger.info(s"*** start execution imageid: $imageId")
         s3Source = Some(Stopwatch(s"object exists, getting s3 object at s3://${config.originalFileBucket}/$s3Key to perform Image projection"){
           s3.getObject(config.originalFileBucket, s3Key)
         }(logMarker))
