@@ -118,7 +118,17 @@ class Projector(config: ImageUploadOpsCfg,
         logger.info("**** image:$imageId projectImage successfully")
 
         Some(finalImage)
-      } finally {
+      } catch {
+        case e: Throwable =>
+          logger.info(s"**** T image:$imageId projectImage failed", e)
+          s3Source.map( s => s.close())
+          None
+        case e =>
+          logger.info(s"**** image:$imageId projectImage failed", e)
+          s3Source.map( s => s.close())
+          None
+      }
+       finally {
         logger.info(s" *****closing in TRY")
         logger.info(s"***** closing imageid: $imageId, s3Resource: $s3Source")
         s3Source.map( s => s.close())
