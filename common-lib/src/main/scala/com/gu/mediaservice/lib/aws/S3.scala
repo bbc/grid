@@ -244,7 +244,7 @@ object S3Ops {
 
   def buildS3Client(config: CommonConfig, forceV2Sigs: Boolean = false, localstackAware: Boolean = true): AmazonS3 = {
 
-    val clientConfig = new ClientConfiguration().withMaxConnections(500)
+    val clientConfig = new ClientConfiguration().withMaxConnections(5000)
     // Option to disable v4 signatures (https://github.com/aws/aws-sdk-java/issues/372) which is required by imgops
     // which proxies direct to S3, passing the AWS security signature as query parameters. This does not work with
     // AWS v4 signatures, presumably because the signature includes the host
