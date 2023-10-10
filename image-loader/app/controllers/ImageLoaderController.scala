@@ -123,6 +123,7 @@ class ImageLoaderController(auth: Authentication,
 
   // Fetch
   def projectImageBy(imageId: String): Action[AnyContent] = {
+    logger.info(s"*** projectImageBy: $imageId")
     val initialContext = MarkerMap(
       "imageId" -> imageId,
       "requestType" -> "image-projection"
@@ -133,7 +134,6 @@ class ImageLoaderController(auth: Authentication,
         "requestId" -> RequestLoggingFilter.getRequestId(req)
       )
       val onBehalfOfFn: OnBehalfOfPrincipal = auth.getOnBehalfOfPrincipal(req.user)
-      println(s"*** projectImageBy: $imageId")
       val result = projector.projectS3ImageById(imageId, tempFile, gridClient, onBehalfOfFn)
 
       result.onComplete( _ => Try { deleteTempFile(tempFile) } )

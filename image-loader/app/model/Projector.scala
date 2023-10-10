@@ -91,13 +91,13 @@ class Projector(config: ImageUploadOpsCfg,
 
   def projectS3ImageById(imageId: String, tempFile: File, gridClient: GridClient, onBehalfOfFn: WSRequest => WSRequest)
                         (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[Image]] = {
-    println(s"*** projectS3ImageById: $imageId")
+    logger.info(s"*** projectS3ImageById: $imageId")
     Future {
       import ImageIngestOperations.fileKeyFromId
       val s3Key = fileKeyFromId(imageId)
 
       if (!s3.doesObjectExist(config.originalFileBucket, s3Key)) {
-        println(s"NoSuchImageExistsInS3: $s3Key")
+        logger.info(s"NoSuchImageExistsInS3: $s3Key")
         throw new NoSuchImageExistsInS3(config.originalFileBucket, s3Key)
       }
       logger.info(s"*_*_*_*_:getting s3 Object $s3Key")
