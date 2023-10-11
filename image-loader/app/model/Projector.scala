@@ -100,7 +100,7 @@ class Projector(config: ImageUploadOpsCfg,
 
 
       try {
-
+        logger.info(s"*** check doesObjectExist s3Key: $s3Key")
         if (!s3.doesObjectExist(config.originalFileBucket, s3Key)) {
           logger.info(s"*** NoSuchImageExistsInS3: $s3Key")
           throw new NoSuchImageExistsInS3(config.originalFileBucket, s3Key)
