@@ -141,20 +141,20 @@ class ReaperController(
 
     (for {
       BatchDeletionIds(esIds, esIdsActuallyDeleted) <- es.hardDeleteNextBatchOfImages(isReapable, count, config.hardReapImagesAge)
-      mainImagesS3Deletions <- store.deleteOriginals(esIdsActuallyDeleted)
-      thumbsS3Deletions <- store.deleteThumbnails(esIdsActuallyDeleted)
-      pngsS3Deletions <- store.deletePNGs(esIdsActuallyDeleted)
-      idsNotProcessedInDynamo <- softDeletedMetadataTable.clearStatuses(esIdsActuallyDeleted)
+//      mainImagesS3Deletions <- store.deleteOriginals(esIdsActuallyDeleted)
+//      thumbsS3Deletions <- store.deleteThumbnails(esIdsActuallyDeleted)
+//      pngsS3Deletions <- store.deletePNGs(esIdsActuallyDeleted)
+//      idsNotProcessedInDynamo <- softDeletedMetadataTable.clearStatuses(esIdsActuallyDeleted)
     } yield {
       metrics.hardReaped.increment(n = esIdsActuallyDeleted.size).run
       esIds.map { id =>
         val wasHardDeletedFromES = esIdsActuallyDeleted.contains(id)
         val detail = Map(
-          "ES" -> Some(wasHardDeletedFromES),
-          "mainImage" -> mainImagesS3Deletions.get(ImageIngestOperations.fileKeyFromId(id)),
-          "thumb" -> thumbsS3Deletions.get(ImageIngestOperations.fileKeyFromId(id)),
-          "optimisedPng" -> pngsS3Deletions.get(ImageIngestOperations.optimisedPngKeyFromId(id)),
-          "dynamo.table.softDelete.metadata" -> (if(wasHardDeletedFromES) Some(!idsNotProcessedInDynamo.contains(id)) else None)
+          "ES" -> Some(wasHardDeletedFromES)
+//          "mainImage" -> mainImagesS3Deletions.get(ImageIngestOperations.fileKeyFromId(id)),
+//          "thumb" -> thumbsS3Deletions.get(ImageIngestOperations.fileKeyFromId(id)),
+//          "optimisedPng" -> pngsS3Deletions.get(ImageIngestOperations.optimisedPngKeyFromId(id)),
+//          "dynamo.table.softDelete.metadata" -> (if(wasHardDeletedFromES) Some(!idsNotProcessedInDynamo.contains(id)) else None)
         )
         logger.info(s"Hard deleted image $id : $detail")
         id -> detail

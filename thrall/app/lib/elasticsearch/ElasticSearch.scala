@@ -361,21 +361,24 @@ class ElasticSearch(
     for {
       // unfortunately 'deleteByQuery' doesn't return the affected IDs so can't do this whole thing in one operation - https://github.com/elastic/elasticsearch/issues/45460
       ids <- getNextBatchOfImageIdsForDeletion(query, count, "hard")
-      esResults <- if(ids.isEmpty) Future.successful(Seq.empty) else migrationAwareUpdater(
-        requestFromIndexName = indexName =>
-          bulk(ids.map(
-            deleteById(indexName, _)
-          )),
-        logMessageFromIndexName = indexName => s"ES7 hard delete ${ids.size} images in $indexName"
-      ).map(_.result.items)
+//      esResults <- if(ids.isEmpty) Future.successful(Seq.empty) else migrationAwareUpdater(
+//        requestFromIndexName = indexName =>
+//          bulk(ids.map(
+//            deleteById(indexName, _)
+//          )),
+//        logMessageFromIndexName = indexName => s"ES7 hard delete ${ids.size} images in $indexName"
+//      ).map(_.result.items)
     } yield {
       if (ids.isEmpty) {
         logger.info(s"Although $count images were requested to be hard deleted, none were found to be hard deletable.")
       }
-      esResults.filter(_.error.isDefined).foreach(item =>
-        logger.error(logMarker, s"ES7 failed to hard delete image ${item.id} : ${item.error.get}")
-      )
-      BatchDeletionIds(ids, esResults.filter(_.error.isEmpty).map(_.id).toSet)
+//      esResults.filter(_.error.isDefined).foreach(item =>
+//        logger.error(logMarker, s"ES7 failed to hard delete image ${item.id} : ${item.error.get}")
+//      )
+      logger.info(s"ES7 hard delete count ${ids.size} images ")
+      logger.info(s"ES7 hard delete images ids :${ids} ")
+      val idset = List.empty[String].toSet
+      BatchDeletionIds(ids, idset)
     }
   }
 
