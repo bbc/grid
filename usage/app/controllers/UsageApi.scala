@@ -140,7 +140,7 @@ class UsageApi(
       val usages = mediaUsages.map(UsageBuilder.build)
 
       usages match {
-        case Nil => respondNotFound("No usages found.")
+        case Nil => respondNotFound("No usages found...")
         case _ =>
           val uri = Try { URI.create(s"${config.services.usageBaseUri}/usages/media/$mediaId") }.toOption
           val links = List(
@@ -155,11 +155,13 @@ class UsageApi(
       }
     }).recover {
       case error: BadInputException =>
-        logger.error(logMarker, "UsageApi returned an error.", error)
-        respondError(BadRequest, "image-usage-retrieve-failed", error.getMessage)
+        logger.error(logMarker, "UsageApi returned an error...", error)
+        println(logMarker, "UsageApi returned an error...", error)
+        respondError(BadRequest, "image-usage-retrieve-failed...", error.getMessage)
       case error: Exception =>
         logger.error(logMarker, "UsageApi returned an error.", error)
-        respondError(InternalServerError, "image-usage-retrieve-failed", error.getMessage)
+        println(logMarker, "UsageApi returned an error.", error)
+        respondError(InternalServerError, "image-usage-retrieve-failed.", error.getMessage)
     }
   }
 
@@ -210,6 +212,34 @@ class UsageApi(
     )
   }}
 
+  def setCaptureUsages() = auth(parse.json) { req => {
+
+    println(req.body \ "data")
+
+    val request = (req.body \ "data").validate[CaptureUsageRequest]
+    request.fold(
+      e => respondError(
+        BadRequest,
+        errorKey = "capture-usage-parse-failed",
+        errorMessage = JsError.toJson(e).toString
+      ),
+      sur => {
+        println(s"0000 Sur ${sur}")
+        implicit val logMarker: LogMarker = MarkerMap(
+          "requestType" -> "set-capture-usages",
+          "requestId" -> RequestLoggingFilter.getRequestId(req),
+          "image-id" -> sur.mediaId,
+        ) ++ apiKeyMarkers(req.user.accessor)
+
+        logger.info(logMarker, "recording capture usage")
+        println(logMarker, "recording capture usage........")
+        val group = usageGroupOps.build(sur)
+        usageApiSubject.onNext(WithLogMarker.includeUsageGroup(group))
+        Accepted
+      }
+    )
+  }}
+
   def setFrontUsages() = auth(parse.json) { req => {
 
     val request = (req.body \ "data").validate[FrontUsageRequest]
@@ -234,7 +264,7 @@ class UsageApi(
   }}
 
   def setDownloadUsages() = auth(parse.json) { req => {
-
+    println("......setDownloadUsages")
     val request = (req.body \ "data").validate[DownloadUsageRequest]
     request.fold(
       e => respondError(
@@ -249,6 +279,7 @@ class UsageApi(
           "image-id" -> usageRequest.mediaId,
         ) ++ apiKeyMarkers(req.user.accessor)
         logger.info(logMarker, "recording download usage")
+        println(logMarker, "*************** recording download usage..............")
         val group = usageGroupOps.build(usageRequest)
         usageApiSubject.onNext(WithLogMarker.includeUsageGroup(group))
         Accepted

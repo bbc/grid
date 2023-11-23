@@ -37,4 +37,10 @@ object UsageIdBuilder {
     Some(downloadUsageRequest.metadata.downloadedBy),
     Some(downloadUsageRequest.status)
   ))
+
+  def build(captureUsageRequest: CaptureUsageRequest) = buildId(List(
+    Some(captureUsageRequest.mediaId),
+    Some(captureUsageRequest.metadata.sentBy),
+    Some(captureUsageRequest.status)
+  ))
 }

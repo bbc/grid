@@ -36,11 +36,19 @@ imageUsagesService.factory('imageUsagesService', [function() {
         return `${metadata.get('downloadedBy')}`;
       }
 
+      function captureUsageTitle(usage) {
+        const metadata = usage.get('captureUsageMetadata');
+        return `${metadata.get('sentBy')}`;
+      }
+
       function usageTitle(usage) {
+        console.log("usages: ", usage)
         if (usage.has('frontUsageMetadata')) {
           return frontsUsageTitle(usage);
         } else if (usage.has('downloadUsageMetadata')) {
           return downloadUsageTitle(usage);
+        } else if (usage.has('captureUsageMetadata')) {
+                   return captureUsageTitle(usage);
         }
         const referenceType =
           usage.get('platform') === 'print' ? 'indesign' : 'frontend';

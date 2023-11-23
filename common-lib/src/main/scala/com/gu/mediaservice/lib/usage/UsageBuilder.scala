@@ -18,7 +18,8 @@ object UsageBuilder {
     usage.digitalUsageMetadata,
     usage.syndicationUsageMetadata,
     usage.frontUsageMetadata,
-    usage.downloadUsageMetadata
+    usage.downloadUsageMetadata,
+    usage.captureUsageMetadata
   )
 
   private def buildStatusString(usage: MediaUsage): UsageStatus = if (usage.isRemoved) RemovedUsageStatus else usage.status
@@ -28,11 +29,13 @@ object UsageBuilder {
   }
 
   private def buildUsageReference(usage: MediaUsage): List[UsageReference] = {
+    println(s"......Usage Type: ${usage.usageType}")
     usage.usageType match {
       case DigitalUsage => buildDigitalUsageReference(usage)
       case PrintUsage => buildPrintUsageReference(usage)
       case SyndicationUsage => buildSyndicationUsageReference(usage)
       case DownloadUsage => buildDownloadUsageReference(usage)
+      case CaptureUsage => buildCaptureUsageReference(usage)
     }
   }
 
@@ -75,6 +78,23 @@ object UsageBuilder {
     List(
       UsageReference(
         DownloadUsageReference, None, Some(metadata.downloadedBy)
+      )
+    )
+  }).getOrElse(
+    List[UsageReference]()
+  )
+
+  private def buildCaptureUsageReference(usage: MediaUsage): List[UsageReference] = usage.captureUsageMetadata.map (metadata => {
+    println(s"OOOOOOOOOOO-----buildCaptureUsageReference: ${metadata}")
+    val m = List(
+      UsageReference(
+        CaptureUsageReference, None, Some(metadata.sentBy)
+      )
+    )
+    println(s"--XCXCXC---buildCaptureUsageReference LIST: ${m}")
+    List(
+      UsageReference(
+        CaptureUsageReference, None, Some(metadata.sentBy)
       )
     )
   }).getOrElse(

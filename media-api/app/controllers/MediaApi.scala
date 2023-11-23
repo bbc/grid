@@ -116,6 +116,7 @@ class MediaApi(
       Link("collections",     config.collectionsUri),
       Link("permissions",     s"${config.rootUri}/permissions"),
       Link("leases",          config.leasesUri),
+      Link("send-to-capture", s"${config.rootUri}/images/{id}/sendToCapture"),
       Link("undelete",        s"${config.rootUri}/images/{id}/undelete")
     ) ++ maybeLoaderLink.toList ++ maybeArchiveLink.toList
     respond(indexData, indexLinks)
@@ -357,12 +358,38 @@ class MediaApi(
         val entity = HttpEntity.Streamed(file, image.source.size, image.source.mimeType.map(_.name))
 
         if(config.recordDownloadAsUsage) {
+          println("##### post to usages.............")
           postToUsages(config.usageUri + "/usages/download", auth.getOnBehalfOfPrincipal(request.user), id, Authentication.getIdentity(request.user))
         }
 
           Future.successful(
             Result(ResponseHeader(OK), entity).withHeaders("Content-Disposition" -> s3Client.getContentDisposition(image, Source))
           )
+      }
+      case _ => Future.successful(ImageNotFound(id))
+    }
+  }
+
+  def setCaptureUsage(id: String) = auth.async { request =>
+    implicit val r = request
+
+    elasticSearch.getImageById(id) flatMap {
+      case Some(image) if hasPermission(request.user, image) => {
+        val apiKey = request.user.accessor
+        logger.info(s"set capture usage, image: $id from user: ${Authentication.getIdentity(request.user)}", apiKey, id)
+        println(s"set capture usage, image: $id from user: ${Authentication.getIdentity(request.user)}", apiKey, id)
+//        mediaApiMetrics.incrementImageDownload(apiKey, mediaApiMetrics.OriginalDownloadType)
+        // val s3Object = s3Client.getObject(config.imageBucket, image.source.file)
+        // val file = StreamConverters.fromInputStream(() => s3Object.getObjectContent)
+        // val entity = HttpEntity.Streamed(file, image.source.size, image.source.mimeType.map(_.name))
+
+        postCaptureToUsages(config.usageUri + "/usages/capture", auth.getOnBehalfOfPrincipal(request.user), id, Authentication.getIdentity(request.user))
+        println("done send to usages...............................")
+
+        Future.successful( Ok )
+        // Future.successful(
+        //   Result(ResponseHeader(OK), entity).withHeaders("Content-Disposition" -> s3Client.getContentDisposition(image, Source))
+        // )
       }
       case _ => Future.successful(ImageNotFound(id))
     }
@@ -384,6 +411,7 @@ class MediaApi(
           }))
 
         if(config.recordDownloadAsUsage) {
+          println("++++ Post to usages......")
           postToUsages(config.usageUri + "/usages/download", auth.getOnBehalfOfPrincipal(request.user), id, Authentication.getIdentity(request.user))
         }
 
@@ -408,6 +436,22 @@ class MediaApi(
       "downloadedBy" -> user)
 
     logger.info(s"Making usages download request")
+    request.post(Json.toJson(Map("data" -> usagesMetadata))) //fire and forget
+  }
+
+  def postCaptureToUsages(uri: String, onBehalfOfPrincipal: Authentication.OnBehalfOfPrincipal, mediaId: String, user: String) = {
+    val baseRequest = ws.url(uri)
+      .withHttpHeaders(Authentication.originalServiceHeaderName -> config.appName,
+        HttpHeaders.ORIGIN -> config.rootUri,
+        HttpHeaders.CONTENT_TYPE -> ContentType.APPLICATION_JSON.getMimeType)
+
+    val request = onBehalfOfPrincipal(baseRequest)
+
+    val usagesMetadata = Map("mediaId" -> mediaId,
+      "dateAdded" -> printDateTime(DateTime.now()),
+      "sentBy" -> user)
+
+    logger.info(s"Making capture usages request")
     request.post(Json.toJson(Map("data" -> usagesMetadata))) //fire and forget
   }
   def imageSearch() = auth.async { request =>

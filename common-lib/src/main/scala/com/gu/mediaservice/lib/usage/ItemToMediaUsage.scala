@@ -30,6 +30,8 @@ object ItemToMediaUsage {
         .map(_.asScala.toMap).flatMap(buildFront),
       Option(item.getMap[Any]("download_metadata"))
         .map(_.asScala.toMap).flatMap(buildDownload),
+      Option(item.getMap[Any]("capture_metadata"))
+        .map(_.asScala.toMap).flatMap(buildCapture),
       new DateTime(item.getLong("last_modified")),
       Try {
         item.getLong("date_added")
@@ -38,6 +40,14 @@ object ItemToMediaUsage {
         item.getLong("date_removed")
       }.toOption.map(new DateTime(_))
     )
+  }
+
+  private def buildCapture(metadataMap: Map[String, Any]): Option[CaptureUsageMetadata] = {
+    Try {
+      CaptureUsageMetadata(
+        metadataMap("sentBy").asInstanceOf[String]
+      )
+    }.toOption
   }
 
   private def buildFront(metadataMap: Map[String, Any]): Option[FrontUsageMetadata] = {
