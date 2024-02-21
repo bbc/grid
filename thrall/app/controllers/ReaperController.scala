@@ -15,6 +15,7 @@ import org.joda.time.{DateTime, DateTimeZone}
 import play.api.libs.json.{JsValue, Json}
 import play.api.mvc.{Action, AnyContent, ControllerComponents}
 
+import scala.util.{Success, Failure}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters.collectionAsScalaIterableConverter
 import scala.language.postfixOps
@@ -62,7 +63,14 @@ class ReaperController(
             Future.sequence(Seq(
               doBatchSoftReap(countOfImagesToReap, deletedBy),
               doBatchHardReap(countOfImagesToReap, deletedBy)
-            ))
+            )).onComplete {
+              case Success(value) =>
+                val completeTime = DateTime.now(DateTimeZone.UTC)
+                logger.info(s"Reaper execution completed at $completeTime")
+              case Failure(error) =>
+                val errorTime = DateTime.now(DateTimeZone.UTC)
+                logger.info(s"Reaper execution FAILED at $errorTime with ERROR $error")
+            }
           }
         } catch {
           case e: Exception => logger.error("Reap failed", e)
@@ -141,7 +149,8 @@ class ReaperController(
 
     es.countTotalHardReapable(isReapable, config.hardReapImagesAge).map(metrics.hardReapable.increment(Nil, _).run)
 
-    logger.info(s"Hard deleting next $count images...")
+    val deleteTime = DateTime.now(DateTimeZone.UTC)
+    logger.info(s"Hard deleting next $count images (timed at $deleteTime)...")
 
     (for {
       BatchDeletionIds(esIds, esIdsActuallyDeleted) <- es.hardDeleteNextBatchOfImages(isReapable, count, config.hardReapImagesAge)
@@ -150,6 +159,8 @@ class ReaperController(
       pngsS3Deletions <- store.deletePNGs(esIdsActuallyDeleted)
       idsNotProcessedInDynamo <- softDeletedMetadataTable.clearStatuses(esIdsActuallyDeleted)
     } yield {
+      val yieldTime = DateTime.now(DateTimeZone.UTC)
+      logger.info(s"Reaper hard delete started at $deleteTime, commenced logging at $yieldTime")
       metrics.hardReaped.increment(n = esIdsActuallyDeleted.size).run
       esIds.map { id =>
         val wasHardDeletedFromES = esIdsActuallyDeleted.contains(id)
