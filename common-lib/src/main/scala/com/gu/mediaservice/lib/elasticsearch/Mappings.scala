@@ -281,8 +281,7 @@ object Mappings {
   ))
 
   def syndicationUsageMetadata(name: String): ObjectField = nonDynamicObjectField(name).copy(properties = Seq(
-    keywordField("partnerName"),
-    keywordField("syndicatedBy")
+    keywordField("partnerName")
   ))
 
   def frontUsageMetadata(name: String): ObjectField = nonDynamicObjectField(name).copy(properties = Seq(
@@ -294,7 +293,7 @@ object Mappings {
     keywordField("downloadedBy")
   ))
 
-  def usagesMapping(name: String): NestedField = nestedField(name).copy(properties = Seq(
+  def usagesMapping(name: String): NestedField = nestedField(name).copy( properties = Seq(
     keywordField("id"),
     sStemmerAnalysed("title"),
     usageReference("references"),

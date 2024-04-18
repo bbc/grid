@@ -22,15 +22,13 @@ listEditor.controller('ListEditorCtrl', [
     'imageLogic',
     'imageList',
     'storage',
-    'searchWithModifiers',
     function($rootScope,
             $scope,
             $window,
             $timeout,
             imageLogic,
             imageList,
-            storage,
-            searchWithModifiers) {
+            storage) {
     var ctrl = this;
 
     ctrl.$onInit = () => {
@@ -149,8 +147,6 @@ listEditor.controller('ListEditorCtrl', [
       $scope.$on('$destroy', function() {
           updateListener();
       });
-
-      ctrl.searchWithModifiers = searchWithModifiers;
     };
 }]);
 

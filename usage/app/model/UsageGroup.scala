@@ -29,7 +29,6 @@ class UsageGroupOps(config: UsageConfig, mediaWrapperOps: MediaWrapperOps)
   def buildId(syndicationUsageRequest: SyndicationUsageRequest): String = s"syndication/${
     MD5.hash(List(
       syndicationUsageRequest.metadata.partnerName,
-      syndicationUsageRequest.metadata.syndicatedBy,
       syndicationUsageRequest.mediaId
     ).mkString("_"))
   }"

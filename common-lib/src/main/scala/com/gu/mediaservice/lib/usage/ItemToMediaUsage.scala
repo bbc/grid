@@ -1,6 +1,7 @@
 package com.gu.mediaservice.lib.usage
 
 import java.net.URI
+
 import com.amazonaws.services.dynamodbv2.document.Item
 import com.gu.mediaservice.model.usage._
 import org.joda.time.DateTime
@@ -51,8 +52,7 @@ object ItemToMediaUsage {
   private def buildSyndication(metadataMap: Map[String, Any]): Option[SyndicationUsageMetadata] = {
     Try {
       SyndicationUsageMetadata(
-        metadataMap("partnerName").asInstanceOf[String],
-        metadataMap.get("syndicatedBy").map(x => x.asInstanceOf[String])
+        metadataMap("partnerName").asInstanceOf[String]
       )
     }.toOption
   }

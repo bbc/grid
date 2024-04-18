@@ -12,8 +12,6 @@ import { editOptions, overwrite } from '../../util/constants/editOptions';
 import '../../services/image-accessor';
 import '../../services/image-list';
 import '../../services/label';
-import '../../search/query-filter';
-
 import { List } from 'immutable';
 
 export const module = angular.module('gr.imageMetadata', [
@@ -36,7 +34,8 @@ module.controller('grImageMetadataCtrl', [
   'inject$',
   'labelService',
   'storage',
-  'searchWithModifiers',
+
+
   function ($rootScope,
     $scope,
     $window,
@@ -48,8 +47,7 @@ module.controller('grImageMetadataCtrl', [
     imageAccessor,
     inject$,
     labelService,
-    storage,
-    searchWithModifiers) {
+    storage) {
 
     let ctrl = this;
 
@@ -60,14 +58,14 @@ module.controller('grImageMetadataCtrl', [
     ctrl.metadataUpdatedByTemplate = [];
 
     ctrl.$onInit = () => {
-      $scope.$watchCollection('ctrl.selectedImages', function () {
+      $scope.$watchCollection('ctrl.selectedImages', function() {
         ctrl.singleImage = singleImage();
         ctrl.selectedLabels = selectedLabels();
         ctrl.usageRights = selectedUsageRights();
         inject$($scope, Rx.Observable.fromPromise(selectedUsageCategory(ctrl.usageRights)), ctrl, 'usageCategory');
         ctrl.rawMetadata = rawMetadata();
         ctrl.metadata = displayMetadata();
-        ctrl.metadata.dateTaken = ctrl.displayDateTakenMetadata();
+        ctrl.metadata.dateTaken =  ctrl.displayDateTakenMetadata();
         ctrl.newPeopleInImage = "";
         ctrl.newKeywords = "";
         ctrl.extraInfo = extraInfo();
@@ -78,7 +76,7 @@ module.controller('grImageMetadataCtrl', [
       });
 
       const freeUpdateListener = $rootScope.$on('images-updated',
-        (e, updatedImages) => updateHandler(updatedImages));
+      (e, updatedImages) => updateHandler(updatedImages));
 
       const updateHandler = (updatedImages) => {
         ctrl.selectedImages = new List(updatedImages);
@@ -86,20 +84,18 @@ module.controller('grImageMetadataCtrl', [
 
       ctrl.hasMultipleValues = (val) => Array.isArray(val) && val.length > 1;
 
-      ctrl.displayDateTakenMetadata = function () {
+      ctrl.displayDateTakenMetadata = function() {
         let dateTaken = ctrl.metadata.dateTaken ? new Date(ctrl.metadata.dateTaken) : undefined;
-        if (dateTaken) {
-          dateTaken.setSeconds(0, 0);
-        }
+        if (dateTaken) { dateTaken.setSeconds(0, 0); }
         return dateTaken;
       };
 
-      ctrl.credits = function (searchText) {
+      ctrl.credits = function(searchText) {
         return ctrl.metadataSearch('credit', searchText);
       };
 
       ctrl.metadataSearch = (field, q) => {
-        return mediaApi.metadataSearch(field, {q}).then(resource => {
+        return mediaApi.metadataSearch(field,  { q }).then(resource => {
           return resource.data.map(d => d.key);
         });
       };
@@ -108,11 +104,11 @@ module.controller('grImageMetadataCtrl', [
 
       ctrl.descriptionOptions = editOptions;
 
-      ctrl.updateDescriptionField = function () {
+      ctrl.updateDescriptionField = function() {
         ctrl.updateMetadataField('description', ctrl.metadata.description);
       };
 
-      ctrl.updateLocationField = function (data, value) {
+      ctrl.updateLocationField = function(data, value) {
         Object.keys(value).forEach(key => {
           if (value[key] === undefined) {
             delete value[key];
@@ -124,7 +120,7 @@ module.controller('grImageMetadataCtrl', [
       ctrl.updateMetadataField = function (field, value) {
         var imageArray = Array.from(ctrl.selectedImages);
         if (field === 'dateTaken') {
-          value = value.toISOString();
+            value = value.toISOString();
         }
         if (field === 'peopleInImage') {
           ctrl.addPersonToImages(imageArray, value);
@@ -142,7 +138,7 @@ module.controller('grImageMetadataCtrl', [
         );
       };
 
-      ctrl.updateDomainMetadataField = function (name, field, value) {
+      ctrl.updateDomainMetadataField = function(name, field, value) {
         return editsService.updateDomainMetadataField(ctrl.singleImage, name, field, value)
           .then((updatedImage) => {
             if (updatedImage) {
@@ -244,7 +240,7 @@ module.controller('grImageMetadataCtrl', [
             .map(([key, value]) => {
               let fieldAlias = ctrl.fieldAliases.find(_ => _.alias === key);
               if (fieldAlias && fieldAlias.displayInAdditionalMetadata === true) {
-                return [fieldAlias.label, {value, alias: fieldAlias.alias}];
+                return [fieldAlias.label, { value, alias: fieldAlias.alias}];
               }
             })
             .filter(_ => _ !== undefined));
@@ -254,7 +250,7 @@ module.controller('grImageMetadataCtrl', [
         ctrl.domainMetadata = ctrl.domainMetadataSpecs
           .filter(domainMetadataSpec => domainMetadataSpec.fields.length > 0)
           .reduce((acc, domainMetadataSpec) => {
-            let domainMetadata = {...domainMetadataSpec};
+            let domainMetadata = { ...domainMetadataSpec };
 
             if (ctrl.singleImage.data.metadata) {
               const imageDomainMetadata = ctrl.singleImage.data.metadata.domainMetadata ? ctrl.singleImage.data.metadata.domainMetadata : {};
@@ -288,7 +284,7 @@ module.controller('grImageMetadataCtrl', [
           field.selectOptions = field.options
             .filter(option => option)
             .map(option => {
-              return {value: option, text: option};
+              return { value: option, text: option };
             });
         }
 
@@ -336,7 +332,7 @@ module.controller('grImageMetadataCtrl', [
       ctrl.hasLocationInformation = hasLocationInformation;
 
       function singleImage() {
-        if (ctrl.selectedImages.size === 1) {
+        if (ctrl.selectedImages.size === 1){
           return ctrl.selectedImages.first();
         }
       }
@@ -375,12 +371,9 @@ module.controller('grImageMetadataCtrl', [
       function rawMetadata() {
         return selectedMetadata().map((values) => {
           switch (values.size) {
-            case 0:
-              return undefined;
-            case 1:
-              return values.first();
-            default:
-              return Array.from(values);
+            case 0:  return undefined;
+            case 1:  return values.first();
+            default: return Array.from(values);
           }
         }).toObject();
       }
@@ -388,10 +381,8 @@ module.controller('grImageMetadataCtrl', [
       function displayMetadata() {
         return selectedMetadata().map((values) => {
           switch (values.size) {
-            case 1:
-              return values.first();
-            default:
-              return undefined;
+            case 1:  return values.first();
+            default: return undefined;
           }
         }).toObject();
       }
@@ -401,12 +392,9 @@ module.controller('grImageMetadataCtrl', [
         const properties = imageList.getSetOfProperties(info);
         return properties.map((values) => {
           switch (values.size) {
-            case 0:
-              return undefined;
-            case 1:
-              return values.first();
-            default:
-              return Array.from(values);
+            case 0:  return undefined;
+            case 1:  return values.first();
+            default: return Array.from(values);
           }
         }).toObject();
       }
@@ -433,11 +421,11 @@ module.controller('grImageMetadataCtrl', [
       ctrl.removeImageFromCollection = (collection) => {
         ctrl.removingCollection = collection;
         collections.removeImageFromCollection(collection, ctrl.singleImage)
-          .then(() => ctrl.removingCollection = false);
+            .then(() => ctrl.removingCollection = false);
       };
 
-      $scope.$on('$destroy', function () {
-        freeUpdateListener();
+      $scope.$on('$destroy', function() {
+          freeUpdateListener();
       });
 
       ctrl.onMetadataTemplateSelected = (metadata, usageRights, collection, leasesWithConfig) => {
@@ -510,18 +498,16 @@ module.controller('grImageMetadataCtrl', [
       };
 
       ctrl.isDomainMetadataEmpty = (key) => {
-        return ctrl.domainMetadata.find(obj => obj.name === key).fields.every(field => field.value === undefined);
+        return ctrl.domainMetadata.find(obj => obj.name === key ).fields.every(field => field.value === undefined );
       };
 
       ctrl.isAdditionalMetadataEmpty = () => {
         const totalAdditionalMetadataCount = Object.keys(ctrl.metadata).filter(key => ctrl.isUsefulMetadata(key)).length +
-          Object.keys(ctrl.additionalMetadata).length +
-          Object.keys(ctrl.identifiers).length;
+        Object.keys(ctrl.additionalMetadata).length +
+        Object.keys(ctrl.identifiers).length;
 
         return totalAdditionalMetadataCount == 0;
       };
-
-      ctrl.searchWithModifiers = searchWithModifiers;
     };
   }
 ]);
