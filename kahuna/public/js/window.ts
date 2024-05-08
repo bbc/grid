@@ -6,6 +6,7 @@ declare global {
       _clientConfig: {
         rootUri: string;
         telemetryUri: string;
+        staffPhotographerOrganisation: string;
         featureSwitches: Array<FeatureSwitchData>;
         maybeOrgOwnedValue: string | undefined;
         announcements: Array<Notification>;

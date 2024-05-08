@@ -1,5 +1,20 @@
 import {SortDropdownOption} from "./gr-sort-control";
 
+export interface LabelsObject {
+        [key: string]: string;
+}
+const defaultSortLabels: LabelsObject = {
+      uploadNewOld: "Upload date (new to old)",
+      oldest: "Upload date (old to new)",
+      dateAddedToCollection: "Added to Collection (recent 1st)"
+};
+export function loadLabels(): Promise<LabelsObject> {
+    return import(`../../common/resources/${window._clientConfig.staffPhotographerOrganisation}-gr-sort-control`)
+      .then(module => module.default)
+      .then(labels => labels)
+      .catch(() => Promise.resolve(defaultSortLabels));
+}
+
 export function manageSortSelection(newSelection:string): string {
   let newVal;
   switch (newSelection) {
@@ -20,21 +35,21 @@ export function manageSortSelection(newSelection:string): string {
 }
 
 export const SortOptions: SortDropdownOption[] = [
-  {
-    value: "uploadNewOld",
-    label: "Upload date (new to old)",
-    isCollection: false
-  },
-  {
-    value: "oldest",
-    label: "Upload date (old to new)",
-    isCollection: false
-  },
-  {
-    value: "dateAddedToCollection",
-    label: "Added to Collection (recent 1st)",
-    isCollection: true
-  }
+   {
+     value: "uploadNewOld",
+     label: defaultSortLabels.uploadNewOld,
+     isCollection: false
+   },
+   {
+     value: "oldest",
+     label: defaultSortLabels.oldest,
+     isCollection: false
+   },
+   {
+     value: "dateAddedToCollection",
+     label: defaultSortLabels.dateAddedToCollection,
+     isCollection: true
+   }
 ];
 
 export const DefaultSortOption: SortDropdownOption = SortOptions[0];
