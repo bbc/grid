@@ -12,7 +12,7 @@ const TRANSIENT = "transient";
 const NOTIFICATION_COOKIE = "notification_cookie";
 const cookie_age = 31536000;
 const checkNotificationsUri = window._clientConfig.rootUri + "/notifications";
-const checkNotificationsInterval = 60000; // in ms
+const checkNotificationsInterval = 30000; // in ms
 
 const tickIcon = () =>
   <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -113,6 +113,19 @@ const getIcon = (notification: Notification): JSX.Element => {
   }
 };
 
+// Throttle function
+const throttle = (func: (arg0: any) => void, limit: number) => {
+  let inThrottle: boolean;
+  return (...args: any) => {
+    if (!inThrottle) {
+      // @ts-ignore
+      func(...args);
+      inThrottle = true;
+      setTimeout(() => (inThrottle = false), limit);
+    }
+  };
+};
+
 const NotificationsBanner: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
@@ -125,6 +138,12 @@ const NotificationsBanner: React.FC = () => {
       }
     }
   };
+
+  // Function to handle scroll events
+  const onScroll = () => {
+    console.log('Scroll event detected!');
+  };
+
 
   const checkNotifications = () => {
     fetch(checkNotificationsUri)
@@ -167,7 +186,7 @@ const NotificationsBanner: React.FC = () => {
     const checkNotificationsRef:NodeJS.Timeout = setInterval(checkNotifications, checkNotificationsInterval);
 
     document.addEventListener("mouseup", autoHideListener);
-    document.addEventListener("scroll", autoHideListener);
+    document.addEventListener("scroll", throttle(onScroll, 200));
     document.addEventListener("keydown", autoHideListener);
 
     // clean up cookie
@@ -181,7 +200,7 @@ const NotificationsBanner: React.FC = () => {
     // Clean up the event listener when the component unmounts
     return () => {
       document.removeEventListener("mouseup", autoHideListener);
-      document.removeEventListener("scroll", autoHideListener);
+      document.removeEventListener("scroll", throttle(onScroll, 200));
       document.removeEventListener("keydown", autoHideListener);
       clearInterval(checkNotificationsRef);
     };
