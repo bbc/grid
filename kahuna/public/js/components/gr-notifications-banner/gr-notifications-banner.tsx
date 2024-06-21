@@ -114,6 +114,19 @@ const getIcon = (notification: Notification): JSX.Element => {
   }
 };
 
+const normaliseDeltaY = (event: WheelEvent): number => {
+  let deltaY = event.deltaY;
+  switch (event.deltaMode) {
+    case 1: // Lines
+      deltaY *= 16;
+      break;
+    case 2: // Pages
+      deltaY *= 800;
+      break;
+  }
+  return deltaY;
+};
+
 const NotificationsBanner: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
@@ -122,7 +135,8 @@ const NotificationsBanner: React.FC = () => {
       setNotifications(prevNotifs => prevNotifs.filter(n => n.lifespan !== TRANSIENT));
     } else if (event.type === "wheel") {
       const wheelEvent = event as WheelEvent;
-      if (Math.abs(wheelEvent.deltaY) >= scrollThreshold) {
+      const normalisedDeltaY = normaliseDeltaY(wheelEvent);
+      if (Math.abs(normalisedDeltaY) >= scrollThreshold) {
         setNotifications(prevNotifs => prevNotifs.filter(n => n.lifespan !== TRANSIENT));
       }
     } else if (event.type !== "keydown") {
