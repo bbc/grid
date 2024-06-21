@@ -12,9 +12,8 @@ const TRANSIENT = "transient";
 const NOTIFICATION_COOKIE = "notification_cookie";
 const cookie_age = 31536000;
 const checkNotificationsUri = window._clientConfig.rootUri + "/notifications";
-const checkNotificationsInterval = 10000; // in ms
-const scrollThreshold = 30;
-
+const checkNotificationsInterval = 30000; // in ms
+const scrollThreshold = 10;
 
 const tickIcon = () =>
   <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -119,7 +118,7 @@ const NotificationsBanner: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
   const autoHideListener = (event: any) => {
-    if (event.type === "keydown" && event.key === "Escape") {
+    if (event.type === "keydown" && (event.key === "Escape" || event.key === "ArrowUp" || event.key === "ArrowDown")) {
       setNotifications(prevNotifs => prevNotifs.filter(n => n.lifespan !== TRANSIENT));
     } else if (event.type === "wheel") {
       const wheelEvent = event as WheelEvent;
