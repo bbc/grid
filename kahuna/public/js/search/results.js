@@ -27,6 +27,7 @@ import {
   sendToCaptureTitle,
   VALIDIMAGES
 } from "../util/constants/sendToCapture-config";
+import {session} from "pandular/src/session";
 
 export var results = angular.module('kahuna.search.results', [
     'kahuna.services.scroll-position',
@@ -417,6 +418,11 @@ results.controller('SearchResultsCtrl', [
         });
         return [validImages, invalidImages];
       };
+
+      ctrl.showPaid = undefined;
+      mediaApi.getSession().then(session => {
+        ctrl.showPaid = session.user.permissions.showPaid ? session.user.permissions.showPaid : undefined;
+      })
 
       ctrl.sendToPhotoSales = () => {
         const validImages = validatePhotoSalesSelection(ctrl.selectedImages)[0];
