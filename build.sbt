@@ -19,7 +19,7 @@ val commonSettings = Seq(
   description := "grid",
   organization := "com.gu",
   version := "0.1",
-  scalacOptions ++= Seq("-feature", "-deprecation", "-language:higherKinds", "-Xfatal-warnings", "-release:11"),
+  scalacOptions ++= Seq("-feature", "-deprecation", "-language:higherKinds", "-Xfatal-warnings", "-target:11"),
 
   // The Java SDK uses CBOR protocol
   // We use localstack in TEST. Kinesis in localstack uses kinesislite which requires CBOR to be disabled
