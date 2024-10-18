@@ -15,11 +15,11 @@ import com.typesafe.sbt.packager.debian.JDebPackaging
 ThisBuild / packageOptions += FixedTimestamp(Package.keepTimestamps)
 
 val commonSettings = Seq(
-  scalaVersion := "2.12.20",
+  scalaVersion := "2.12.15",
   description := "grid",
   organization := "com.gu",
   version := "0.1",
-  scalacOptions ++= Seq("-feature", "-deprecation", "-language:higherKinds", "-Xfatal-warnings", "-release:11"),
+  scalacOptions ++= Seq("-feature", "-deprecation", "-language:higherKinds", "-Xfatal-warnings"),
 
   // The Java SDK uses CBOR protocol
   // We use localstack in TEST. Kinesis in localstack uses kinesislite which requires CBOR to be disabled
@@ -69,7 +69,7 @@ val maybeBBCLib: Option[sbt.ProjectReference] = if(bbcBuildProcess) Some(bbcProj
 lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
     "com.gu" %% "editorial-permissions-client" % "3.0.0",
-    "com.gu" %% "pan-domain-auth-play_2-8" % "7.0.0",
+    "com.gu" %% "pan-domain-auth-play_2-8" % "4.0.0",
     "com.amazonaws" % "aws-java-sdk-iam" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-s3" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-ec2" % awsSdkVersion,
@@ -84,6 +84,7 @@ lazy val commonLib = project("common-lib").settings(
     "com.sksamuel.elastic4s" %% "elastic4s-core" % elastic4sVersion,
     "com.sksamuel.elastic4s" %% "elastic4s-client-esjava" % elastic4sVersion,
     "com.sksamuel.elastic4s" %% "elastic4s-domain" % elastic4sVersion,
+    "com.gu" %% "box" % "0.2.0",
     "com.gu" %% "thrift-serializer" % "5.0.2",
     "org.scalaz.stream" %% "scalaz-stream" % "0.8.6",
     "org.im4java" % "im4java" % "1.4.0",
@@ -144,6 +145,7 @@ lazy val mediaApi = playProject("media-api", 9001)
       "org.apache.commons" % "commons-email" % "1.5",
       "org.parboiled" %% "parboiled" % "2.1.5",
       "org.http4s" %% "http4s-core" % "0.23.17",
+      "com.softwaremill.quicklens" %% "quicklens" % "1.4.11",
     )
   )
 
@@ -218,7 +220,7 @@ def playProject(projectName: String, port: Int, path: Option[String] = None): Pr
     .dependsOn(restLib)
     .settings(commonSettings ++ buildInfo ++ Seq(
       playDefaultPort := port,
-      debianPackageDependencies := Seq("java11-runtime-headless"),
+      debianPackageDependencies := Seq("openjdk-8-jre-headless"),
       Linux / maintainer := "Guardian Developers <dig.dev.software@theguardian.com>",
       Linux / packageSummary := description.value,
       packageDescription := description.value,
@@ -242,8 +244,12 @@ def playProject(projectName: String, port: Int, path: Option[String] = None): Pr
         "-Dpidfile.path=/dev/null",
         s"-Dconfig.file=/usr/share/$projectName/conf/application.conf",
         s"-Dlogger.file=/usr/share/$projectName/conf/logback.xml",
-        "-J-Xlog:gc*",
-        s"-J-Xlog:gc:/var/log/$projectName/gc.log"
+        "-J-XX:+PrintGCDetails",
+        "-J-XX:+PrintGCDateStamps",
+        s"-J-Xloggc:/var/log/$projectName/gc.log",
+        "-J-XX:+UseGCLogFileRotation",
+        "-J-XX:NumberOfGCLogFiles=5",
+        "-J-XX:GCLogFileSize=2M"
       )
     ))
   //Add the BBC library dependency if defined
