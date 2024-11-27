@@ -115,7 +115,9 @@ class AuthController(auth: Authentication, providers: AuthenticationProviders, v
     }
     providers.userProvider.sendForAuthentication match {
       case Some(authCallback) =>
-        authCallback(req).map(_.addingToSession(checkedRedirectUri.map(REDIRECT_SESSION_KEY -> _).toSeq:_*))
+        val response = authCallback(req).map(_.addingToSession(checkedRedirectUri.map(REDIRECT_SESSION_KEY -> _).toSeq:_*))
+        // adds ACCESS_CONTROL_ALLOW_ORIGIN header to http response
+        response.map(_.withHeaders(ACCESS_CONTROL_ALLOW_ORIGIN -> config.domainRoot))
       case None =>
         Future.successful(InternalServerError("Login not supported by configured authentication provider"))
     }
