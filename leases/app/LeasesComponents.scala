@@ -15,5 +15,5 @@ class LeasesComponents(context: Context) extends GridComponents(context, new Lea
   val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(auth, controllerComponents, config.services, wsClient)
 
   override lazy val router = new Routes(httpErrorHandler, controller, management, InnerServiceStatusCheckController)
-
+  // a change
 }
