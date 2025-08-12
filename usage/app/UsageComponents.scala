@@ -33,7 +33,7 @@ class UsageComponents(context: Context) extends GridComponents(context, new Usag
     usageRecorder.stop()
     Future.successful(())
   })
-  // comment
+
   val controller = new UsageApi(auth, authorisation, usageTable, usageGroupOps, notifications, config, usageRecorder.usageApiSubject, liveContentApi, controllerComponents, playBodyParsers)
   val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(auth, controllerComponents, config.services, wsClient)
   override lazy val router = new Routes(httpErrorHandler, controller, management, InnerServiceStatusCheckController)
