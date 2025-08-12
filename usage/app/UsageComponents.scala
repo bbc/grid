@@ -27,7 +27,7 @@ class UsageComponents(context: Context) extends GridComponents(context, new Usag
     val crierReader = new CrierStreamReader(config, usageGroupOps, executionContext)
     crierReader.start()
   }
-//
+
   usageRecorder.start()
   context.lifecycle.addStopHook(() => {
     usageRecorder.stop()
