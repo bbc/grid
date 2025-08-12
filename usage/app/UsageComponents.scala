@@ -22,7 +22,7 @@ class UsageComponents(context: Context) extends GridComponents(context, new Usag
   val usageNotifier = new UsageNotifier(config, usageTable)
   val usageRecorder = new UsageRecorder(usageMetrics, usageTable, usageNotifier, usageNotifier)
   val notifications = new Notifications(config)
-//
+
   if(!config.apiOnly) {
     val crierReader = new CrierStreamReader(config, usageGroupOps, executionContext)
     crierReader.start()
