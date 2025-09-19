@@ -14,7 +14,7 @@ class LeaseNotifier(config: LeasesConfig, store: LeaseStore) extends ThrallMessa
       publish(updateMessage)
     }
   }
-
+  //
   def sendAddLease(mediaLease: MediaLease) = {
     val updateMessage = UpdateMessage(subject = AddImageLease, mediaLease = Some(mediaLease), id = Some(mediaLease.mediaId))
     publish(updateMessage)
