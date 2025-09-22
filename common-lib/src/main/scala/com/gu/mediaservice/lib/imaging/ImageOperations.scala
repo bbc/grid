@@ -82,12 +82,14 @@ class ImageOperations(playPath: String) extends GridLogging {
     iccColourSpace: Option[String],
     colourModel: Option[String],
     fileType: MimeType,
-    isTransformedFromSource: Boolean
-  )(implicit logMarker: LogMarker): Future[File] = {
+    isTransformedFromSource: Boolean,
+    orientationMetadata: Option[OrientationMetadata]
+  )(implicit logMarker: LogMarker): Future[File] = Stopwatch.async("magick crop image") {
     for {
       outputFile <- createTempFile(s"crop-", s"${fileType.fileExtension}", tempDir)
       cropSource    = addImage(sourceFile)
-      qualified     = quality(cropSource)(qual)
+      oriented      = orient(cropSource, orientationMetadata)
+      qualified     = quality(oriented)(qual)
       corrected     = correctColour(qualified)(iccColourSpace, colourModel, isTransformedFromSource)
       converted     = applyOutputProfile(corrected)
       stripped      = stripMeta(converted)
@@ -115,7 +117,7 @@ class ImageOperations(playPath: String) extends GridLogging {
     qual: Double = 100d,
     tempDir: File,
     fileType: MimeType
-  )(implicit logMarker: LogMarker): Future[File] = {
+  )(implicit logMarker: LogMarker): Future[File] = Stopwatch.async("magick resize image") {
     for {
       outputFile  <- createTempFile(s"resize-", s".${fileType.fileExtension}", tempDir)
       resizeSource = addImage(sourceFile)
@@ -127,12 +129,22 @@ class ImageOperations(playPath: String) extends GridLogging {
     yield outputFile
   }
 
-  def optimiseImage(resizedFile: File, mediaType: MimeType): File = mediaType match {
+  private def orient(op: IMOperation, orientationMetadata: Option[OrientationMetadata]): IMOperation = {
+    logger.info("Correcting for orientation: " + orientationMetadata)
+    orientationMetadata.map(_.orientationCorrection()) match {
+      case Some(angle) => rotate(op)(angle)
+      case _ => op
+    }
+  }
+
+  def optimiseImage(resizedFile: File, mediaType: MimeType)(implicit logMarker: LogMarker): File = mediaType match {
     case Png =>
       val fileName: String = resizedFile.getAbsolutePath
 
       val optimisedImageName: String = fileName.split('.')(0) + "optimised.png"
-      Seq("pngquant","-s8",  "--quality", "1-85", fileName, "--output", optimisedImageName).!
+      Stopwatch("pngquant") {
+        Seq("pngquant", "-s10", "--quality", "1-85", fileName, "--output", optimisedImageName).!
+      }
 
       new File(optimisedImageName)
     case Jpeg => resizedFile
@@ -153,7 +165,7 @@ class ImageOperations(playPath: String) extends GridLogging {
   val backgroundColour = "#333333"
 
   /**
-    * Given a source file containing a png (the 'browser viewable' file),
+    * Given a source file containing an image (the 'browser viewable' file),
     * construct a thumbnail file in the provided temp directory, and return
     * the file with metadata about it.
     * @param browserViewableImage
@@ -169,12 +181,14 @@ class ImageOperations(playPath: String) extends GridLogging {
                       qual: Double = 100d,
                       outputFile: File,
                       iccColourSpace: Option[String],
-                      colourModel: Option[String]
+                      colourModel: Option[String],
+                      orientationMetadata: Option[OrientationMetadata]
   )(implicit logMarker: LogMarker): Future[(File, MimeType)] = {
     val stopwatch = Stopwatch.start
 
     val cropSource     = addImage(browserViewableImage.file)
-    val thumbnailed    = thumbnail(cropSource)(width)
+    val orientated     = orient(cropSource, orientationMetadata)
+    val thumbnailed    = thumbnail(orientated)(width)
     val corrected      = correctColour(thumbnailed)(iccColourSpace, colourModel, browserViewableImage.isTransformedFromSource)
     val converted      = applyOutputProfile(corrected, optimised = true)
     val stripped       = stripMeta(converted)
