@@ -44,6 +44,7 @@ class ReaperController(
 
   implicit val logMarker: MarkerMap = MarkerMap()
 
+  // will use BBC Component?
   private val isReapable = maybeCustomReapableEligibility getOrElse {
     new ReapableEligibility {
       override val maybePersistOnlyTheseCollections: Option[Set[String]] = config.maybePersistOnlyTheseCollections
