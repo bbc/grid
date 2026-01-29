@@ -19,6 +19,7 @@ class MetadataEditorComponents(context: Context) extends GridComponents(context,
   context.lifecycle.addStopHook {
     () => messageConsumer.actorSystem.terminate()
   }
+  // meaningless change for test
 
   val editsController = new EditsController(auth, editsStore, notifications, config, wsClient, authorisation, controllerComponents)
   val syndicationController = new SyndicationController(auth, editsStore, syndicationStore, notifications, config, controllerComponents)
