@@ -63,7 +63,7 @@ class ImageLoaderController(auth: Authentication,
   private val AuthenticatedAndAuthorised = auth andThen authorisation.CommonActionFilters.authorisedForUpload
 
   private val activeProcessingMessage = new AtomicReference[Option[SQSMessage]](None)
-  // meaningless change for test
+  // change for test
 
   // when shutting down, make best efforts to make currently processing image available on the queue again
   applicationLifecycle.addStopHook(() => {
