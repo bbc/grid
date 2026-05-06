@@ -24,24 +24,43 @@ export interface ExtendedSortWrapperProps {
 
 const checkForCollection = (query:string): boolean => /~"[a-zA-Z0-9 #-_.://]+"/.test(query);
 
+const deriveExtendedSortState = (
+  query: string,
+  orderBy: string,
+  sortOptions: SortDropdownOption[],
+  noTakenDateClause: string
+) => {
+  let selectedSort = DefaultSortOption;
+  if (!query.includes(noTakenDateClause)) {
+    selectedSort = sortOptions.find(o => o.value === orderBy) || DefaultSortOption;
+  }
+  return {
+    selectedSort,
+    hasCollection: checkForCollection(query)
+  };
+};
+
 const ExtendedSortControl: React.FC<ExtendedSortWrapperProps> = ({ props }) => {
 
   const noTakenDateClause = "-has:dateTaken";
   const takenDateClause = "has:dateTaken";
   const sortOptions = SortOptions;
-  const orderBy = props.orderBy;
-  const query = props.query;
-
-  let startSortOption = DefaultSortOption;
-  if (!query.includes(noTakenDateClause) && (sortOptions.filter(o => o.value === orderBy)).length > 0) {
-    startSortOption = sortOptions.find(o => o.value === orderBy);
-  }
-
-  const startHasCollection = checkForCollection(query);
+  const orderBy = props.orderBy || "";
+  const query = props.query || "";
+  const { selectedSort: startSortOption, hasCollection: startHasCollection } =
+    deriveExtendedSortState(query, orderBy, sortOptions, noTakenDateClause);
   const [selSortOption, setSortOption] = useState<SortDropdownOption>(startSortOption);
   const [userTakenSelect, setUserTakenSelect] = useState<boolean>(props.userTakenSelect);
   const noTakenDateCount = props.noTakenDateCount;
   const [hasCollection, setHasCollection] = useState<boolean>(startHasCollection);
+
+  useEffect(() => {
+    const { selectedSort, hasCollection: nextHasCollection } =
+      deriveExtendedSortState(query, orderBy, sortOptions, noTakenDateClause);
+    setSortOption(selectedSort);
+    setHasCollection(nextHasCollection);
+    setUserTakenSelect(Boolean(props.userTakenSelect));
+  }, [query, orderBy, props.userTakenSelect]);
 
   const onSortSelect = (selOption: SortDropdownOption) => {
     setSortOption(selOption);

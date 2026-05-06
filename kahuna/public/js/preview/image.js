@@ -66,6 +66,10 @@ image.controller('uiPreviewImageCtrl', [
 
       ctrl.showSendToPhotoSales = () => $window._clientConfig.showSendToPhotoSales;
       ctrl.uploadedByCapture = ctrl.image.data.uploadedBy === "Capture_AutoIngest";
+      ctrl.sentToPhotosalesPublished = () => {
+        const isPublished = ctrl.image.data.metadata.domainMetadata?.archives?.isPublished ?? "True";
+        return isPublished === "True";
+      };
       mediaApi.getSession().then(session => {
         ctrl.showPaid = session.user.permissions.showPaid ? session.user.permissions.showPaid : undefined;
       });
@@ -126,7 +130,7 @@ image.controller('uiPreviewImageCtrl', [
           return collection.data.cssColour && `background-color: ${collection.data.cssColour}`;
       };
 
-      ctrl.srefNonfree = () => storage.getJs("isNonFree", true) ? true : undefined;
+      ctrl.srefNonfree = () => storage.getJs("isNonFree", true) === 'true' ? 'true' : 'false';
       ctrl.orderTakenBy = () => {
         let orderBy = storage.getJs('orderBy', false);
         return (orderBy && orderBy.includes('taken'));
