@@ -113,7 +113,7 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                 const showPaid = session.user.permissions.showPaid ? session.user.permissions.showPaid : undefined;
                 const defaultNonFreeFilter = {
                   isDefault: true,
-                  isNonFree: showPaid ? showPaid : false
+                  isNonFree: toNonFreeString(showPaid)
                 };
                 storage.setJs("defaultNonFreeFilter", defaultNonFreeFilter, true);
                 $state.go('search.results', {nonFree: toNonFreeString(defaultNonFreeFilter.isNonFree)});
