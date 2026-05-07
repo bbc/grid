@@ -29,6 +29,7 @@ import {
 import {getFeatureSwitchActive} from "../components/gr-feature-switch-panel/gr-feature-switch-panel";
 
 const toNonFreeString = (val) => (val === true || val === 'true') ? 'true' : 'false';
+const isNonFreeString = (val) => val === 'true';
 
 export var query = angular.module('kahuna.search.query', [
     // Note: temporarily disabled for performance reasons, see above
@@ -91,7 +92,7 @@ query.controller('SearchQueryCtrl', [
 
     //--react - angular interop events--
     function raisePayableImagesEvent(showPaid) {
-      const boolShowPaid = (showPaid === true || showPaid === "true") ? true : false;
+      const boolShowPaid = toNonFreeString(showPaid) === 'true';
       const customEvent = new CustomEvent('setPayableImages', {
         detail: {showPaid: boolShowPaid},
         bubbles: true
@@ -292,7 +293,7 @@ query.controller('SearchQueryCtrl', [
       if (ctrl.usePermissionsFilter && nonFreeCheck === undefined) {
         const defaultShowPaid = storage.getJs("defaultIsNonFree", true);
         nonFreeCheck = defaultShowPaid === 'true' ? 'true' : 'false';
-      } else if (!ctrl.usePermissionsFilter && (nonFreeCheck === 'false' || nonFreeCheck === false)) {
+      } else if (!ctrl.usePermissionsFilter && nonFreeCheck === 'false') {
         nonFreeCheck = undefined;
       }
       ctrl.filter.nonFree = nonFreeCheck;
@@ -523,7 +524,7 @@ query.controller('SearchQueryCtrl', [
         //-default non free-
          const defNonFree = session.user.permissions ? session.user.permissions.showPaid : undefined;
          storage.setJs("defaultIsNonFree", toNonFreeString(defNonFree), true);
-         if (!ctrl.initialShowPaidEvent && (defNonFree === true || defNonFree === "true")) {
+         if (!ctrl.initialShowPaidEvent && toNonFreeString(defNonFree) === 'true') {
            ctrl.initialShowPaidEvent = true;
            raisePayableImagesEvent(defNonFree);
          }
@@ -538,7 +539,7 @@ query.controller('SearchQueryCtrl', [
              ctrl.filter.nonFree = toNonFreeString($stateParams.nonFree);
              storage.setJs("isNonFree", ctrl.filter.nonFree, true);
            } else {
-             ctrl.filter.nonFree = (isNonFree === 'true') ? 'true' : 'false';
+             ctrl.filter.nonFree = isNonFreeString(isNonFree) ? 'true' : 'false';
            }
          }
 

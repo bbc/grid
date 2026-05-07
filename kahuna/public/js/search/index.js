@@ -116,9 +116,9 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                   isNonFree: toNonFreeString(showPaid)
                 };
                 storage.setJs("defaultNonFreeFilter", defaultNonFreeFilter, true);
-                $state.go('search.results', {nonFree: toNonFreeString(defaultNonFreeFilter.isNonFree)});
+                $state.go('search.results', {nonFree: defaultNonFreeFilter.isNonFree});
                 window.dispatchEvent(new CustomEvent("logoClick", {
-                  detail: {showPaid: defaultNonFreeFilter.isNonFree},
+                  detail: {showPaid: defaultNonFreeFilter.isNonFree === 'true'},
                   bubbles: true
                 }));
                 scrollPosition.resetToTop();
