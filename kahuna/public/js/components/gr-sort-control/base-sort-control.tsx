@@ -82,6 +82,18 @@ export const BaseSortControl: React.FC<SortDropdownProps> = ({
   const [currentIndex, setCurrentIndex] = useState(-1);
   const [isPanelVisible, setPanelVisible] = useState(panelVisible);
 
+  useEffect(() => {
+    const nextSort = startSelectedOption ? startSelectedOption : DefaultSortOption;
+    setSelection(nextSort);
+    if (!nextSort.isCollection) {
+      setPrevious(nextSort);
+    }
+  }, [startSelectedOption]);
+
+  useEffect(() => {
+    setPanelVisible(panelVisible);
+  }, [panelVisible]);
+
   const handleArrowKeys = (event:KeyboardEvent<HTMLDivElement>) => {
     if (event.key === 'ArrowDown' ||
         event.key === 'ArrowUp' ||

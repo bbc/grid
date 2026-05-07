@@ -4,6 +4,8 @@ import './prompt/prompt';
 import './recent/recent-uploads';
 import '../services/scroll-position';
 
+const toNonFreeString = (val) => (val === true || val === 'true') ? 'true' : 'false';
+
 var upload = angular.module('kahuna.upload.controller', [
     'kahuna.upload.prompt',
     'kahuna.upload.recent',
@@ -57,11 +59,11 @@ upload.controller('UploadCtrl', ['uploadManager', 'mediaApi', 'scrollPosition', 
         const showPaid = session.user.permissions.showPaid ? session.user.permissions.showPaid : undefined;
         const defaultNonFreeFilter = {
           isDefault: true,
-          isNonFree: showPaid ? showPaid : false
+          isNonFree: toNonFreeString(showPaid)
         };
         storage.setJs("defaultNonFreeFilter", defaultNonFreeFilter, true);
         window.dispatchEvent(new CustomEvent("logoClick", {
-          detail: {showPaid: defaultNonFreeFilter.isNonFree},
+          detail: {showPaid: defaultNonFreeFilter.isNonFree === 'true'},
           bubbles: true
         }));
         scrollPosition.resetToTop();

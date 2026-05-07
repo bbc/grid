@@ -50,6 +50,7 @@ recentUploads.controller('RecentUploadsCtrl', [
 
           ctrl.canBeDeleted = (image) => deletableImages.has(image.data.id);
 
+
           const freeImageDeleteListener = $rootScope.$on('images-deleted', (e, images) => {
               images.forEach(image => {
                   const index = ctrl.myUploads.data.findIndex(i => i.data.id === image.data.id);

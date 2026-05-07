@@ -28,6 +28,9 @@ import {
 } from "../components/gr-sort-control/gr-sort-control-config";
 import {getFeatureSwitchActive} from "../components/gr-feature-switch-panel/gr-feature-switch-panel";
 
+const toNonFreeString = (val) => (val === true || val === 'true') ? 'true' : 'false';
+const isNonFreeString = (val) => val === 'true';
+
 export var query = angular.module('kahuna.search.query', [
     // Note: temporarily disabled for performance reasons, see above
     // 'ngAnimate',
@@ -77,6 +80,7 @@ query.controller('SearchQueryCtrl', [
 
     ctrl.usePermissionsFilter = window._clientConfig.usePermissionsFilter;
     ctrl.filterMyUploads = false;
+    let lastUploadedByEventKey;
     ctrl.initialShowPaidEvent = ($stateParams.nonFree === undefined && ctrl.usePermissionsFilter) ? false : true;
 
     ctrl.shouldDisplayAISearchOption = getFeatureSwitchActive("enable-ai-search");
@@ -88,7 +92,7 @@ query.controller('SearchQueryCtrl', [
 
     //--react - angular interop events--
     function raisePayableImagesEvent(showPaid) {
-      const boolShowPaid = (showPaid === true || showPaid === "true") ? true : false;
+      const boolShowPaid = toNonFreeString(showPaid) === 'true';
       const customEvent = new CustomEvent('setPayableImages', {
         detail: {showPaid: boolShowPaid},
         bubbles: true
@@ -114,8 +118,14 @@ query.controller('SearchQueryCtrl', [
 
     function raiseUploadedByCheckEvent() {
       if (ctrl.user) {
+        const uploadedBy = ctrl.filter ? ctrl.filter.uploadedBy : undefined;
+        const eventKey = `${ctrl.user.email}|${uploadedBy || ''}`;
+        if (eventKey === lastUploadedByEventKey) {
+          return;
+        }
+        lastUploadedByEventKey = eventKey;
         const customEvent = new CustomEvent('uploadedByEvent', {
-          detail: { userEmail: ctrl.user.email, uploadedBy: $stateParams.uploadedBy },
+          detail: { userEmail: ctrl.user.email, uploadedBy: uploadedBy },
           bubbles: true
         });
         window.dispatchEvent(customEvent);
@@ -151,17 +161,19 @@ query.controller('SearchQueryCtrl', [
       storage.setJs("isUploadedByMe", ctrl.filter.uploadedByMe, true);
     }
 
-    function manageDefaultNonFree(filter) {
+    function manageDefaultNonFree() {
         const defaultNonFreeFilter = storage.getJs("defaultNonFreeFilter", true);
         if (defaultNonFreeFilter && defaultNonFreeFilter.isDefault === true){
-          let newNonFree = defaultNonFreeFilter.isNonFree ? "true" : undefined;
-          if (newNonFree !== filter.nonFree) {
-            storage.setJs("isNonFree", newNonFree ? newNonFree : false, true);
-            storage.setJs("defaultIsNonFree", newNonFree ? newNonFree : false, true);
-            storage.setJs("isUploadedByMe", false, true);
-            storage.setJs("defaultNonFreeFilter", {isDefault: false, isNonFree: false}, true);
-            ctrl.filter.orgOwned = false;
+          const newNonFree = toNonFreeString(defaultNonFreeFilter.isNonFree);
+          storage.setJs("isNonFree", newNonFree, true);
+          storage.setJs("defaultIsNonFree", newNonFree, true);
+          storage.setJs("isUploadedByMe", false, true);
+          storage.setJs("defaultNonFreeFilter", {isDefault: false, isNonFree: newNonFree}, true);
+          ctrl.filterMyUploads = false;
+          if (ctrl.myUploadsProps) {
+            syncMyUploadsProps();
           }
+          ctrl.filter.orgOwned = false;
           Object.assign(ctrl.filter, {nonFree: newNonFree, uploadedByMe: false, uploadedBy: undefined});
           raiseFilterChangeEvent(ctrl.filter);
         }
@@ -245,9 +257,9 @@ query.controller('SearchQueryCtrl', [
 
     // eslint-disable-next-line complexity
     function watchSearchChange(newFilter, sender) {
-      let showPaid = newFilter.nonFree ? newFilter.nonFree : false;
-      if (sender && sender == "filterChange" && !newFilter.nonFree) {
-        showPaid = ctrl.user.permissions.showPaid;
+      let showPaid = toNonFreeString(newFilter.nonFree);
+      if (ctrl.usePermissionsFilter && sender && sender === "filterChange" && newFilter.nonFree === undefined) {
+        showPaid = toNonFreeString(ctrl.user.permissions.showPaid);
       }
       storage.setJs("isNonFree", showPaid, true);
 
@@ -273,15 +285,15 @@ query.controller('SearchQueryCtrl', [
 
       //--update filter elements--
       manageUploadedBy(newFilter, sender);
-      manageDefaultNonFree(newFilter);
+      manageDefaultNonFree();
       manageOrgOwnedSetting(newFilter);
 
       const { nonFree, uploadedByMe } = ctrl.filter;
       let nonFreeCheck = nonFree;
       if (ctrl.usePermissionsFilter && nonFreeCheck === undefined) {
         const defaultShowPaid = storage.getJs("defaultIsNonFree", true);
-        nonFreeCheck = defaultShowPaid;
-      } else if (!ctrl.usePermissionsFilter && (nonFreeCheck === 'false' || nonFreeCheck === false)) {
+        nonFreeCheck = defaultShowPaid === 'true' ? 'true' : 'false';
+      } else if (!ctrl.usePermissionsFilter && nonFreeCheck === 'false') {
         nonFreeCheck = undefined;
       }
       ctrl.filter.nonFree = nonFreeCheck;
@@ -299,8 +311,16 @@ query.controller('SearchQueryCtrl', [
     }
 
     //-my uploads-
+    function syncMyUploadsProps() {
+      ctrl.myUploadsProps = {
+        ...ctrl.myUploadsProps,
+        myUploads: ctrl.filterMyUploads
+      };
+    }
+
     function selectMyUploads(myUploadsChecked) {
       ctrl.filterMyUploads = myUploadsChecked;
+      syncMyUploadsProps();
       watchSearchChange(ctrl.filter, "selectMyUploads");
     }
 
@@ -328,12 +348,12 @@ query.controller('SearchQueryCtrl', [
     function updatePermissionsChips (permissionsSel, showChargeable) {
       ctrl.permissionsProps.selectedOption = permissionsSel;
       ctrl.filter.query = updateFilterChips(permissionsSel, ctrl.filter.query);
-      ctrl.filter.nonFree = showChargeable;
+      ctrl.filter.nonFree = toNonFreeString(showChargeable);
       watchSearchChange(ctrl.filter, "updatePermissionsChips");
     }
 
     function chargeableChange (showChargeable) {
-      ctrl.filter.nonFree = showChargeable;
+      ctrl.filter.nonFree = toNonFreeString(showChargeable);
       watchSearchChange(ctrl.filter, "chargeableChange");
     }
 
@@ -344,7 +364,7 @@ query.controller('SearchQueryCtrl', [
                               selectedOption: pfDefPerm,
                               onSelect: updatePermissionsChips,
                               onChargeable: chargeableChange,
-                              chargeable: ctrl.filter.nonFree ? ctrl.filter.nonFree : ($stateParams.nonFree == "true"),
+                              chargeable: (ctrl.filter.nonFree || $stateParams.nonFree) === "true",
                               query: ctrl.filter.query
                             };
     //-end permissions filter-
@@ -479,39 +499,49 @@ query.controller('SearchQueryCtrl', [
         //-uploaded by me-
         const isUploadedByMe = storage.getJs("isUploadedByMe", true);
         ctrl.user = session.user;
-        if (isUploadedByMe === null) {
-          ctrl.filter.uploadedByMe = ctrl.filter.uploadedBy === ctrl.user.email;
-          ctrl.filterMyUploads = ctrl.filter.uploadedByMe;
-          storage.setJs("isUploadedByMe",ctrl.filter.uploadedByMe);
+        if (ctrl.filter.uploadedBy === ctrl.user.email) {
+           ctrl.filter.uploadedByMe = true;
+           ctrl.filterMyUploads = true;
+           storage.setJs("isUploadedByMe", true);
+        } else if (isUploadedByMe === null) {
+           ctrl.filter.uploadedByMe = ctrl.filter.uploadedBy === ctrl.user.email;
+           ctrl.filterMyUploads = ctrl.filter.uploadedByMe;
+           storage.setJs("isUploadedByMe",ctrl.filter.uploadedByMe);
         } else {
-          if ((ctrl.filter.uploadedBy === ctrl.user.email) && !isUploadedByMe ) {
-            ctrl.filter.uploadedByMe = true;
-            ctrl.filterMyUploads = ctrl.filter.uploadedByMe;
-            storage.setJs("isUploadedByMe",ctrl.filter.uploadedByMe);
-          } else {
-            ctrl.filter.uploadedByMe = isUploadedByMe;
-            ctrl.filterMyUploads = isUploadedByMe;
-          }
+           if ((ctrl.filter.uploadedBy === ctrl.user.email) && !isUploadedByMe ) {
+             ctrl.filter.uploadedByMe = true;
+             ctrl.filterMyUploads = ctrl.filter.uploadedByMe;
+             storage.setJs("isUploadedByMe",ctrl.filter.uploadedByMe);
+           } else {
+             ctrl.filter.uploadedByMe = isUploadedByMe;
+             ctrl.filterMyUploads = isUploadedByMe;
+           }
         }
+
+         syncMyUploadsProps();
+         raiseUploadedByCheckEvent();
 
         //-default non free-
-        const defNonFree = session.user.permissions ? session.user.permissions.showPaid : undefined;
-        storage.setJs("defaultIsNonFree", defNonFree ? defNonFree : false, true);
-        if (!ctrl.initialShowPaidEvent && (defNonFree === true || defNonFree === "true")) {
-          ctrl.initialShowPaidEvent = true;
-          raisePayableImagesEvent(defNonFree);
-        }
+         const defNonFree = session.user.permissions ? session.user.permissions.showPaid : undefined;
+         storage.setJs("defaultIsNonFree", toNonFreeString(defNonFree), true);
+         if (!ctrl.initialShowPaidEvent && toNonFreeString(defNonFree) === 'true') {
+           ctrl.initialShowPaidEvent = true;
+           raisePayableImagesEvent(defNonFree);
+         }
 
-        const isNonFree = storage.getJs("isNonFree", true);
-        if (isNonFree === null) {
-          ctrl.filter.nonFree = $stateParams.nonFree;
-          storage.setJs("isNonFree", ctrl.filter.nonFree ? ctrl.filter.nonFree : (ctrl.usePermissionsFilter ? "false" : undefined), true);
-        }
-        else if (isNonFree === true || isNonFree === "true") {
-          ctrl.filter.nonFree = "true";
-        } else {
-          ctrl.filter.nonFree = (ctrl.usePermissionsFilter ? "false" : undefined);
-        }
+         // If nonFree is provided in URL params, use that; otherwise use stored value
+         if ($stateParams.nonFree !== undefined) {
+           ctrl.filter.nonFree = toNonFreeString($stateParams.nonFree);
+           storage.setJs("isNonFree", ctrl.filter.nonFree, true);
+         } else {
+           const isNonFree = storage.getJs("isNonFree", true);
+           if (isNonFree === null) {
+             ctrl.filter.nonFree = toNonFreeString($stateParams.nonFree);
+             storage.setJs("isNonFree", ctrl.filter.nonFree, true);
+           } else {
+             ctrl.filter.nonFree = isNonFreeString(isNonFree) ? 'true' : 'false';
+           }
+         }
 
         //-org owned-
         const structuredQuery = structureQuery(ctrl.filter.query);

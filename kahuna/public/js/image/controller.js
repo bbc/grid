@@ -28,6 +28,9 @@ import '../components/gu-date/gu-date';
 import {radioList} from '../components/gr-radio-list/gr-radio-list';
 import {cropUtil} from '../util/crop';
 import { List } from 'immutable';
+
+const toNonFreeString = (val) => (val === true || val === 'true') ? 'true' : 'false';
+
 const image = angular.module('kahuna.image.controller', [
   'util.rx',
   'util.storage',
@@ -228,11 +231,11 @@ image.controller('ImageCtrl', [
         const showPaid = session.user.permissions.showPaid ? session.user.permissions.showPaid : undefined;
         const defaultNonFreeFilter = {
           isDefault: true,
-          isNonFree: showPaid ? showPaid : false
+          isNonFree: toNonFreeString(showPaid)
         };
         storage.setJs("defaultNonFreeFilter", defaultNonFreeFilter, true);
         window.dispatchEvent(new CustomEvent("logoClick", {
-          detail: {showPaid: defaultNonFreeFilter.isNonFree},
+          detail: {showPaid: defaultNonFreeFilter.isNonFree === 'true'},
           bubbles: true
         }));
         scrollPosition.resetToTop();

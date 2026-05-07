@@ -32,6 +32,8 @@ import collectionsPanelTemplate from
 import {cropUtil} from '../util/crop';
 import { COLLECTION_SORT_VALUE } from '../components/gr-sort-control/gr-sort-control-config';
 
+const toNonFreeString = (val) => (val === true || val === 'true') ? 'true' : 'false';
+
 export var search = angular.module('kahuna.search', [
     'ct.ui.router.extras.dsr',
     'kahuna.search.query',
@@ -111,12 +113,12 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                 const showPaid = session.user.permissions.showPaid ? session.user.permissions.showPaid : undefined;
                 const defaultNonFreeFilter = {
                   isDefault: true,
-                  isNonFree: showPaid ? showPaid : false
+                  isNonFree: toNonFreeString(showPaid)
                 };
                 storage.setJs("defaultNonFreeFilter", defaultNonFreeFilter, true);
                 $state.go('search.results', {nonFree: defaultNonFreeFilter.isNonFree});
                 window.dispatchEvent(new CustomEvent("logoClick", {
-                  detail: {showPaid: defaultNonFreeFilter.isNonFree},
+                  detail: {showPaid: defaultNonFreeFilter.isNonFree === 'true'},
                   bubbles: true
                 }));
                 scrollPosition.resetToTop();
@@ -125,7 +127,7 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
 
             if ($state.current.name === 'search') {
               mediaApi.getSession().then(session => {
-                storage.setJs('isNonFree', session.user.permissions.showPaid, true);
+                storage.setJs('isNonFree', toNonFreeString(session.user.permissions.showPaid), true);
               });
             }
 
