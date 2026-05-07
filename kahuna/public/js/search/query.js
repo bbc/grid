@@ -160,17 +160,19 @@ query.controller('SearchQueryCtrl', [
       storage.setJs("isUploadedByMe", ctrl.filter.uploadedByMe, true);
     }
 
-    function manageDefaultNonFree(filter) {
+    function manageDefaultNonFree() {
         const defaultNonFreeFilter = storage.getJs("defaultNonFreeFilter", true);
         if (defaultNonFreeFilter && defaultNonFreeFilter.isDefault === true){
-          let newNonFree = toNonFreeString(defaultNonFreeFilter.isNonFree);
-          if (newNonFree !== filter.nonFree) {
-            storage.setJs("isNonFree", toNonFreeString(newNonFree), true);
-            storage.setJs("defaultIsNonFree", toNonFreeString(newNonFree), true);
-            storage.setJs("isUploadedByMe", false, true);
-            storage.setJs("defaultNonFreeFilter", {isDefault: false, isNonFree: toNonFreeString(false)}, true);
-            ctrl.filter.orgOwned = false;
+          const newNonFree = toNonFreeString(defaultNonFreeFilter.isNonFree);
+          storage.setJs("isNonFree", newNonFree, true);
+          storage.setJs("defaultIsNonFree", newNonFree, true);
+          storage.setJs("isUploadedByMe", false, true);
+          storage.setJs("defaultNonFreeFilter", {isDefault: false, isNonFree: newNonFree}, true);
+          ctrl.filterMyUploads = false;
+          if (ctrl.myUploadsProps) {
+            syncMyUploadsProps();
           }
+          ctrl.filter.orgOwned = false;
           Object.assign(ctrl.filter, {nonFree: newNonFree, uploadedByMe: false, uploadedBy: undefined});
           raiseFilterChangeEvent(ctrl.filter);
         }
@@ -282,7 +284,7 @@ query.controller('SearchQueryCtrl', [
 
       //--update filter elements--
       manageUploadedBy(newFilter, sender);
-      manageDefaultNonFree(newFilter);
+      manageDefaultNonFree();
       manageOrgOwnedSetting(newFilter);
 
       const { nonFree, uploadedByMe } = ctrl.filter;
