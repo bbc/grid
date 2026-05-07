@@ -44,7 +44,7 @@ class ReaperController(
 
   implicit val logMarker: MarkerMap = MarkerMap()
 
-  // comment to force build of thrall to deploy reaper updates
+  // will use BBC Component - reset comment to force build
   private val isReapable = maybeCustomReapableEligibility getOrElse {
     new ReapableEligibility {
       override val maybePersistOnlyTheseCollections: Option[Set[String]] = config.maybePersistOnlyTheseCollections
