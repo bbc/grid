@@ -126,7 +126,7 @@ function getKahunaConfig(config){
         |]`;
 
     const permissionsConfig = stripMargin`
-      |usePermissionsFilter=false
+      |usePermissionsFilter=true
       |permissionsDefault="allPermissions"
       `;
 
