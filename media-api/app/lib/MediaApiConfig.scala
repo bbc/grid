@@ -1,11 +1,9 @@
 package lib
 
 import com.gu.mediaservice.lib.config.{CommonConfigWithElastic, GridConfigResources}
+import com.gu.mediaservice.lib.elasticsearch.client.GridEsQueryDsl._
+import com.gu.mediaservice.lib.elasticsearch.client.GridEsQuery
 import com.gu.mediaservice.lib.elasticsearch.filters
-import com.sksamuel.elastic4s.ElasticApi.{matchPhraseQuery, should}
-import com.sksamuel.elastic4s.ElasticDsl.matchQuery
-import com.sksamuel.elastic4s.requests.searches.queries.Query
-import com.sksamuel.elastic4s.requests.searches.queries.matches.MatchQuery
 import org.joda.time.DateTime
 import scalaz.NonEmptyList
 
@@ -79,7 +77,7 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
   val aiSearchResultLimit: Int = intOpt("ai.search.resultLimit").getOrElse(200)
   val aiSearchEmbeddingCacheMaxSize: Int = intOpt("ai.search.embeddingCache.maxSize").getOrElse(500)
 
-  val maybeAgencyPickQuery: Option[Query] = agencyPicksIngredients.map { ingredients =>
+  val maybeAgencyPickQuery: Option[GridEsQuery] = agencyPicksIngredients.map { ingredients =>
     filters.or(
       ingredients.flatMap {
         case (field, values) => values.map(matchPhraseQuery(field, _))

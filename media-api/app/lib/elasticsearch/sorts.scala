@@ -1,32 +1,32 @@
 package lib.elasticsearch
 
-import com.sksamuel.elastic4s.ElasticDsl._
-import com.sksamuel.elastic4s.requests.searches.sort.{Sort, SortOrder}
+import com.gu.mediaservice.lib.elasticsearch.client._
+import com.gu.mediaservice.lib.elasticsearch.client.GridEsQueryDsl._
 
 object sorts {
 
-  private val UploadTimeDescending: Sort = fieldSort("uploadTime").order(SortOrder.DESC)
+  private val UploadTimeDescending: GridSort = GridFieldSort("uploadTime", GridSortOrder.DESC)
+
   private val HasDescFieldPrefix = "-(.+)".r
+
   // extensible list of sort field replacements
   private val SortReplacements = List(
     ("taken", "metadata.dateTaken,-uploadTime")
   )
 
-  def createSort(sortBy: Option[String]): Seq[Sort] = {
+  def createSort(sortBy: Option[String]): Seq[GridSort] =
     sortBy.fold(Seq(UploadTimeDescending))(parseSortBy)
-  }
 
-  // This is a special case in the elastic1 code which does not fit well as it also effects the query criteria
-  def dateAddedToCollectionDescending: Seq[Sort] = Seq(fieldSort("collections.actionData.date").order(SortOrder.DESC))
+  def dateAddedToCollectionDescending: Seq[GridSort] =
+    Seq(GridFieldSort("collections.actionData.date", GridSortOrder.DESC))
 
-  private def parseSortBy(sortBy: String): Seq[Sort] = {
-    val sortString = SortReplacements.foldLeft(sortBy) { (str, replacement) =>
-        str.replace(replacement._1, replacement._2)
-      }
+  private def parseSortBy(sortBy: String): Seq[GridSort] = {
+    val sortString = SortReplacements.foldLeft(sortBy) { (str, r) =>
+      str.replace(r._1, r._2)
+    }
     sortString.split(',').toList.map {
-        case HasDescFieldPrefix(field) => fieldSort(field).order(SortOrder.DESC)
-        case field => fieldSort(field).order(SortOrder.ASC)
-      }
+      case HasDescFieldPrefix(field) => GridFieldSort(field, GridSortOrder.DESC)
+      case field                     => GridFieldSort(field, GridSortOrder.ASC)
+    }
   }
-
 }

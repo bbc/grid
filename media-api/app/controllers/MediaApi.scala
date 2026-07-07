@@ -17,6 +17,7 @@ import com.gu.mediaservice.model._
 import com.gu.mediaservice.syntax.MessageSubjects
 import com.gu.mediaservice.{GridClient, JsonDiff}
 import com.sksamuel.elastic4s.requests.searches.queries.Query
+import com.gu.mediaservice.lib.elasticsearch.client.compat.GridEsQueryConversions._
 import lib._
 import lib.elasticsearch._
 import org.apache.http.entity.ContentType
@@ -595,7 +596,7 @@ class MediaApi(
         elasticSearch.syndicationFilter
       )
 
-      elasticSearch.searchFilters.filterAndFilter(chipFilterOpt, requestFilterOpt)
+      elasticSearch.searchFilters.filterAndFilter(chipFilterOpt, requestFilterOpt).map(gridQueryToEs4s)
     }
 
     def emptyAiSearchResponse =

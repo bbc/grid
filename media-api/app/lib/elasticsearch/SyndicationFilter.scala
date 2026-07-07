@@ -1,45 +1,23 @@
 package lib.elasticsearch
 
 import com.gu.mediaservice.lib.ImageFields
+import com.gu.mediaservice.lib.elasticsearch.client._
+import com.gu.mediaservice.lib.elasticsearch.client.GridEsQueryDsl._
 import com.gu.mediaservice.lib.elasticsearch.filters
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.{AllowSyndicationLease, DenySyndicationLease}
 import com.gu.mediaservice.model.usage.SyndicationUsage
-import com.sksamuel.elastic4s.requests.searches.RuntimeMapping
-import com.sksamuel.elastic4s.requests.searches.queries.Query
 import lib.MediaApiConfig
 import org.joda.time.DateTime
 
 class SyndicationFilter(config: MediaApiConfig) extends ImageFields {
 
-  val isSyndicationDateFilterActive = config.isProd
+  val isSyndicationDateFilterActive: Boolean = config.isProd
 
-  private def syndicationRightsAcquired(acquired: Boolean): Query = filters.boolTerm(
-    field = "syndicationRights.rights.acquired",
-    value = acquired
-  )
+  val hasActiveDeny: TermQuery = filters.boolTerm("hasActiveDenySyndicationLease", value = true)
 
-  private val noRightsAcquired: Query = filters.or(
-    filters.existsOrMissing("syndicationRights.rights.acquired", exists = false),
-    syndicationRightsAcquired(false)
-  )
-
-  private val hasRightsAcquired: Query = syndicationRightsAcquired(true)
-
-  private val hasAllowLease: Query = filters.term(
-    "leases.leases.access",
-    AllowSyndicationLease.name
-  )
-
-  private val hasDenyLease: Query = filters.term(
-    "leases.leases.access",
-    DenySyndicationLease.name
-  )
-
-  val hasActiveDeny =
-    filters.boolTerm("hasActiveDenySyndicationLease", value = true)
-
-  val syndicationReviewQueueFixMapping = RuntimeMapping(
+  /** Runtime mapping – replaces elastic4s RuntimeMapping */
+  lazy val syndicationReviewQueueFixMapping: GridRuntimeMapping = GridRuntimeMapping(
     field = hasActiveDeny.field,
     `type` = "boolean",
     scriptSource =
@@ -57,29 +35,52 @@ class SyndicationFilter(config: MediaApiConfig) extends ImageFields {
          |""".stripMargin
   )
 
-  private val hasSyndicationUsage: Query = filters.term(
+  private def syndicationRightsAcquired(acquired: Boolean): TermQuery = filters.boolTerm(
+    field = "syndicationRights.rights.acquired",
+    value = acquired
+  )
+
+  private val noRightsAcquired: GridEsQuery = filters.or(
+    filters.existsOrMissing("syndicationRights.rights.acquired", exists = false),
+    syndicationRightsAcquired(false)
+  )
+
+  private val hasRightsAcquired: TermQuery = syndicationRightsAcquired(true)
+
+  private val hasAllowLease: TermQuery = filters.term(
+    "leases.leases.access",
+    AllowSyndicationLease.name
+  )
+
+  private val hasDenyLease: TermQuery = filters.term(
+    "leases.leases.access",
+    DenySyndicationLease.name
+  )
+
+
+  private val hasSyndicationUsage: TermQuery = filters.term(
     "usagesPlatform",
     SyndicationUsage.toString
   )
 
-  private def leaseHasStarted: Query = filters.or(
+  private def leaseHasStarted: GridEsQuery = filters.or(
     filters.existsOrMissing("leases.leases.startDate", exists = false),
     filters.date("leases.leases.startDate", None, Some(DateTime.now)).get
   )
 
-  private def leaseHasNotExpired: Query = filters.or(
+  private def leaseHasNotExpired: GridEsQuery = filters.or(
     filters.existsOrMissing("leases.leases.endDate", exists = false),
     filters.date("leases.leases.endDate", Some(DateTime.now), None).get
   )
 
-  private def syndicationRightsPublished: Query = filters.or(
+  private def syndicationRightsPublished: GridEsQuery = filters.or(
     filters.existsOrMissing("syndicationRights.published", exists = false),
     filters.date("syndicationRights.published", None, Some(DateTime.now)).get
   )
 
-  private val syndicatableCategory: Query = IsOwnedPhotograph(config.staffPhotographerOrganisation).query
+  private val syndicatableCategory: GridEsQuery = IsOwnedPhotograph(config.staffPhotographerOrganisation).query
 
-  def statusFilter(status: SyndicationStatus): Query = status match {
+  def statusFilter(status: SyndicationStatus): GridEsQuery = status match {
     case SentForSyndication => filters.and(
       hasRightsAcquired,
       hasAllowLease,
@@ -98,25 +99,19 @@ class SyndicationFilter(config: MediaApiConfig) extends ImageFields {
       hasRightsAcquired,
       hasDenyLease
     )
-    case AwaitingReviewForSyndication => {
-
+    case AwaitingReviewForSyndication =>
       val mustNotClauses = List(
         hasAllowLease,
-        filters.and(
-          hasDenyLease,
-          leaseHasNotExpired
-        ),
+        filters.and(hasDenyLease, leaseHasNotExpired),
       ) ++ (
-        if(config.useRuntimeFieldsToFixSyndicationReviewQueueQuery)
-          List(hasActiveDeny) // this is last, to ensure runtime field is not computed unnecessarily
-        else
-          Nil
+        if (config.useRuntimeFieldsToFixSyndicationReviewQueueQuery) List(hasActiveDeny)
+        else Nil
       )
 
       val rightsAcquiredNoLeaseFilter = filters.and(
         hasRightsAcquired,
         syndicatableCategory,
-        filters.mustNot(mustNotClauses:_*),
+        filters.mustNot(mustNotClauses: _*)
       )
 
       config.syndicationStartDate match {
@@ -126,8 +121,6 @@ class SyndicationFilter(config: MediaApiConfig) extends ImageFields {
         )
         case _ => rightsAcquiredNoLeaseFilter
       }
-    }
     case UnsuitableForSyndication => noRightsAcquired
   }
-
 }

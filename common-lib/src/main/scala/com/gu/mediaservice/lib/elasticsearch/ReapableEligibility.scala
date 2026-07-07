@@ -1,26 +1,25 @@
 package com.gu.mediaservice.lib.elasticsearch
 
-import com.sksamuel.elastic4s.ElasticDsl.matchAllQuery
-import com.sksamuel.elastic4s.requests.searches.queries.Query
+import com.gu.mediaservice.lib.elasticsearch.client._
+import com.gu.mediaservice.lib.elasticsearch.client.GridEsQueryDsl._
 import org.joda.time.DateTime
 import com.gu.mediaservice.lib.config.Provider
 import scalaz.NonEmptyList
 
 import scala.concurrent.Future
 
-trait ReapableEligibility extends Provider{
+trait ReapableEligibility extends Provider {
 
   def initialise(): Unit = {}
   def shutdown(): Future[Unit] = Future.successful(())
 
+  val maybePersistOnlyTheseCollections: Option[Set[String]]
+  val persistenceIdentifiers: NonEmptyList[String]
 
-  val maybePersistOnlyTheseCollections: Option[Set[String]] // typically from config
-  val persistenceIdentifiers: NonEmptyList[String] // typically from config
-
-  private def moreThanTwentyDaysOld =
+  private def moreThanTwentyDaysOld: GridEsQuery =
     filters.date("uploadTime", None, Some(DateTime.now().minusDays(20))).getOrElse(matchAllQuery())
 
-  private lazy val persistedQueries = filters.or(
+  private lazy val persistedQueries: GridEsQuery = filters.or(
     PersistedQueries.hasCrops,
     PersistedQueries.usedInContent,
     PersistedQueries.addedToLibrary,
@@ -35,7 +34,7 @@ trait ReapableEligibility extends Provider{
     PersistedQueries.isInPersistedCollection(maybePersistOnlyTheseCollections)
   )
 
-  def query: Query = filters.and(
+  def query: GridEsQuery = filters.and(
     moreThanTwentyDaysOld,
     filters.not(persistedQueries)
   )

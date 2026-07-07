@@ -1,45 +1,40 @@
 package com.gu.mediaservice.lib.elasticsearch
 
+import com.gu.mediaservice.lib.elasticsearch.client._
+import com.gu.mediaservice.lib.elasticsearch.client.GridEsQueryDsl._
 import com.gu.mediaservice.lib.formatting.printDateTime
-import com.sksamuel.elastic4s.ElasticDsl
-import com.sksamuel.elastic4s.ElasticDsl._
-import com.sksamuel.elastic4s.requests.searches.queries.compound.BoolQuery
-import com.sksamuel.elastic4s.requests.searches.queries.{NestedQuery, Query}
-import com.sksamuel.elastic4s.requests.searches.term.TermQuery
 import org.joda.time.DateTime
 import scalaz.NonEmptyList
 import scalaz.syntax.foldable1._
 
 object filters {
 
-  def and(queries: Query*): Query = must(queries)
+  def and(queries: GridEsQuery*): GridEsQuery = must(queries: _*)
 
-  def or(queries: Query*): Query = should(queries)
+  def or(queries: GridEsQuery*): GridEsQuery = should(queries: _*)
 
-  def or(queries: NonEmptyList[Query]): Query = {
-    should(queries.toList: _*)
-  }
+  def or(queries: NonEmptyList[GridEsQuery]): GridEsQuery = should(queries.toList: _*)
 
   def boolTerm(field: String, value: Boolean): TermQuery = termQuery(field, value)
 
   /**
    * Range query based on dates
    * @param field Field name to query
-   * @param from Lower bound for date (exclusive)
-   * @param to Upper bound for date (exclusive)
+   * @param from  Lower bound for date (exclusive)
+   * @param to    Upper bound for date (exclusive)
    * @return Suitable query
    */
-  def date(field: String, from: DateTime, to: DateTime): Query =
+  def date(field: String, from: DateTime, to: DateTime): GridEsQuery =
     rangeQuery(field).gt(printDateTime(from)).lt(printDateTime(to))
 
   /**
-   * Range query based on dates - handles optional to and from
+   * Range query based on dates – handles optional to and from
    * @param field Field name to query
-   * @param from Lower bound for date (exclusive)
-   * @param to Upper bound for date (exclusive)
+   * @param from  Lower bound for date (exclusive)
+   * @param to    Upper bound for date (exclusive)
    * @return Suitable query if at least one of `from` and `to` is defined; otherwise nothing
    */
-  def date(field: String, from: Option[DateTime], to: Option[DateTime]): Option[Query] =
+  def date(field: String, from: Option[DateTime], to: Option[DateTime]): Option[GridEsQuery] =
     if (from.isDefined || to.isDefined) {
       val builder = rangeQuery(field)
       val withFrom = from.fold(builder)(f => builder.gt(printDateTime(f)))
@@ -48,47 +43,40 @@ object filters {
       None
     }
 
-  def exists(fields: NonEmptyList[String]): Query =
-    fields.map(f => existsQuery(f): Query).foldRight1(and(_, _))
+  def exists(fields: NonEmptyList[String]): GridEsQuery =
+    fields.map(f => existsQuery(f): GridEsQuery).foldRight1(and(_, _))
 
-  def missing(fields: NonEmptyList[String]): Query =
-    fields.map(f => not(existsQuery(f)): Query).foldRight1(and(_, _))
+  def missing(fields: NonEmptyList[String]): GridEsQuery =
+    fields.map(f => not(existsQuery(f)): GridEsQuery).foldRight1(and(_, _))
 
-  def ids(idList: List[String]): Query = idsQuery(idList)
+  def ids(idList: List[String]): GridEsQuery = idsQuery(idList)
 
-  def pinnedIds(idList: List[String]): Query = pinnedQuery(ids = idList, organic = matchNoneQuery())
+  def pinnedIds(idList: List[String]): GridEsQuery = pinnedQuery(ids = idList, organic = matchNoneQuery())
 
-  def bool() = BoolQuery()
+  def bool(): BoolQuery = BoolQuery()
 
-  def mustNot(queries: Query*): Query = ElasticDsl.not(queries)
+  def mustNot(queries: GridEsQuery*): BoolQuery = BoolQuery().withNot(queries: _*)
 
-  def term(field: String, term: String): Query = termQuery(field, term)
-  def term(field: String, term: Int): Query = termQuery(field, term)
+  def term(field: String, t: String): TermQuery  = termQuery(field, t)
+  def term(field: String, t: Int): TermQuery     = termQuery(field, t)
 
-  def terms(field: String, terms: NonEmptyList[String]): Query = {
-    termsQuery(field, terms.list.toList)
-  }
+  def terms(field: String, ts: NonEmptyList[String]): GridEsQuery =
+    termsQuery(field, ts.list.toList)
 
-  def existsOrMissing(field: String, exists: Boolean): Query = if (exists) {
-    existsQuery(field)
-  } else {
-    not(existsQuery(field))
-  }
+  def terms(field: String, ts: Iterable[String]): GridEsQuery =
+    termsQuery(field, ts.toSeq)
 
-  def anyMissing(fields: NonEmptyList[String]): Query =
-    fields.map(f => not(existsQuery(f)): Query).foldRight1(or(_, _))
+  def existsOrMissing(field: String, exists: Boolean): GridEsQuery =
+    if (exists) existsQuery(field)
+    else not(existsQuery(field))
 
-  def not(filter: Query): Query = {
-    ElasticDsl.not(filter)
-  }
+  def anyMissing(fields: NonEmptyList[String]): GridEsQuery =
+    fields.map(f => not(existsQuery(f)): GridEsQuery).foldRight1(or(_, _))
 
-  def mustWithMustNot(mustClause: Query, mustNotClause: Query): Query = {
-    bool().must(
-      mustClause
-    ).withNot(
-      mustNotClause
-    )
-  }
+  def not(filter: GridEsQuery): BoolQuery = BoolQuery().withNot(filter)
 
-  def nested(path: String, query: Query) = NestedQuery(path, query)
+  def mustWithMustNot(mustClause: GridEsQuery, mustNotClause: GridEsQuery): BoolQuery =
+    bool().must(mustClause).withNot(mustNotClause)
+
+  def nested(path: String, query: GridEsQuery): NestedQuery = nestedQuery(path, query)
 }

@@ -18,6 +18,9 @@ import com.sksamuel.elastic4s.requests.searches.queries.compound.BoolQuery
 import com.sksamuel.elastic4s.requests.searches.sort.SortOrder
 import com.sksamuel.elastic4s.requests.update.UpdateRequest
 import com.sksamuel.elastic4s.{ElasticDsl, Executor, Functor, Handler, Response}
+// Migration compat shim – allows GridEsQuery to be passed where elastic4s Query is expected.
+// Remove once this file is fully migrated to GridEsClient.
+import com.gu.mediaservice.lib.elasticsearch.client.compat.GridEsQueryConversions._
 import lib.{BatchDeletionIds, ThrallMetrics}
 import org.joda.time.DateTime
 import play.api.libs.json.JsValue.jsValueToJsLookup

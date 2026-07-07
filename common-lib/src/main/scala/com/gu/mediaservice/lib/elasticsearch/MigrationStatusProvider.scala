@@ -1,8 +1,6 @@
 package com.gu.mediaservice.lib.elasticsearch
 
 import org.apache.pekko.actor.Scheduler
-import com.sksamuel.elastic4s.Index
-
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.Await
 import scala.concurrent.duration.DurationInt

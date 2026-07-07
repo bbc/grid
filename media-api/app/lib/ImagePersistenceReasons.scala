@@ -1,8 +1,8 @@
 package lib
 
 import com.gu.mediaservice.lib.elasticsearch.PersistedQueries
+import com.gu.mediaservice.lib.elasticsearch.client.GridEsQuery
 import com.gu.mediaservice.model.{CommissionedAgency, Illustrator, Image, ImageMetadata, Photographer}
-import com.sksamuel.elastic4s.requests.searches.queries.Query
 import scalaz.NonEmptyList
 
 
@@ -28,7 +28,7 @@ case class ImagePersistenceReasons(maybePersistOnlyTheseCollections: Option[Set[
 
 sealed trait PersistenceReason {
   def shouldPersist(image: Image): Boolean
-  val query: Query
+  val query: GridEsQuery  // was: elastic4s Query
   val reason: String
 }
 
@@ -37,13 +37,13 @@ case class HasPersistenceIdentifier(persistenceIdentifiers: NonEmptyList[String]
 
   override val reason: String = "persistence-identifier"
 
-  override val query: Query = PersistedQueries.hasPersistedIdentifier(persistenceIdentifiers)
+  override val query: GridEsQuery = PersistedQueries.hasPersistedIdentifier(persistenceIdentifiers)
 }
 
 object HasExports extends PersistenceReason {
   override def shouldPersist(image: Image): Boolean = image.hasExports
 
-  override val query: Query = PersistedQueries.hasCrops
+  override val query: GridEsQuery = PersistedQueries.hasCrops
 
   override val reason: String = "exports"
 }
@@ -51,7 +51,7 @@ object HasExports extends PersistenceReason {
 object HasUsages extends PersistenceReason {
   override def shouldPersist(image: Image): Boolean = image.hasUsages
 
-  override val query: Query = PersistedQueries.usedInContent
+  override val query: GridEsQuery = PersistedQueries.usedInContent
 
   override val reason: String = "usages"
 }
@@ -59,7 +59,7 @@ object HasUsages extends PersistenceReason {
 object IsArchived extends PersistenceReason {
   override def shouldPersist(image: Image): Boolean = image.userMetadata.exists(_.archived)
 
-  override val query: Query = PersistedQueries.addedToLibrary
+  override val query: GridEsQuery = PersistedQueries.addedToLibrary
   override val reason: String = "archived"
 }
 
@@ -69,7 +69,7 @@ object IsPhotographerCategory extends PersistenceReason {
     case _ => false
   }
 
-  override val query: Query = PersistedQueries.hasPhotographerUsageRights
+  override val query: GridEsQuery = PersistedQueries.hasPhotographerUsageRights
   override val reason: String = "photographer-category"
 }
 
@@ -79,7 +79,7 @@ object IsIllustratorCategory extends PersistenceReason {
     case _ => false
   }
 
-  override val query: Query = PersistedQueries.hasIllustratorUsageRights
+  override val query: GridEsQuery = PersistedQueries.hasIllustratorUsageRights
   override val reason: String = "illustrator-category"
 }
 
@@ -90,14 +90,14 @@ object IsAgencyCommissionedCategory extends PersistenceReason {
   }
 
 
-  override val query: Query = PersistedQueries.hasAgencyCommissionedUsageRights
+  override val query: GridEsQuery = PersistedQueries.hasAgencyCommissionedUsageRights
   override val reason: String = CommissionedAgency.category
 }
 
 object HasLeases extends PersistenceReason {
   override def shouldPersist(image: Image): Boolean = image.leases.leases.nonEmpty
 
-  override val query: Query = PersistedQueries.hasLeases
+  override val query: GridEsQuery = PersistedQueries.hasLeases
   override val reason: String = "leases"
 }
 
@@ -110,27 +110,27 @@ case class IsInPersistedCollection(maybePersistOnlyTheseCollections: Option[Set[
     case _ => false
   }
 
-  override val query: Query = PersistedQueries.isInPersistedCollection(maybePersistOnlyTheseCollections)
+  override val query: GridEsQuery = PersistedQueries.isInPersistedCollection(maybePersistOnlyTheseCollections)
   override val reason: String = "persisted-collection"
 }
 
 object AddedToPhotoshoot extends PersistenceReason {
   override def shouldPersist(image: Image): Boolean = image.userMetadata.exists(_.photoshoot.isDefined)
 
-  override val query: Query = PersistedQueries.addedToPhotoshoot
+  override val query: GridEsQuery = PersistedQueries.addedToPhotoshoot
   override val reason: String = "photoshoot"
 }
 
 object HasLabels extends PersistenceReason {
   override def shouldPersist(image: Image): Boolean = image.userMetadata.exists(_.labels.nonEmpty)
 
-  override val query: Query = PersistedQueries.hasLabels
+  override val query: GridEsQuery = PersistedQueries.hasLabels
   override val reason: String = "labeled"
 }
 
 object HasUserEdits extends PersistenceReason {
   override def shouldPersist(image: Image): Boolean = image.userMetadata.exists(ed => ed.metadata != ImageMetadata.empty)
 
-  override val query: Query = PersistedQueries.hasUserEditsToImageMetadata
+  override val query: GridEsQuery = PersistedQueries.hasUserEditsToImageMetadata
   override val reason: String = "edited"
 }

@@ -23,6 +23,9 @@ import com.sksamuel.elastic4s.requests.searches.knn.Knn
 import com.sksamuel.elastic4s.requests.searches.queries.compound.BoolQuery
 import com.sksamuel.elastic4s.requests.searches.queries.matches.MultiMatchQueryBuilderType.BEST_FIELDS
 import com.sksamuel.elastic4s.requests.searches.queries.matches.{FieldWithOptionalBoost, MultiMatchQuery}
+// Migration compat shim – allows GridEsQuery / GridSort / GridRuntimeMapping to be
+// passed where elastic4s types are expected. Remove once this file is fully migrated.
+import com.gu.mediaservice.lib.elasticsearch.client.compat.GridEsQueryConversions._
 import lib.querysyntax.{HierarchyField, Match, Parser, Phrase}
 import lib.{MediaApiConfig, MediaApiMetrics, SupplierUsageSummary}
 import play.api.libs.json.{JsError, JsObject, JsSuccess, Json}
@@ -297,7 +300,7 @@ class ElasticSearch(
   def search(params: SearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal], logMarker: LogMarker = MarkerMap()): Future[SearchResults] = {
     val query: Query = queryBuilder.makeQuery(params.structuredQuery)
 
-    val filterOpt: Option[Query] = queryBuilder.buildFilterOpt(params, searchFilters, syndicationFilter)
+    val filterOpt: Option[Query] = queryBuilder.buildFilterOpt(params, searchFilters, syndicationFilter).map(gridQueryToEs4s)
 
     val withFilter = filterOpt.map { f =>
       boolQuery() must (query) filter f
@@ -335,7 +338,7 @@ class ElasticSearch(
 
     val searchRequest = prepareSearch(withFilter)
       .trackTotalHits(trackTotalHits)
-      .runtimeMappings(runtimeMappings)
+      .runtimeMappings(runtimeMappings.map(gridRuntimeMappingToEs4s))
       .storedFields("_source") // this needs to be explicit when using script fields
       .scriptfields(graphicImagesScriptFields)
       .aggregations(aggregationsNameToSearchClauseMap.map {
@@ -344,7 +347,7 @@ class ElasticSearch(
       })
       .from(params.offset)
       .size(params.length)
-      .sortBy(sort)
+      .sortBy(sort.map(gridSortToEs4s))
 
     executeAndLog(searchRequest, "image search").
       toMetric(Some(mediaApiMetrics.searchQueries), List(mediaApiMetrics.searchTypeDimension("results")))(_.result.took).map { r =>
@@ -476,8 +479,12 @@ class ElasticSearch(
       case running: Running => List(imagesCurrentAlias, running.migrationIndexName)
       case _ => List(imagesCurrentAlias)
     }
-    val migrationAwareQuery = migrationStatus match {
-      case running: Running => filters.and(query, filters.mustNot(filters.term("esInfo.migration.migratedTo", running.migrationIndexName)))
+    val migrationAwareQuery: Query = migrationStatus match {
+      case running: Running =>
+        // Use elastic4s directly to avoid GridEsQuery/Query boundary crossing
+        boolQuery().must(query).filter(
+          boolQuery().not(termQuery("esInfo.migration.migratedTo", running.migrationIndexName))
+        )
       case _ => query
     }
     val searchRequest = ElasticDsl.search(indexes) query migrationAwareQuery

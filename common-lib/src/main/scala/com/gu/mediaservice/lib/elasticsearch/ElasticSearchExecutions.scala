@@ -1,10 +1,17 @@
 package com.gu.mediaservice.lib.elasticsearch
 
 import com.gu.mediaservice.lib.logging._
+import com.gu.mediaservice.lib.elasticsearch.client.{GridEsClient, GridEsExecutions}
 import com.sksamuel.elastic4s._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
+/**
+ * LEGACY execution wrapper – kept for backward compatibility while thrall and
+ * media-api are being migrated to [[GridEsExecutions]].
+ *
+ * TODO: Replace usages with [[GridEsExecutions]] / [[GridEsClient]] then remove this trait.
+ */
 trait ElasticSearchExecutions extends GridLogging {
 
   def client: ElasticClient
@@ -29,7 +36,12 @@ trait ElasticSearchExecutions extends GridLogging {
               logger.warn(logMarkers, s"No image found for $message.")
               Success(r)
             case 404 => Failure(ElasticNotFoundException)
-            case _ => Failure(ElasticSearchException(r.error))
+            case _ => Failure(ElasticSearchException(
+              com.gu.mediaservice.lib.elasticsearch.client.GridEsError(
+                `type` = r.error.`type`,
+                reason = r.error.reason
+              )
+            ))
           }
         }
       case Failure(f) => Failure(f)
@@ -52,7 +64,7 @@ trait ElasticSearchExecutions extends GridLogging {
         case _ =>
           logger.error(
             combineMarkers(logMarkers, elapsed, MarkerMap(Map("reason" -> "unknown es error"))),
-          s"$message - query failed",
+            s"$message - query failed",
             e
           )
       }
