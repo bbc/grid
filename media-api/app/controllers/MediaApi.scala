@@ -10,6 +10,7 @@ import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws._
 import com.gu.mediaservice.lib.config.Services
 import com.gu.mediaservice.lib.formatting.printDateTime
+import com.gu.mediaservice.lib.imgproxy.ImgProxyUrlBuilder
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.lib.metadata.SoftDeletedMetadataTable
 import com.gu.mediaservice.lib.play.RequestLoggingFilter
@@ -420,6 +421,28 @@ class MediaApi(
     }
   }
 
+  /**
+   * Fetch `imgproxyUrl` server-side and stream its response straight back to the client, with our own
+   * `Content-Disposition` header, rather than issuing a redirect (302) to imgproxy directly.
+   *
+   * This matters for downloads specifically: a redirect works fine for a plain browser navigation (e.g. an
+   * `<a href download>` link), but the "download multiple images as a zip" feature in Kahuna fetches each
+   * image's bytes via an authenticated XHR (`$http.get(..., {withCredentials: true})`). Browsers apply CORS
+   * rules across the *whole* redirect chain for a credentialed XHR, including to the (cross-origin) imgproxy
+   * hop - so proxying here, rather than redirecting, means the browser only ever sees a same-origin response
+   * from media-api, sidestepping any cross-origin/CORS complications with imgproxy for that use case.
+   */
+  private def streamImgproxyDownload(imgproxyUrl: String, contentDisposition: String)(implicit logMarker: LogMarker): Future[Result] =
+    ws.url(imgproxyUrl).stream().map { response =>
+      if (response.status != OK) {
+        logger.warn(logMarker, s"imgproxy returned ${response.status} for download proxy request")
+      }
+      val contentType = response.header(HttpHeaders.CONTENT_TYPE)
+      val contentLength = response.header(HttpHeaders.CONTENT_LENGTH).flatMap(cl => Try(cl.toLong).toOption)
+      Result(ResponseHeader(response.status), HttpEntity.Streamed(response.bodyAsSource, contentLength, contentType))
+        .withHeaders("Content-Disposition" -> contentDisposition)
+    }
+
   def downloadOriginalImage(id: String) = auth.async { request =>
     implicit val logMarker: LogMarker = MarkerMap(
       "requestType" -> "download-original-image",
@@ -432,17 +455,32 @@ class MediaApi(
         val apiKey = request.user.accessor
         logger.info(logMarker, s"Download original image: $id from user: ${Authentication.getIdentity(request.user)}")
         mediaApiMetrics.incrementImageDownload(apiKey, mediaApiMetrics.OriginalDownloadType)
-        val s3Object = s3Client.getObject(config.imageBucket, image.source.file)
-        val file = StreamConverters.fromInputStream(() => s3Object.getObjectContent)
-        val entity = HttpEntity.Streamed(file, image.source.size, image.source.mimeType.map(_.name))
 
         if(config.recordDownloadAsUsage) {
           postToUsages(config.usageUri + "/usages/download", auth.getOnBehalfOfPrincipal(request.user), id, Authentication.getIdentity(request.user))
         }
 
-          Future.successful(
-            Result(ResponseHeader(OK), entity).withHeaders("Content-Disposition" -> getContentDisposition(image, Source, config.shortenDownloadFilename))
+        val contentDisposition = idBasedContentDisposition(image, Source)
+
+        if (config.useImgProxy) {
+          // Proxy the download through imgproxy (rather than serving the file straight from S3) so that
+          // imgproxy's default metadata-stripping is applied to the downloaded bytes. `w:0/h:0` keeps the
+          // original dimensions - see `streamImgproxyDownload` for why we proxy rather than redirect.
+          val sourceImageUri = new URI(s3Client.signUrl(config.imageBucket, image.source.file, image, imageType = Source))
+          val imgproxyUrl = ImgProxyUrlBuilder.fixedUri(
+            config.imgproxyUri, sourceImageUri, width = 0, height = 0, quality = 100, config.awsLocalEndpoint,
+            signing = config.imgproxySigning
           )
+          streamImgproxyDownload(imgproxyUrl, contentDisposition)
+        } else {
+          val s3Object = s3Client.getObject(config.imageBucket, image.source.file)
+          val file = StreamConverters.fromInputStream(() => s3Object.getObjectContent)
+          val entity = HttpEntity.Streamed(file, image.source.size, image.source.mimeType.map(_.name))
+
+          Future.successful(
+            Result(ResponseHeader(OK), entity).withHeaders("Content-Disposition" -> contentDisposition)
+          )
+        }
       }
       case _ => Future.successful(ImageNotFound(id))
     }
@@ -484,22 +522,75 @@ class MediaApi(
         logger.info(logMarker, s"Download optimised image: $id from user: ${Authentication.getIdentity(request.user)}")
         mediaApiMetrics.incrementImageDownload(apiKey, mediaApiMetrics.OptimisedDownloadType)
 
+        val assetImageType = image.optimisedPng match {
+          case Some(_) => OptimisedPng
+          case _ => Source
+        }
         val sourceImageUri =
-          new URI(s3Client.signUrl(config.imageBucket, image.optimisedPng.getOrElse(image.source).file, image, imageType = image.optimisedPng match {
-            case Some(_) => OptimisedPng
-            case _ => Source
-          }))
+          new URI(s3Client.signUrl(config.imageBucket, image.optimisedPng.getOrElse(image.source).file, image, imageType = assetImageType))
 
         if(config.recordDownloadAsUsage) {
           postToUsages(config.usageUri + "/usages/download", auth.getOnBehalfOfPrincipal(request.user), id, Authentication.getIdentity(request.user))
         }
 
-        Future.successful(
-          Redirect(config.imgopsUri + List(sourceImageUri.getPath, sourceImageUri.getRawQuery).mkString("?") + s"&w=$width&h=$height&q=$quality")
-        )
+        if (config.useImgProxy) {
+          // Proxy (rather than redirect) through imgproxy - see `streamImgproxyDownload` for why.
+          val imgproxyUrl = ImgProxyUrlBuilder.fixedUri(
+            config.imgproxyUri, sourceImageUri, width, height, quality, config.awsLocalEndpoint,
+            signing = config.imgproxySigning
+          )
+          streamImgproxyDownload(imgproxyUrl, idBasedContentDisposition(image, assetImageType))
+        } else {
+          val optimisedUrl = config.imgopsUri + List(sourceImageUri.getPath, sourceImageUri.getRawQuery).mkString("?") + s"&w=$width&h=$height&q=$quality"
+          Future.successful(Redirect(optimisedUrl))
+        }
       }
       case _ => Future.successful(ImageNotFound(id))
     }
+  }
+
+  /**
+   * Redirect (302) to a freshly-signed imgproxy URL for the requested width/height/quality, for inline
+   * display (e.g. `<img src>`) - unlike `streamImgproxyDownload`, there's no need to proxy the bytes back
+   * through media-api here, since plain image loads don't carry credentials, so there's no cross-origin/CORS
+   * concern with redirecting the browser straight to imgproxy.
+   *
+   * This exists specifically to support imgproxy deployments that require signed requests (see
+   * `ImgProxyUrlBuilder`): the `optimised`/`optimisedPng` links are otherwise URI Templates that Kahuna
+   * expands client-side with concrete w/h/q values (see `ImageResponse.makeImgopsUri`), which can't be
+   * pre-signed. Routing through media-api lets us sign for the *actual* requested dimensions, per request.
+   */
+  private def redirectToResizedImage(id: String, assetType: ImageFileType, width: Int, height: Int, quality: Int, request: AuthenticatedRequest[AnyContent, Principal]): Future[Result] = {
+    implicit val logMarker: LogMarker = MarkerMap(
+      "requestType" -> "redirect-resized-image",
+      "requestId" -> RequestLoggingFilter.getRequestId(request),
+      "imageId" -> id,
+    ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
+
+    elasticSearch.getImageById(id) map {
+      case Some(image) if isVisibleToAccessor(request.user, image) =>
+        val asset = assetType match {
+          case OptimisedPng => image.optimisedPng.getOrElse(image.source)
+          case _ => image.source
+        }
+        val sourceImageUri = new URI(s3Client.signUrl(config.imageBucket, asset.file, image, imageType = assetType))
+        // imgops (and imgproxy's `rot` option) rotate counter-clockwise
+        val orientationCorrectionRotation = -image.source.orientationMetadata.map(_.orientationCorrection()).getOrElse(0)
+        val imgproxyUrl = ImgProxyUrlBuilder.fixedUri(
+          config.imgproxyUri, sourceImageUri, width, height, quality, config.awsLocalEndpoint,
+          rotationDegrees = orientationCorrectionRotation, signing = config.imgproxySigning
+        )
+        Redirect(imgproxyUrl)
+      case _ => ImageNotFound(id)
+    }
+  }
+
+  def redirectToOptimisedImage(id: String, width: Int, height: Int, quality: Int) = auth.async { request =>
+    redirectToResizedImage(id, Source, width, height, quality, request)
+  }
+
+  def redirectToOptimisedPngImage(id: String, width: Int, height: Int, quality: Int) = auth.async { request =>
+    redirectToResizedImage(id, OptimisedPng, width, height, quality, request)
   }
 
   def postToUsages(

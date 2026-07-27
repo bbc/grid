@@ -2,6 +2,7 @@ package lib
 
 import com.gu.mediaservice.lib.config.{CommonConfigWithElastic, GridConfigResources}
 import com.gu.mediaservice.lib.elasticsearch.filters
+import com.gu.mediaservice.lib.imgproxy.ImgProxySigning
 import com.sksamuel.elastic4s.ElasticApi.{matchPhraseQuery, should}
 import com.sksamuel.elastic4s.ElasticDsl.matchQuery
 import com.sksamuel.elastic4s.requests.searches.queries.Query
@@ -49,7 +50,24 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
   val cropperUri: String = services.cropperBaseUri
   val loaderUri: String = services.loaderBaseUri
   val metadataUri: String = services.metadataBaseUri
+  // imgops/imgproxy's base URLs are derived from `domain.root`/`domain.root-override` plus the (also
+  // independently configurable) `hosts.imgopsPrefix`/`hosts.imgproxyPrefix` - unless overridden directly via
+  // `images.imgops.baseUri`/`images.imgproxy.baseUri` - see `Services`/`CommonConfig` for details. Only
+  // whichever of the two is actually in use (per `useImgProxy`, below) has any effect on the URLs generated.
   val imgopsUri: String = services.imgopsBaseUri
+  val imgproxyUri: String = services.imgproxyBaseUri
+  // Config switch to allow safely trialling imgproxy as a replacement for imgops without risking the existing
+  // (production) image resizing behaviour - see docs/06-objects-of-interest for details.
+  val useImgProxy: Boolean = boolean("images.imgproxy.enabled")
+  // Hex-encoded IMGPROXY_KEY / IMGPROXY_SALT (provisioned via Secrets Manager - see
+  // bbc/src/imgProxy/imgproxy-ecs-fargate.yaml) used to sign imgproxy requests with an HMAC, as required by any
+  // imgproxy deployment that doesn't set IMGPROXY_ALLOW_INSECURE=true. Both must be provided to sign requests;
+  // if either is missing, imgproxy URLs fall back to "insecure" mode (fine for local dev only) - see
+  // ImgProxyUrlBuilder for details. imgops routing is unaffected either way, as it secures access differently.
+  val imgproxySigning: Option[ImgProxySigning] = for {
+    key <- stringOpt("images.imgproxy.key")
+    salt <- stringOpt("images.imgproxy.salt")
+  } yield ImgProxySigning(key, salt)
   val usageUri: String = services.usageBaseUri
   val leasesUri: String = services.leasesBaseUri
   val authUri: String = services.authBaseUri

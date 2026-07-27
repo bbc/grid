@@ -14,6 +14,26 @@ services:
       - "9008:80"
     volumes:
       - "./dev/imgops/nginx.conf:/etc/nginx/nginx.conf"
+  imgproxy:
+    image: darthsim/imgproxy:latest
+    ports:
+      - "9016:8080"
+    environment:
+      # LOCAL DEV ONLY - unsigned/"insecure" requests are accepted so we don't need to implement URL signing
+      # in application code yet. This MUST NOT be used in any deployed environment - see
+      # bbc/src/imgProxy/imgproxy-ecs-fargate.yaml for the (signed) production-style deployment.
+      IMGPROXY_ALLOW_INSECURE: "true"
+      IMGPROXY_HEALTH_CHECK_PATH: /health
+      IMGPROXY_ENABLE_WEBP_DETECTION: "true"
+      # Kahuna's <img crossorigin="anonymous"> preview tag makes a CORS-mode request, so the response needs an
+      # Access-Control-Allow-Origin header or the browser will refuse to render the image ("CORS missing allow
+      # origin"). "*" is fine for local dev; a real deployment should scope this to the actual Kahuna origin.
+      IMGPROXY_ALLOW_ORIGIN: "*"
+      # Source images are fetched over plain HTTP directly from the `localstack` container (see
+      # com.gu.mediaservice.lib.imgproxy.ImgProxyUrlBuilder), so allow that as a source.
+      IMGPROXY_ALLOWED_SOURCES: "http://localstack:4566/"
+    depends_on:
+      - localstack
   cerebro:
     image: lmenezes/cerebro
     ports:
@@ -24,7 +44,7 @@ services:
       - "127.0.0.1:4566:4566"            # LocalStack Gateway
       - "127.0.0.1:4510-4559:4510-4559"  # external services port range
     expose:
-      - 4566 # provide the imgops container with access to localstack's direct S3 endpoint
+      - 4566 # provide the imgops/imgproxy containers with access to localstack's direct S3 endpoint
     environment:
       SERVICES: cloudformation,cloudwatch,dynamodb,kinesis,s3,sns,sqs,iam
       DEFAULT_REGION: eu-west-1

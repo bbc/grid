@@ -4,6 +4,7 @@ import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.auth.{Internal, Tier}
 import com.gu.mediaservice.lib.aws.S3
 import com.gu.mediaservice.lib.collections.CollectionsManager
+import com.gu.mediaservice.lib.imgproxy.ImgProxyUrlBuilder
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.{LeasesByMedia, MediaLease}
@@ -146,9 +147,9 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3, usageQuota: UsageQuota
     import BoolImplicitMagic.BoolToOption
     val cropLinkMaybe = valid.toOption(Link("crops", s"${config.cropperUri}/crops/$id"))
     val editLinkMaybe = withWritePermission.toOption(Link("edits", s"${config.metadataUri}/metadata/$id"))
-    val optimisedPngLinkMaybe = securePngUrl map { case secureUrl => Link("optimisedPng", makeImgopsUri(new URI(secureUrl), orientationMetadata)) }
+    val optimisedPngLinkMaybe = securePngUrl map { case secureUrl => Link("optimisedPng", makeImgopsUri(id, OptimisedPng, new URI(secureUrl), orientationMetadata)) }
 
-    val optimisedLink = Link("optimised", makeImgopsUri(new URI(secureUrl), orientationMetadata))
+    val optimisedLink = Link("optimised", makeImgopsUri(id, Source, new URI(secureUrl), orientationMetadata))
     val imageLink = Link("ui:image", s"${config.kahunaUri}/images/$id")
     val usageLink = Link("usages", s"${config.usageUri}/usages/media/$id")
     val leasesLink = Link("leases", s"${config.leasesUri}/leases/media/$id")
@@ -255,18 +256,39 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3, usageQuota: UsageQuota
       "aliases" -> JsObject(aliases)
     ))
 
-  def makeImgopsUri(uri: URI, orientationMetadata: Option[OrientationMetadata]): String = {
-    val resizing = config.imgopsUri + List(uri.getPath, uri.getRawQuery).mkString("?") + "{&w,h,q}"
-    // imgops rotates counter-clockwise
+  def makeImgopsUri(id: String, assetType: ImageFileType, uri: URI, orientationMetadata: Option[OrientationMetadata]): String = {
+    // imgops (and imgproxy's `rot` option, below) rotate counter-clockwise
     val orientationCorrectionRotation = -orientationMetadata.map(_.orientationCorrection()).getOrElse(0)
-    // and ignores negative values
-    val normalised = if (orientationCorrectionRotation < 0) {
-      orientationCorrectionRotation + 360
+
+    if (config.useImgProxy) {
+      config.imgproxySigning match {
+        case Some(_) =>
+          // imgproxy requires every request to be signed once signing secrets are configured ("unsigned
+          // requests will fail" - see bbc/src/imgProxy/imgproxy-ecs-fargate.yaml) - but this link is a URI
+          // Template that gets expanded *client-side* with concrete w/h/q values at the point of use (see
+          // kahuna's `imgops/service.js`), so we can't pre-compute a valid signature for it here (the
+          // signature wouldn't match the eventually-expanded request path). Point at our own redirect
+          // endpoint instead - `MediaApi.redirectToOptimisedImage`/`redirectToOptimisedPngImage` - which signs
+          // (and 302s to imgproxy) for the actual requested dimensions, per request.
+          val assetSegment = assetType match {
+            case OptimisedPng => "optimisedPng"
+            case _ => "optimised"
+          }
+          s"${config.rootUri}/images/$id/$assetSegment/resized{?w,h,q}"
+        case None =>
+          ImgProxyUrlBuilder.templatedUri(config.imgproxyUri, uri, orientationCorrectionRotation, config.awsLocalEndpoint)
+      }
     } else {
-      orientationCorrectionRotation
+      val resizing = config.imgopsUri + List(uri.getPath, uri.getRawQuery).mkString("?") + "{&w,h,q}"
+      // imgops ignores negative rotation values
+      val normalised = if (orientationCorrectionRotation < 0) {
+        orientationCorrectionRotation + 360
+      } else {
+        orientationCorrectionRotation
+      }
+      val orientationCorrection = s"&r=" + URLEncoder.encode(normalised.toString, "UTF-8")
+      resizing + orientationCorrection
     }
-    val orientationCorrection = s"&r=" + URLEncoder.encode(normalised.toString, "UTF-8")
-    resizing + orientationCorrection
   }
 
   private def updateCustomSpecialInstructions(source: JsValue): Reads[JsObject] = {

@@ -46,6 +46,14 @@ class ContentDispositionTest extends AnyFunSuiteLike with ContentDisposition {
     header shouldBe """attachment; filename="abcdef1234567890.jpg"; filename*=UTF-8''abcdef1234567890.jpg"""
   }
 
+  test("idBasedContentDisposition uses only the image id and extension, ignoring the original filename") {
+    val image = withFilename(MappingTest.testImage, "24_chicks.jpg")
+
+    val header = idBasedContentDisposition(image, Thumbnail)
+
+    header shouldBe """attachment; filename="abcdef1234567890.jpg"; filename*=UTF-8''abcdef1234567890.jpg"""
+  }
+
   private def withFilename(image: Image, filename: String) = {
     image.copy(uploadInfo = MappingTest.testImage.uploadInfo.copy(filename = Some(filename)))
   }

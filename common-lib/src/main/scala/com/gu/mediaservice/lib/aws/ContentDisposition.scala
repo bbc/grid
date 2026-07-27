@@ -29,6 +29,22 @@ trait ContentDisposition extends GridLogging {
     getContentDisposition(filename, fallbackLatin1Filename(image, extension))
   }
 
+  /**
+   * A minimal `<image id>.<extension>` filename - deliberately excluding the original upload's filename (or
+   * any other identifying/descriptive text) - for use by the "download image" feature, so the downloaded
+   * file's name doesn't leak the original filename regardless of the `shortenDownloadFilename` config setting.
+   */
+  def idBasedContentDisposition(image: Image, imageType: ImageFileType): String = {
+    val asset = imageType match {
+      case Source => image.source
+      case Thumbnail => image.thumbnail.getOrElse(image.source)
+      case OptimisedPng => image.optimisedPng.getOrElse(image.source)
+    }
+    val filename = s"${image.id}${getExtension(image, asset)}"
+    // the filename is just the (ASCII-safe) image id + extension, so it's already a valid latin1 fallback
+    getContentDisposition(filename, filename)
+  }
+
   private def getExtension(image: Image, asset: Asset): String = asset.mimeType match {
     case Some(mimeType) => mimeType.fileExtension
     case _ =>

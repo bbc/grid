@@ -146,7 +146,7 @@ function getKahunaConfig(config){
         |]`;
 
     const permissionsConfig = stripMargin`
-      |usePermissionsFilter=false
+      |usePermissionsFilter=true
       |permissionsDefault="allPermissions"
       `;
 
@@ -199,6 +199,7 @@ function getMediaApiConfig(config) {
         |}
         |metrics.request.enabled=false
         |syndication.review.useRuntimeFieldsFix=true
+        |images.imgproxy.enabled=true
         |`;
 }
 

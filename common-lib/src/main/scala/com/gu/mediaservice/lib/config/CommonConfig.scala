@@ -73,6 +73,7 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientV1B
     stringDefault("hosts.cropperPrefix", s"cropper.$rootAppName."),
     stringDefault("hosts.metadataPrefix", s"$rootAppName-metadata."),
     stringDefault("hosts.imgopsPrefix", s"$rootAppName-imgops."),
+    stringDefault("hosts.imgproxyPrefix", s"$rootAppName-imgproxy."),
     stringDefault("hosts.usagePrefix", s"$rootAppName-usage."),
     stringDefault("hosts.collectionsPrefix", s"$rootAppName-collections."),
     stringDefault("hosts.leasesPrefix", s"$rootAppName-leases."),
@@ -82,7 +83,14 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientV1B
 
   val corsAllowedOrigins: Set[String] = getStringSet("security.cors.allowedOrigins")
 
-  val services = new Services(domainRoot, serviceHosts, corsAllowedOrigins, domainRootOverride)
+  // Full base-URL overrides for imgops/imgproxy, independent of one another and of the `hosts.imgopsPrefix`/
+  // `hosts.imgproxyPrefix`-based derivation below - e.g. for a Fargate-hosted imgproxy/imgops living on
+  // entirely its own subdomain, such as https://imgproxy.images.int.tools.bbc.co.uk. Read here (rather than
+  // by individual services) so every consumer of `services` - including Kahuna's CSP directives - agrees.
+  val imgopsBaseUriOverride: Option[String] = stringOpt("images.imgops.baseUri")
+  val imgproxyBaseUriOverride: Option[String] = stringOpt("images.imgproxy.baseUri")
+
+  val services = new Services(domainRoot, serviceHosts, corsAllowedOrigins, domainRootOverride, imgopsBaseUriOverride, imgproxyBaseUriOverride)
 
   /**
    * Load in a list of domain metadata specifications from configuration. For example:

@@ -9,12 +9,7 @@ export const imageDownloadsService = angular.module(
 
 
 imageDownloadsService.factory('imageDownloadsService', ['imgops', '$http', function(imgops, $http) {
-    function stripExtension(filename) {
-        return filename.replace(/\.[a-zA-Z]{3,4}$/, '');
-    }
-
     function imageName(imageData) {
-        const filename = imageData.uploadInfo.filename;
         const imageId = imageData.id;
         function getExt() {
             switch (imageData.source.mimeType){
@@ -32,12 +27,9 @@ imageDownloadsService.factory('imageDownloadsService', ['imgops', '$http', funct
         }
         const extension = getExt();
 
-        if (filename) {
-            const basename = stripExtension(filename);
-            return `${basename} (${imageId}).${extension}`;
-        } else {
-            return `${imageId}.${extension}`;
-        }
+        // Deliberately just `<image id>.<extension>` - not the original upload's filename - so downloaded
+        // files (including each entry in a multi-image zip) don't leak/re-embed the original filename.
+        return `${imageId}.${extension}`;
     }
 
     function getDownloads(imageResource) {
