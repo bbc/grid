@@ -110,6 +110,16 @@ object ImgProxyUrlBuilder extends GridLogging {
    * Build a fully resolved (non-templated) URL for a specific width/height/quality - e.g. for redirects or
    * server-side proxying. `width`/`height` of `0` keeps the original dimension unchanged.
    *
+   * @param quality The `q:` (quality) processing option to request, or `None` to omit it entirely, in which
+   *                case imgproxy falls back to its own configured default (`IMGPROXY_QUALITY`, typically
+   *                80) rather than a caller-chosen value. This matters for "give me the original image back"
+   *                use cases (see `MediaApi.downloadOriginalImage`): imgproxy always fully decodes/re-encodes
+   *                the image (even with `w:0/h:0`), so pinning `q:100` there doesn't preserve the original
+   *                bytes - it typically *inflates* file size by disabling/loosening chroma subsampling and
+   *                progressive encoding relative to an already-compressed source. Leaving quality unset lets
+   *                imgproxy apply a normal, size-conscious default instead. Metadata (EXIF/IPTC/XMP) is still
+   *                stripped either way, per imgproxy's own default `IMGPROXY_STRIP_METADATA`/
+   *                `IMGPROXY_KEEP_COPYRIGHT` behaviour (retaining only copyright/by-line tags).
    * @param signing When provided, the request is signed with imgproxy's standard HMAC scheme, as required by
    *                any imgproxy deployment that doesn't set `IMGPROXY_ALLOW_INSECURE=true`. When absent, falls
    *                back to imgproxy's "insecure" URL mode (fine for local dev only).
@@ -119,14 +129,15 @@ object ImgProxyUrlBuilder extends GridLogging {
     sourceUri: URI,
     width: Int,
     height: Int,
-    quality: Int,
+    quality: Option[Int],
     awsLocalEndpoint: Option[String] = None,
     rotationDegrees: Int = 0,
     signing: Option[ImgProxySigning] = None
   ): String = {
     val encoded = encodeSourceUrl(normaliseSourceForLocalDev(sourceUri, awsLocalEndpoint))
     val rotation = normaliseRotation(rotationDegrees)
-    val path = s"/w:$width/h:$height/q:$quality/rot:$rotation/$encoded"
+    val qualitySegment = quality.map(q => s"/q:$q").getOrElse("")
+    val path = s"/w:$width/h:$height$qualitySegment/rot:$rotation/$encoded"
     s"$baseUri/${signatureSegment(signing, path)}$path"
   }
 }

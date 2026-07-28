@@ -462,25 +462,24 @@ class MediaApi(
 
         val contentDisposition = idBasedContentDisposition(image, Source)
 
-        if (config.useImgProxy) {
-          // Proxy the download through imgproxy (rather than serving the file straight from S3) so that
-          // imgproxy's default metadata-stripping is applied to the downloaded bytes. `w:0/h:0` keeps the
-          // original dimensions - see `streamImgproxyDownload` for why we proxy rather than redirect.
-          val sourceImageUri = new URI(s3Client.signUrl(config.imageBucket, image.source.file, image, imageType = Source))
-          val imgproxyUrl = ImgProxyUrlBuilder.fixedUri(
-            config.imgproxyUri, sourceImageUri, width = 0, height = 0, quality = 100, config.awsLocalEndpoint,
-            signing = config.imgproxySigning
-          )
-          streamImgproxyDownload(imgproxyUrl, contentDisposition)
-        } else {
-          val s3Object = s3Client.getObject(config.imageBucket, image.source.file)
-          val file = StreamConverters.fromInputStream(() => s3Object.getObjectContent)
-          val entity = HttpEntity.Streamed(file, image.source.size, image.source.mimeType.map(_.name))
+        // Proxy (rather than redirect) through imgproxy - see `streamImgproxyDownload` for why. `w:0/h:0`
+        // preserves the original dimensions, and `quality = None` deliberately omits the `q:` processing
+        // option entirely so imgproxy falls back to its own configured default quality (`IMGPROXY_QUALITY`)
+        // rather than a caller-pinned value: forcing `q:100` here previously *inflated* file size well beyond
+        // the original (re-encoding an already-compressed JPEG at quality 100 typically loosens chroma
+        // subsampling and drops progressive encoding) - see `ImgProxyUrlBuilder.fixedUri`'s doc comment.
+        //
+        // Metadata (EXIF/IPTC/XMP) is still stripped as part of imgproxy's normal processing, per its default
+        // `IMGPROXY_STRIP_METADATA`/`IMGPROXY_KEEP_COPYRIGHT` config (explicitly set in both the local dev
+        // docker-compose and the deployed ECS task definition) - which keeps only the Copyright/By-line tags,
+        // matching imgproxy's standard out-of-the-box behaviour.
+        val sourceImageUri = new URI(s3Client.signUrl(config.imageBucket, image.source.file, image, imageType = Source))
+        val imgproxyUrl = ImgProxyUrlBuilder.fixedUri(
+          config.imgproxyUri, sourceImageUri, width = 0, height = 0, quality = None, config.awsLocalEndpoint,
+          signing = config.imgproxySigning
+        )
 
-          Future.successful(
-            Result(ResponseHeader(OK), entity).withHeaders("Content-Disposition" -> contentDisposition)
-          )
-        }
+        streamImgproxyDownload(imgproxyUrl, contentDisposition)
       }
       case _ => Future.successful(ImageNotFound(id))
     }
@@ -536,7 +535,7 @@ class MediaApi(
         if (config.useImgProxy) {
           // Proxy (rather than redirect) through imgproxy - see `streamImgproxyDownload` for why.
           val imgproxyUrl = ImgProxyUrlBuilder.fixedUri(
-            config.imgproxyUri, sourceImageUri, width, height, quality, config.awsLocalEndpoint,
+            config.imgproxyUri, sourceImageUri, width, height, Some(quality), config.awsLocalEndpoint,
             signing = config.imgproxySigning
           )
           streamImgproxyDownload(imgproxyUrl, idBasedContentDisposition(image, assetImageType))
@@ -577,7 +576,7 @@ class MediaApi(
         // imgops (and imgproxy's `rot` option) rotate counter-clockwise
         val orientationCorrectionRotation = -image.source.orientationMetadata.map(_.orientationCorrection()).getOrElse(0)
         val imgproxyUrl = ImgProxyUrlBuilder.fixedUri(
-          config.imgproxyUri, sourceImageUri, width, height, quality, config.awsLocalEndpoint,
+          config.imgproxyUri, sourceImageUri, width, height, Some(quality), config.awsLocalEndpoint,
           rotationDegrees = orientationCorrectionRotation, signing = config.imgproxySigning
         )
         Redirect(imgproxyUrl)

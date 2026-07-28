@@ -45,6 +45,7 @@ object KahunaSecurityConfig {
     val imageSources = s"img-src ${List(
       "data:",
       "blob:",
+      URI.ensureSecure(config.services.apiBaseUri).toString,
       URI.ensureSecure(config.services.imgopsBaseUri).toString,
       URI.ensureSecure(config.services.imgproxyBaseUri).toString,
       URI.ensureSecure(config.fullOrigin).toString,
