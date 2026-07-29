@@ -101,6 +101,13 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3, usageQuota: UsageQuota
 
     val aliases = extractAliasFieldValues(config, imageWrapper)
 
+    // When imgproxy is in use *and* signing is configured, the `optimised`/`optimisedPng` links point at a
+    // media-api endpoint that must be resolved (via an async GET) to the actual, directly-usable imgproxy
+    // URL, rather than being immediately usable URI Templates - see `makeImgopsUri` and
+    // `MediaApi.resolvedImageUrl` for why. Kahuna uses this flag to decide which of those two approaches to
+    // take when building an `<img src>`.
+    val requiresSignedImageUrlResolution = config.useImgProxy && config.imgproxySigning.isDefined
+
     val data = source.transform(addSecureSourceUrl(imageUrl))
       .flatMap(_.transform(wrapUserMetadata(id)))
       .flatMap(_.transform(addSecureThumbUrl(thumbUrl)))
@@ -116,6 +123,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3, usageQuota: UsageQuota
       .flatMap(_.transform(addSyndicationStatus(image)))
       .flatMap(_.transform(addAliases(aliases)))
       .flatMap(_.transform(addFromIndex(imageWrapper.fromIndex)))
+      .flatMap(_.transform(addOptimisedUrlsRequireResolution(requiresSignedImageUrlResolution)))
       .flatMap(_.transform(updateCustomSpecialInstructions(source)))
       .flatMap(_.transform(updateCustomUsageRestrictions(source)))
       .get
@@ -248,6 +256,9 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3, usageQuota: UsageQuota
   def addFromIndex(fromIndex: String): Reads[JsObject] =
     __.json.update(__.read[JsObject]).map(_ ++ Json.obj("fromIndex" -> fromIndex))
 
+  def addOptimisedUrlsRequireResolution(required: Boolean): Reads[JsObject] =
+    __.json.update(__.read[JsObject]).map(_ ++ Json.obj("optimisedUrlsRequireResolution" -> required))
+
   def addInvalidReasons(reasons: Map[String, String]): Reads[JsObject] =
     __.json.update(__.read[JsObject]).map(_ ++ Json.obj("invalidReasons" -> Json.toJson(reasons)))
 
@@ -267,9 +278,11 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3, usageQuota: UsageQuota
           // requests will fail" - see bbc/src/imgProxy/imgproxy-ecs-fargate.yaml) - but this link is a URI
           // Template that gets expanded *client-side* with concrete w/h/q values at the point of use (see
           // kahuna's `imgops/service.js`), so we can't pre-compute a valid signature for it here (the
-          // signature wouldn't match the eventually-expanded request path). Point at our own redirect
-          // endpoint instead - `MediaApi.redirectToOptimisedImage`/`redirectToOptimisedPngImage` - which signs
-          // (and 302s to imgproxy) for the actual requested dimensions, per request.
+          // signature wouldn't match the eventually-expanded request path). Point at our own endpoint
+          // instead - `MediaApi.getOptimisedImageUrl`/`getOptimisedPngImageUrl` - which signs for the actual
+          // requested dimensions, per request, and returns the resolved imgproxy URL as JSON for Kahuna to
+          // resolve (see `addOptimisedUrlsRequireResolution`/`optimisedUrlsRequireResolution`) and use
+          // directly as the `<img src>`, rather than routing image loads via media-api itself.
           val assetSegment = assetType match {
             case OptimisedPng => "optimisedPng"
             case _ => "optimised"

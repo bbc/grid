@@ -39,16 +39,26 @@ imgops.factory('imgops', ['$window', function($window) {
     }
 
     function getOptimisedUri(image, options) {
+        // Normally the `optimised`/`optimisedPng` links are URI Templates that can be expanded client-side
+        // (with concrete w/h/q values) into a URL that's directly usable as an `<img src>` - either imgops's
+        // or (when unsigned) imgproxy's own URL, so no round-trip to media-api is needed to view an image.
+        //
+        // When imgproxy is in use *and* configured to sign requests, those links instead point at a
+        // media-api endpoint that must be resolved (an authenticated GET, returning the actual imgproxy URL
+        // as JSON) before we have a URL that can be used directly - see `ImageResponse.makeImgopsUri` and
+        // `MediaApi.resolvedImageUrl` (server-side) for why. Either way, the end result used for `<img src>`
+        // is always a direct link to the image-resizing service (imgops/imgproxy), never media-api itself.
+        const rel = image.data.optimisedPng ? 'optimisedPng' : 'optimised';
+        const link = image.follow(rel, options);
 
-        if (image.data.optimisedPng) {
-            return image.follow('optimisedPng', options).getUri().catch(() => {
-                return image.optimisedPng.secureUrl || image.optimisedPng.file;
-            });
-        } else {
-            return image.follow('optimised', options).getUri().catch(() => {
-                return image.source.secureUrl || image.source.file;
-            });
-        }
+        const uri = image.data.optimisedUrlsRequireResolution ?
+            link.get().then(resolved => resolved.data.url) :
+            link.getUri();
+
+        return uri.catch(() => {
+            const asset = image.data.optimisedPng ? image.optimisedPng : image.source;
+            return asset.secureUrl || asset.file;
+        });
     }
 
     function getOptimisedDownloadUri(image, options) {

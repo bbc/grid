@@ -136,7 +136,7 @@ object ImgProxyUrlBuilder extends GridLogging {
   ): String = {
     val encoded = encodeSourceUrl(normaliseSourceForLocalDev(sourceUri, awsLocalEndpoint))
     val rotation = normaliseRotation(rotationDegrees)
-    val qualitySegment = quality.map(q => s"/q:$q").getOrElse("")
+    val qualitySegment = quality.map(q => s"/q:$q").getOrElse("/q:90") // default to 90 if not specified
     val path = s"/w:$width/h:$height$qualitySegment/rot:$rotation/$encoded"
     s"$baseUri/${signatureSegment(signing, path)}$path"
   }

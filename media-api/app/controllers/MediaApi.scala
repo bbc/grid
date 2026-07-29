@@ -549,19 +549,24 @@ class MediaApi(
   }
 
   /**
-   * Redirect (302) to a freshly-signed imgproxy URL for the requested width/height/quality, for inline
-   * display (e.g. `<img src>`) - unlike `streamImgproxyDownload`, there's no need to proxy the bytes back
-   * through media-api here, since plain image loads don't carry credentials, so there's no cross-origin/CORS
-   * concern with redirecting the browser straight to imgproxy.
+   * Return (as Argo JSON, `{"data": {"url": "..."}}`) a freshly-signed imgproxy URL for the requested
+   * width/height/quality, for inline display (e.g. `<img src>`).
    *
    * This exists specifically to support imgproxy deployments that require signed requests (see
    * `ImgProxyUrlBuilder`): the `optimised`/`optimisedPng` links are otherwise URI Templates that Kahuna
    * expands client-side with concrete w/h/q values (see `ImageResponse.makeImgopsUri`), which can't be
    * pre-signed. Routing through media-api lets us sign for the *actual* requested dimensions, per request.
+   *
+   * We deliberately return the URL as JSON (for Kahuna to resolve and use directly as the `<img src>`)
+   * rather than issuing a redirect (302) to imgproxy: a redirect would work, but the *initial* URL Kahuna
+   * would have to use as `ng-src` would be this media-api endpoint, not imgproxy - so opening/copying the
+   * image's address (or simply inspecting the DOM) would misleadingly point at media-api. Returning the
+   * resolved URL means the `<img>` tag's `src` genuinely is the imgproxy URL, with media-api only ever
+   * involved in a single lightweight (signing) round-trip, not in serving the image itself.
    */
-  private def redirectToResizedImage(id: String, assetType: ImageFileType, width: Int, height: Int, quality: Int, request: AuthenticatedRequest[AnyContent, Principal]): Future[Result] = {
+  private def resolvedImageUrl(id: String, assetType: ImageFileType, width: Int, height: Int, quality: Int, request: AuthenticatedRequest[AnyContent, Principal]): Future[Result] = {
     implicit val logMarker: LogMarker = MarkerMap(
-      "requestType" -> "redirect-resized-image",
+      "requestType" -> "resolved-image-url",
       "requestId" -> RequestLoggingFilter.getRequestId(request),
       "imageId" -> id,
     ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
@@ -579,17 +584,17 @@ class MediaApi(
           config.imgproxyUri, sourceImageUri, width, height, Some(quality), config.awsLocalEndpoint,
           rotationDegrees = orientationCorrectionRotation, signing = config.imgproxySigning
         )
-        Redirect(imgproxyUrl)
+        respond(Json.obj("url" -> imgproxyUrl))
       case _ => ImageNotFound(id)
     }
   }
 
-  def redirectToOptimisedImage(id: String, width: Int, height: Int, quality: Int) = auth.async { request =>
-    redirectToResizedImage(id, Source, width, height, quality, request)
+  def getOptimisedImageUrl(id: String, width: Int, height: Int, quality: Int) = auth.async { request =>
+    resolvedImageUrl(id, Source, width, height, quality, request)
   }
 
-  def redirectToOptimisedPngImage(id: String, width: Int, height: Int, quality: Int) = auth.async { request =>
-    redirectToResizedImage(id, OptimisedPng, width, height, quality, request)
+  def getOptimisedPngImageUrl(id: String, width: Int, height: Int, quality: Int) = auth.async { request =>
+    resolvedImageUrl(id, OptimisedPng, width, height, quality, request)
   }
 
   def postToUsages(
