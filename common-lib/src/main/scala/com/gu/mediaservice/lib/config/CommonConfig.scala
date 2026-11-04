@@ -139,6 +139,13 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientBui
    */
   val domainMetadataSpecs: Seq[DomainMetadataSpec] = configuration.getOptional[Seq[DomainMetadataSpec]]("domainMetadata.specifications").getOrElse(Seq.empty)
 
+  // Boolean domainMetadata leaves (paths relative to metadata.domainMetadata)
+  // controlled by a trusted system workflow rather than users: user edits must
+  // not change them, and merges keep the ingest value until the workflow sets
+  // one. The default empty list disables this handling.
+  val workflowOwnedBooleanFields: Seq[String] =
+    configuration.getOptional[Seq[String]]("domainMetadata.workflowOwnedBooleanFields").getOrElse(Seq.empty)
+
   val fieldAliasConfigs: Seq[FieldAlias] = configuration.get[Seq[FieldAlias]]("field.aliases")
 
   val recordDownloadAsUsage: Boolean = boolean("image.record.download")
