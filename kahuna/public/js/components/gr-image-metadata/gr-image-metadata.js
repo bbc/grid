@@ -12,6 +12,8 @@ import { editOptions, overwrite } from '../../util/constants/editOptions';
 import {
   findDomainMetadataFieldAlias,
   getDistinctDomainMetadataValues,
+  hasDisplayableDomainMetadataValue,
+  isReadOnly,
   supportsEditOptions
 } from '../../edits/domainMetadata';
 import '../../services/image-accessor';
@@ -415,6 +417,8 @@ module.controller('grImageMetadataCtrl', [
           ...field,
           value: fieldValue,
           hasMultipleValues,
+          readOnly: isReadOnly(field),
+          hasDisplayableValue: hasDisplayableDomainMetadataValue(distinctValues),
           // the number of distinct states held across the selection; an image holding
           // no value contributes one such state (see getDistinctDomainMetadataValues)
           valueCount: distinctValues.length,
@@ -655,8 +659,16 @@ module.controller('grImageMetadataCtrl', [
       };
 
       ctrl.isDomainMetadataEmpty = (key) => {
+        // Read-only workflow markers are meaningful only when true, so false/absent values stay hidden.
         return ctrl.domainMetadata.find(obj => obj.name === key)
-          .fields.every(field => field.value === undefined && !field.hasMultipleValues);
+          .fields.every(field => field.readOnly
+            ? !field.hasDisplayableValue
+            : field.value === undefined && !field.hasMultipleValues);
+      };
+
+      ctrl.hasEditableDomainMetadataFields = (key) => {
+        return ctrl.domainMetadata.find(obj => obj.name === key)
+          .fields.some(field => !field.readOnly);
       };
 
       ctrl.isAdditionalMetadataEmpty = () => {
