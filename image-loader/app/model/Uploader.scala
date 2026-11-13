@@ -379,6 +379,7 @@ class Uploader(
           )
         case (ImageStorageProps.replacesMediaIdIdentifierKey, mediaIdToAddUsageTo) =>
           addChildUsageToParentImage(uploadRequest, isReplacement = true)(mediaIdToAddUsageTo)
+        case _ => () // other identifiers do not require usage linking
       }
       finalImage.map(img => ImageUpload(uploadRequest, img))
     }
