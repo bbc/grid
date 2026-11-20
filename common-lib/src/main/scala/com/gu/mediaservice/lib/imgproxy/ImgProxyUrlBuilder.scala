@@ -54,8 +54,11 @@ object ImgProxySigning {
 /** A signed imgproxy URL that resizes to fit within a `width` x `height` box. */
 case class SignedImgProxyUrl(width: Int, height: Int, url: String)
 
+/** An imgproxy watermark option with an opacity, position and scale. */
+case class ImgProxyWatermark(opacity: Int, position: String, scale: Double)
+
 /**
-  * Builds imgproxy URLs: `<base>/<signature>/rs:fit:<w>:<h>[/q:<quality>]/ar:false/sm:true[/rot:<degrees>][/exp:<epoch>]/<source>`,
+  * Builds imgproxy URLs: `<base>/<signature>/rs:fit:<w>:<h>[/q:<quality>]/ar:false/sm:true[/rot:<degrees>][/exp:<epoch>][/wm:<opacity>:<position>:0:0:<scale>]/<source>`,
   * where `<source>` is the base64url-encoded `s3://` URL of the image and `<signature>` is `insecure` when unsigned.
   * See docs/06-objects-of-interest/03-imgproxy.md for the imgproxy settings these URLs rely on.
   */
@@ -99,6 +102,10 @@ object ImgProxyUrlBuilder {
   private def expirySegment(expiresEpochSeconds: Option[Long]): String =
     expiresEpochSeconds.fold("")(e => s"/exp:$e")
 
+  /** Renders the watermark option with zero x/y offsets, or an empty string when none is configured. */
+  private def watermarkSegment(watermark: Option[ImgProxyWatermark]): String =
+    watermark.fold("")(w => s"/wm:${w.opacity}:${w.position}:0:0:${w.scale}")
+
   /** A URL for a fixed size, signed if signing is configured. With no quality, imgproxy uses its per-format default. */
   def fixedUri(
     baseUri: String,
@@ -108,10 +115,11 @@ object ImgProxyUrlBuilder {
     quality: Option[Int] = None,
     rotationDegrees: Int = 0,
     signing: Option[ImgProxySigning] = None,
-    expiresEpochSeconds: Option[Long] = None
+    expiresEpochSeconds: Option[Long] = None,
+    watermark: Option[ImgProxyWatermark] = None
   ): String = {
     val qualitySegment = quality.fold("")(q => s"/q:$q")
-    val path = s"/rs:fit:$width:$height$qualitySegment${orientationSegment(rotationDegrees)}${expirySegment(expiresEpochSeconds)}/${encodeSource(sourceUri)}"
+    val path = s"/rs:fit:$width:$height$qualitySegment${orientationSegment(rotationDegrees)}${expirySegment(expiresEpochSeconds)}${watermarkSegment(watermark)}/${encodeSource(sourceUri)}"
     s"$baseUri/${signing.fold(InsecureSignature)(_.sign(path))}$path"
   }
 
@@ -130,9 +138,10 @@ object ImgProxyUrlBuilder {
     sizes: Seq[(Int, Int)],
     signing: ImgProxySigning,
     rotationDegrees: Int = 0,
-    expiresEpochSeconds: Option[Long] = None
+    expiresEpochSeconds: Option[Long] = None,
+    watermark: Option[ImgProxyWatermark] = None
   ): Seq[SignedImgProxyUrl] = {
-    val sharedSuffix = s"${orientationSegment(rotationDegrees)}${expirySegment(expiresEpochSeconds)}/${encodeSource(sourceUri)}"
+    val sharedSuffix = s"${orientationSegment(rotationDegrees)}${expirySegment(expiresEpochSeconds)}${watermarkSegment(watermark)}/${encodeSource(sourceUri)}"
     sizes.map { case (width, height) =>
       val path = s"/rs:fit:$width:$height$sharedSuffix"
       SignedImgProxyUrl(width, height, s"$baseUri/${signing.sign(path)}$path")

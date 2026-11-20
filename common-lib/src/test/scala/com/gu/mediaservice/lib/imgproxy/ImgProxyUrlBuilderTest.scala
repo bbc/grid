@@ -72,6 +72,45 @@ class ImgProxyUrlBuilderTest extends AnyFunSuiteLike {
       s"$baseUri/${docsSigning.sign(path)}$path"
   }
 
+  test("watermark options are included in and covered by signed URL paths") {
+    val watermark = ImgProxyWatermark(opacity = 50, position = "ce", scale = 0.25)
+    val watermarkSegment = "/wm:50:ce:0:0:0.25"
+    val sharedSuffix = s"/$orientation/rot:90/exp:1700000000$watermarkSegment/$encodedSource"
+    val fixedPath = s"/rs:fit:100:200/q:80$sharedSuffix"
+    val fixedSignature = docsSigning.sign(fixedPath)
+
+    ImgProxyUrlBuilder.fixedUri(
+      baseUri,
+      sourceUri,
+      width = 100,
+      height = 200,
+      quality = Some(80),
+      rotationDegrees = 90,
+      signing = Some(docsSigning),
+      expiresEpochSeconds = Some(1700000000L),
+      watermark = Some(watermark)
+    ) shouldBe s"$baseUri/$fixedSignature$fixedPath"
+
+    assert(fixedSignature != docsSigning.sign(fixedPath.replace(watermarkSegment, "")))
+    assert(fixedSignature != docsSigning.sign(fixedPath.replace(watermarkSegment, "/wm:51:ce:0:0:0.25")))
+
+    val sizes = Seq((1920, 1080), (2560, 1440))
+    val urls = ImgProxyUrlBuilder.signedUrlsForSizes(
+      baseUri,
+      sourceUri,
+      sizes,
+      docsSigning,
+      rotationDegrees = 90,
+      expiresEpochSeconds = Some(1700000000L),
+      watermark = Some(watermark)
+    )
+
+    urls.map(_.url) shouldBe sizes.map { case (width, height) =>
+      val path = s"/rs:fit:$width:$height$sharedSuffix"
+      s"$baseUri/${docsSigning.sign(path)}$path"
+    }
+  }
+
   test("fixedUri adds a clockwise rotation, normalised into 0-359") {
     ImgProxyUrlBuilder.fixedUri(baseUri, sourceUri, width = 100, height = 200, rotationDegrees = 90) shouldBe
       s"$baseUri/insecure/rs:fit:100:200/$orientation/rot:90/$encodedSource"
