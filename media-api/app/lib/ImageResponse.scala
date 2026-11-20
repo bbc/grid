@@ -4,7 +4,7 @@ import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.auth.{Internal, Tier}
 import com.gu.mediaservice.lib.aws.S3
 import com.gu.mediaservice.lib.collections.CollectionsManager
-import com.gu.mediaservice.lib.imgproxy.{ImgProxyUrlBuilder, SignedImgProxyUrl}
+import com.gu.mediaservice.lib.imgproxy.{ImgProxyUrlBuilder, ImgProxyWatermark, SignedImgProxyUrl}
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.{LeasesByMedia, MediaLease}
@@ -293,6 +293,19 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3, usageQuota: UsageQuota
   private def imgproxyExpiry: Option[Long] =
     config.imgproxySignedUrlTtlSeconds.map(ImgProxyUrlBuilder.roundedExpiry(System.currentTimeMillis / 1000, _))
 
+  private def imgproxyWatermark(image: Image): Option[ImgProxyWatermark] =
+    Some(config.imgproxyWatermark).filter(_ => config.imgproxyWatermarkEnabled && shouldWatermark(image))
+
+  private def shouldWatermark(image: Image): Boolean = image match {
+    case _ if configuredWatermarkAliasIsTrue(image) => true
+    case _ => false
+  }
+
+  private def configuredWatermarkAliasIsTrue(image: Image): Boolean =
+    config.imgproxyWatermarkAliasPath.exists { path =>
+      ImageResponse.lookupAliasPath(Json.toJson(image), path).toOption.contains(JsBoolean(true))
+    }
+
   private def imgproxySignedUrls(image: Image, assetType: ImageFileType): Option[Seq[SignedImgProxyUrl]] =
     config.imgproxySigning.map { signing =>
       ImgProxyUrlBuilder.signedUrlsForSizes(
@@ -301,7 +314,8 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3, usageQuota: UsageQuota
         config.imgproxySignedSizes,
         signing,
         imgproxyRotation(image),
-        imgproxyExpiry
+        imgproxyExpiry,
+        watermark = imgproxyWatermark(image)
       )
     }
 
@@ -318,7 +332,8 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3, usageQuota: UsageQuota
       quality,
       imgproxyRotation(image),
       config.imgproxySigning,
-      config.imgproxySigning.flatMap(_ => imgproxyExpiry)
+      config.imgproxySigning.flatMap(_ => imgproxyExpiry),
+      watermark = imgproxyWatermark(image)
     )
 
   def makeImgopsUri(id: String, image: Image, assetType: ImageFileType, secureUrl: String): String = {
@@ -518,7 +533,7 @@ object ImageResponse {
 
   private def hasUsages(image: Image) = image.usages.nonEmpty
 
-  def extractAliasFieldValues(config: MediaApiConfig, source: SourceWrapper[Image]): Seq[(String, JsValue)] = {
+  def lookupAliasPath(json: JsValue, elasticsearchPath: String): JsLookupResult = {
     @tailrec
     def nestedLookup(jsLookup: JsLookupResult, pathComponents: List[String]): JsLookupResult = {
       pathComponents match {
@@ -527,9 +542,12 @@ object ImageResponse {
       }
     }
 
+    nestedLookup(JsDefined(json), elasticsearchPath.split('.').toList.filter(_.nonEmpty))
+  }
+
+  def extractAliasFieldValues(config: MediaApiConfig, source: SourceWrapper[Image]): Seq[(String, JsValue)] = {
     config.fieldAliasConfigs.flatMap { config =>
-      val parts = config.elasticsearchPath.split('.').toList.filter(_.nonEmpty)
-      val lookupResult = nestedLookup(JsDefined(source.source), parts)
+      val lookupResult = lookupAliasPath(source.source, config.elasticsearchPath)
       lookupResult.toOption match {
         case Some(value) => Some(config.alias -> value)
         case None if config.matchViaExistence => Some(config.alias -> JsBoolean(false))

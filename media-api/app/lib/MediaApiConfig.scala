@@ -2,7 +2,7 @@ package lib
 
 import com.gu.mediaservice.lib.config.{CommonConfigWithElastic, GridConfigResources}
 import com.gu.mediaservice.lib.elasticsearch.filters
-import com.gu.mediaservice.lib.imgproxy.{ImgProxySigning, ImgProxyUrlBuilder}
+import com.gu.mediaservice.lib.imgproxy.{ImgProxySigning, ImgProxyUrlBuilder, ImgProxyWatermark}
 import com.sksamuel.elastic4s.ElasticApi.{matchPhraseQuery, should}
 import com.sksamuel.elastic4s.ElasticDsl.matchQuery
 import com.sksamuel.elastic4s.requests.searches.queries.Query
@@ -59,6 +59,18 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
   // fetch it from imgproxy - see docs/06-objects-of-interest/03-imgproxy.md for when that matters.
   val imgproxySigning: Option[ImgProxySigning] =
     ImgProxySigning.fromConfig(stringOpt("images.imgproxy.key"), stringOpt("images.imgproxy.salt"))
+
+  val imgproxyWatermarkEnabled: Boolean = booleanOpt("images.imgproxy.watermark.enabled").getOrElse(false)
+  if (imgproxyWatermarkEnabled && imgproxySigning.isEmpty)
+    throw new IllegalArgumentException("images.imgproxy.watermark.enabled requires images.imgproxy.key and images.imgproxy.salt")
+  val imgproxyWatermark: ImgProxyWatermark = ImgProxyWatermark(
+    opacity = intDefault("images.imgproxy.watermark.opacity", 50),
+    position = stringDefault("images.imgproxy.watermark.position", "ce"),
+    scale = configuration.getOptional[Double]("images.imgproxy.watermark.scale").getOrElse(0.25)
+  )
+  val imgproxyWatermarkAliasPath: Option[String] =
+    stringOpt("images.imgproxy.watermark.alias").flatMap(alias => fieldAliasConfigs.find(_.alias == alias)).map(_.elasticsearchPath)
+
   // Signed URLs can't be templated client-side, so we sign a URL per "WIDTHxHEIGHT" bounding box and clients
   // pick the smallest that covers what they need: common screen sizes for the full-screen and crop views.
   val imgproxySignedSizes: Seq[(Int, Int)] = {

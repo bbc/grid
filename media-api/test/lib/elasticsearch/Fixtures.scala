@@ -56,7 +56,7 @@ trait Fixtures {
   )
 
   def buildMediaApiConfig(configOverrides: Map[String, Any] = Map.empty): MediaApiConfig = new MediaApiConfig(GridConfigResources(
-    Configuration.from(USED_CONFIGS_IN_TEST ++ configOverrides ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap),
+    Configuration.from(USED_CONFIGS_IN_TEST ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap ++ configOverrides),
     null,
     new ApplicationLifecycle {
       override def addStopHook(hook: () => Future[_]): Unit = {}

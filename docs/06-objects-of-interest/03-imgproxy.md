@@ -46,6 +46,11 @@ Media-api:
 | `images.imgproxy.key`, `images.imgproxy.salt` | unset | Hex-encoded signing key and salt; set both to sign URLs. Must match imgproxy's `IMGPROXY_KEY` and `IMGPROXY_SALT` |
 | `images.imgproxy.signedUrlTtl` | unset | Signed only: how long signed URLs are valid for, e.g. `"10 minutes"` (see [Expiry](#expiry)) |
 | `images.imgproxy.signedSizes` | `["1920x1080", "2560x1440"]` | Signed only: the `WIDTHxHEIGHT` boxes to sign a URL for |
+| `images.imgproxy.watermark.enabled` | `false` | Allow watermarking; requires signing, otherwise startup fails (see [Watermarking](#watermarking)) |
+| `images.imgproxy.watermark.alias` | unset | The `field.aliases` alias whose Boolean `true` value marks an image for watermarking |
+| `images.imgproxy.watermark.opacity` | `50` | imgproxy watermark opacity |
+| `images.imgproxy.watermark.position` | `"ce"` | imgproxy watermark position |
+| `images.imgproxy.watermark.scale` | `0.25` | imgproxy watermark scale |
 
 imgproxy:
 
@@ -62,10 +67,38 @@ imgproxy:
 Locally, set `imgproxy.enabled` to `true` in `dev/script/generate-config/config.json5` and regenerate the
 config. The `imgproxy` container in `docker-compose.yml` is configured as above, reading from localstack.
 
+### Watermarking
+
+Watermarking has two gates:
+
+1. `images.imgproxy.watermark.enabled` turns it on for the deployment.
+2. `images.imgproxy.watermark.alias` names an existing `field.aliases` entry. An image is watermarked only when
+   the value at that alias's `elasticsearchPath` is Boolean `true`:
+
+```hocon
+field.aliases = [
+  { elasticsearchPath = "metadata.domainMetadata.<specification>.<field>", alias = "<alias>", label = "..." }
+]
+images.imgproxy.watermark {
+  enabled = true
+  alias = "<alias>"
+}
+```
+
+The per-image decision is `ImageResponse.shouldWatermark`, a `match` whose first case is the configured alias
+check and whose default is no watermark. Organisations with other rules can add a case there.
+
+Watermarking requires `images.imgproxy.key` and `images.imgproxy.salt`; enabling it without them fails
+media-api startup, because unsigned URLs let clients remove the watermark and Kahuna's templated unsigned URLs
+don't include it. The watermark is added to signed full-size and resized
+preview URLs; its opacity, position and scale are server config because signed URLs can't be templated by
+clients. The watermark image itself is imgproxy config (`IMGPROXY_WATERMARK_PATH`, `IMGPROXY_WATERMARK_URL` or
+`IMGPROXY_WATERMARK_DATA`); without one imgproxy silently skips watermarking.
+
 ## URLs
 
 ```
-<baseUri>/<signature>/rs:fit:<width>:<height>[/q:<quality>]/ar:false/sm:true[/rot:<degrees>][/exp:<epoch seconds>]/<source>
+<baseUri>/<signature>/rs:fit:<width>:<height>[/q:<quality>]/ar:false/sm:true[/rot:<degrees>][/exp:<epoch seconds>][/wm:<opacity>:<position>:0:0:<scale>]/<source>
 ```
 
 - `<signature>` is `insecure` when unsigned.
@@ -73,6 +106,7 @@ config. The `imgproxy` container in `docker-compose.yml` is configured as above,
 - `q` is left out of signed URLs, so imgproxy uses its default quality for the output format.
 - `ar:false` and `sm:true` are always present (see [Orientation](#orientation)).
 - `rot` is only present when the image needs rotating.
+- `wm` is only present when the configured domain-metadata Boolean field is `true`, and is included in the signature.
 - `<source>` is the base64url-encoded `s3://<image bucket>/<key>` URL of the optimised PNG, if the image
   has one, or otherwise the original.
 
@@ -104,7 +138,7 @@ Without signing, anyone who can reach imgproxy can:
 - fetch any image in the bucket whose S3 key they know, indefinitely, bypassing Grid's checks on who may see
   an image;
 - ask for any size, quality or processing option, which imgproxy will spend CPU producing;
-- remove any processing option Grid adds, such as a future watermark.
+- remove any processing option Grid adds, such as a configured watermark.
 
 Whether that matters depends on the deployment: if every user of imgproxy can already see every image in the
 bucket and imgproxy has capacity to spare, unsigned URLs are simpler.

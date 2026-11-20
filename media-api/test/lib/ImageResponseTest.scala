@@ -1,14 +1,22 @@
 package lib
 
+import com.gu.mediaservice.lib.aws.S3
+import com.gu.mediaservice.lib.auth.Internal
+import com.gu.mediaservice.lib.imgproxy.ImgProxyWatermark
+import com.gu.mediaservice.lib.logging.MarkerMap
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.usage.{PendingUsageStatus, PrintUsage, Usage}
 import lib.elasticsearch.{Fixtures, SourceWrapper}
+import org.joda.time.DateTime
 import org.joda.time.DateTime.now
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
+import org.scalatestplus.mockito.MockitoSugar
 import play.api.libs.json._
 
-class ImageResponseTest extends AnyFunSpec with Matchers with Fixtures {
+import java.net.URI
+
+class ImageResponseTest extends AnyFunSpec with Matchers with Fixtures with MockitoSugar {
 
   val mediaApiConfig: MediaApiConfig = buildMediaApiConfig(Map(
     "field.aliases" -> List(
@@ -39,6 +47,93 @@ class ImageResponseTest extends AnyFunSpec with Matchers with Fixtures {
       )
     )
   ))
+
+  private val imgproxySettings: Map[String, Any] = Map(
+    "images.imgproxy.enabled" -> true,
+    "images.imgproxy.key" -> "736563726574",
+    "images.imgproxy.salt" -> "68656c6c6f",
+    "domain.root" -> "example.test"
+  )
+  private def watermarkSettingsForPath(elasticsearchPath: String): Map[String, Any] = Map(
+    "field.aliases" -> List(
+      Map(
+        "elasticsearchPath" -> elasticsearchPath,
+        "alias" -> "privateImage",
+        "label" -> "Private image",
+        "displaySearchHint" -> false
+      )
+    ),
+    "images.imgproxy.watermark.enabled" -> true,
+    "images.imgproxy.watermark.alias" -> "privateImage"
+  )
+  private val watermarkSettings = watermarkSettingsForPath("metadata.domainMetadata.imagesToolkit.private")
+  private val watermarkSegment = "/wm:50:ce:0:0:0.25"
+  private val baseImgproxyImage = createImage("imgproxy-watermark-test", NoRights)
+
+  private def imageWithDomainMetadataField(
+    specification: String,
+    fieldName: String,
+    value: Option[JsValue],
+    withOptimisedPng: Boolean = false
+  ): Image = {
+    val domainMetadata = value.fold(Map.empty[String, Map[String, JsValue]]) { fieldValue =>
+      Map(specification -> Map(fieldName -> fieldValue))
+    }
+    val optimisedPng = baseImgproxyImage.source.copy(
+      file = new URI("http://file/imgproxy-watermark-test-optimised.png"),
+      mimeType = Some(Png)
+    )
+    baseImgproxyImage.copy(
+      metadata = baseImgproxyImage.metadata.copy(domainMetadata = domainMetadata),
+      optimisedPng = if (withOptimisedPng) Some(optimisedPng) else None
+    )
+  }
+
+  private def imageWithBooleanField(value: Option[JsValue], withOptimisedPng: Boolean = false): Image =
+    imageWithDomainMetadataField("imagesToolkit", "private", value, withOptimisedPng)
+
+  private def imageResponseFor(config: MediaApiConfig): ImageResponse = {
+    val s3Client = new S3(config) {
+      override def signUrl(
+        bucket: String,
+        url: URI,
+        image: Image,
+        expiration: DateTime,
+        imageType: ImageFileType
+      ): String = s"https://s3.example.com/$bucket${url.getPath}"
+    }
+    new ImageResponse(config, s3Client, mock[UsageQuota])
+  }
+
+  private def wrapped(image: Image): SourceWrapper[Image] = SourceWrapper(Json.toJson(image), image, "test_index")
+
+  private def signedOptimisedUrls(config: MediaApiConfig, image: Image): Seq[String] = {
+    val (json, _, _) = imageResponseFor(config).create(
+      id = image.id,
+      imageWrapper = wrapped(image),
+      withWritePermission = false,
+      withDeleteImagePermission = false,
+      withDeleteCropsOrUsagePermission = false,
+      tier = Internal,
+      withSignedOptimisedUrls = true
+    )(MarkerMap())
+    (json \ "signedOptimisedUrls").as[Seq[JsObject]].map(url => (url \ "url").as[String])
+  }
+
+  private def signedPath(url: String, config: MediaApiConfig): String = {
+    val urlPath = new URI(url).getPath
+    val basePath = Option(new URI(config.imgproxyUri).getPath).getOrElse("").stripSuffix("/")
+    val pathAndSignature = urlPath.stripPrefix(basePath).stripPrefix("/")
+    val signatureEnd = pathAndSignature.indexOf('/')
+    assert(signatureEnd > 0, s"Expected a signed imgproxy path in $url")
+    val signature = pathAndSignature.take(signatureEnd)
+    val path = pathAndSignature.drop(signatureEnd)
+    config.imgproxySigning.map(_.sign(path)) shouldBe Some(signature)
+    path
+  }
+
+  private def assertWatermarkedAndSigned(url: String, config: MediaApiConfig): Unit =
+    signedPath(url, config).contains(watermarkSegment) shouldBe true
 
   describe("updateUsageRights (legacy category mapping)") {
     it("should map a legacy category onto its composite replacement when that replacement is in config.applicableUsageRights") {
@@ -232,5 +327,86 @@ class ImageResponseTest extends AnyFunSpec with Matchers with Fixtures {
     val extractedFields = ImageResponse.extractAliasFieldValues(mediaApiConfig, sourceWrapper)
 
     extractedFields.contains("c2paMetadataAvailable" -> JsBoolean(false)) shouldEqual true
+  }
+
+  describe("imgproxy watermarking") {
+    it("uses default appearance settings unless overridden") {
+      buildMediaApiConfig(imgproxySettings).imgproxyWatermark shouldBe ImgProxyWatermark(50, "ce", 0.25)
+      buildMediaApiConfig(imgproxySettings ++ Map(
+        "images.imgproxy.watermark.opacity" -> 30,
+        "images.imgproxy.watermark.position" -> "soea",
+        "images.imgproxy.watermark.scale" -> 0.5
+      )).imgproxyWatermark shouldBe ImgProxyWatermark(30, "soea", 0.5)
+    }
+
+    it("requires signing when watermarking is enabled") {
+      intercept[IllegalArgumentException] {
+        buildMediaApiConfig(watermarkSettings + ("domain.root" -> "example.test"))
+      }
+    }
+
+    it("uses the path of the field alias named by images.imgproxy.watermark.alias") {
+      val config = buildMediaApiConfig(
+        imgproxySettings ++ watermarkSettingsForPath("metadata.domainMetadata.otherSpec.otherField")
+      )
+      val image = imageWithDomainMetadataField("otherSpec", "otherField", Some(JsBoolean(true)))
+
+      signedOptimisedUrls(config, image).foreach(assertWatermarkedAndSigned(_, config))
+    }
+
+    it("includes the watermark in signed source, optimised-PNG and resized preview URLs") {
+      val config = buildMediaApiConfig(imgproxySettings ++ watermarkSettings)
+      val imageResponse = imageResponseFor(config)
+      val sourceImage = imageWithBooleanField(Some(JsBoolean(true)))
+      val optimisedPngImage = imageWithBooleanField(Some(JsBoolean(true)), withOptimisedPng = true)
+
+      signedOptimisedUrls(config, sourceImage).foreach(assertWatermarkedAndSigned(_, config))
+      signedOptimisedUrls(config, optimisedPngImage).foreach(assertWatermarkedAndSigned(_, config))
+
+      Seq(Source, OptimisedPng).foreach { assetType =>
+        val url = imageResponse.imgproxyResizedUrl(optimisedPngImage, assetType, 640, 480, None)
+        assertWatermarkedAndSigned(url, config)
+      }
+    }
+
+    it("leaves URLs unchanged when watermarking is disabled or the alias value is not Boolean true") {
+      val configured = buildMediaApiConfig(imgproxySettings ++ watermarkSettings)
+      val unconfigured = buildMediaApiConfig(
+        imgproxySettings ++ watermarkSettings + ("images.imgproxy.watermark.enabled" -> false)
+      )
+      val configuredResponse = imageResponseFor(configured)
+      val unconfiguredResponse = imageResponseFor(unconfigured)
+      val imagesWithoutTrueFieldValue = Seq(
+        imageWithBooleanField(Some(JsBoolean(false))),
+        imageWithBooleanField(None),
+        imageWithBooleanField(Some(JsString("true")))
+      )
+
+      imagesWithoutTrueFieldValue.foreach { image =>
+        val actualUrls = signedOptimisedUrls(configured, image)
+        actualUrls shouldBe signedOptimisedUrls(unconfigured, image)
+        actualUrls.foreach(url => signedPath(url, configured).contains("/wm:") shouldBe false)
+
+        Seq(Source, OptimisedPng).foreach { assetType =>
+          configuredResponse.imgproxyResizedUrl(image, assetType, 640, 480, None) shouldBe
+            unconfiguredResponse.imgproxyResizedUrl(image, assetType, 640, 480, None)
+        }
+      }
+
+      Seq(
+        imageWithBooleanField(Some(JsBoolean(true))),
+        imageWithBooleanField(Some(JsBoolean(true)), withOptimisedPng = true)
+      ).foreach { image =>
+        val urls = signedOptimisedUrls(unconfigured, image)
+        val imageWithFalseField = imageWithBooleanField(Some(JsBoolean(false)), image.optimisedPng.isDefined)
+        urls shouldBe signedOptimisedUrls(unconfigured, imageWithFalseField)
+        urls.foreach(url => signedPath(url, unconfigured).contains("/wm:") shouldBe false)
+        Seq(Source, OptimisedPng).foreach { assetType =>
+          val url = unconfiguredResponse.imgproxyResizedUrl(image, assetType, 640, 480, None)
+          url shouldBe unconfiguredResponse.imgproxyResizedUrl(imageWithFalseField, assetType, 640, 480, None)
+          signedPath(url, unconfigured).contains("/wm:") shouldBe false
+        }
+      }
+    }
   }
 }
